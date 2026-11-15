@@ -84,12 +84,16 @@ button.ghost{width:100%;margin-top:8px}
 .note{font-size:12px;color:#8b93a1;margin:8px 0 0}
 .cards{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,1.5fr);gap:8px;margin-bottom:12px;flex:none;container-type:inline-size}
 .card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:8px 10px;min-width:0}
+/* 回放页七卡：标题行/内容行/副信息行各自成排，跨卡水平对齐（控制页 .hec-cards 不受影响） */
+#cards .card{display:grid;grid-template-rows:auto 1fr auto}
 /* 标题与主数值同一字号（以整行为容器基准，七卡一致）；辅助小字单独缩小 */
 .card .k{font-size:16px;font-size:clamp(9px,1.6cqw,16px);color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card .v{font-size:16px;font-size:clamp(9px,1.6cqw,16px);font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#cards .card .v{display:flex;align-items:baseline;min-height:calc(1.5em + 2px)}
 .card .v .vs{font-size:11px;font-size:clamp(7px,1.1cqw,11px);font-weight:400;color:#8b93a1;margin-left:5px}
 .card .v.vflow{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
 .card .v .phasepill{font-size:16px;font-size:clamp(9px,1.6cqw,16px)}
+#cards .card .v .phasepill{line-height:calc(1.5em - 2px)}
 .card .s{font-size:10px;font-size:clamp(7px,1.1cqw,10px);color:#8b93a1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .phasepill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .good{color:#7ed492}.warn{color:#e9c276}.bad{color:#f2909a}
