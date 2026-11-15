@@ -180,7 +180,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.6'; } catch (_) { return '0.6'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.9'; } catch (_) { return '0.9'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
