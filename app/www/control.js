@@ -87,6 +87,7 @@
   let run = null;                  // 当前杯实时缓冲
   let runEnded = false;            // 杯结束后冻结保留曲线，下一次开杯才清空（用户 2026-11-15 定）
   let runEndedAt = 0;
+  let runId = null;                // 本杯归档 id：插件 runId；拿不到不直写，避免与插件导出重复
   let checks = [];                 // 趋势角检测点
   let lastCheck = null;
   let toastTimer = 0;
@@ -189,6 +190,8 @@
   function noteExternal(x) {
     // 相位色带 / 接管锁存 / 指令台账（事件日志卡已移除，只保留状态）
     if (!x) return;
+    // 开杯瞬间插件 runId 可能还没轮询到：随轮询跟进，杯末归档用插件同一个 id
+    if (run && !runEnded && x.runId && x.runId !== runId) runId = x.runId;
     if (x.phase && run && !runEnded && x.phase !== run.lastPhase) {
       run.phases.push({ t: runT(), phase: x.phase });
       run.lastPhase = x.phase;
@@ -227,6 +230,7 @@
     const extracting = st === 'espresso';
     if (extracting && (!run || runEnded)) {
       run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
+      runId = (ext && ext.runId) || null;
       // 开杯即落第一段色带：用插件当前相位（握手/轮询可能晚于机器快照）
       const ph = (ext && ext.phase) || 'stage1';
       run.phases.push({ t: 0, phase: ph });
@@ -235,10 +239,48 @@
     if (!extracting && run && !runEnded && (st === 'idle' || st === 'ready' || st === 'sleeping')) {
       // 杯结束：冻结计时并保留完整曲线，下一次开杯才清空
       runEnded = true; runEndedAt = Date.now();
+      archiveRun().catch(() => {});
       if (window.HxShadow) window.HxShadow.onCupEnd();
     }
     renderHeaderState();
     drawCharts();
+  }
+  // ---- 杯末直写回放归档（用户 2026-11-15 定）：全点含 mix 温度，不经插件导出 ----
+  async function archiveRun() {
+    // 只归档拿到插件 runId 的杯：与插件导出同 id 去重，同一杯不会两条记录
+    if (!run || !run.samples.length || !runId) return;
+    const r = run, rid = runId;
+    // startedAt 从 runId 的毫秒段推导，与插件导出同口径（同 runId 合并时不冲突）
+    const m = String(rid).match(/\d{13}/);
+    const ms = m ? Number(m[0]) : NaN;
+    const startedAt = Number.isFinite(ms) ? new Date(ms).toISOString() : new Date(r.startedAt).toISOString();
+    const samples = r.samples.map((s) => ({
+      tMs: Math.round(s.t * 1000),
+      scaleWeightG: s.weight,
+      decaidWeightFlowGS: s.decaid,
+      rawScaleDwDtGS: s.raw,
+      pressureBar: s.pressure,
+      machineFlowMlS: s.mflow,
+      targetFlowMlS: s.tcmd,
+      temp: s.temp,
+      phase: s.phase,
+    }));
+    const events = r.phases.map((p) => ({ tMs: Math.round(p.t * 1000), name: 'phase', phase: p.phase }));
+    const trace = r.cmd.map((c) => ({ kind: 'write', tMs: Math.round(c.t * 1000), commandMlS: c.v }));
+    const last = samples[samples.length - 1];
+    const shot = {
+      runId: rid, startedAt,
+      endedAt: new Date(r.startedAt + last.tMs).toISOString(),
+      result: 'HEC ' + (last.scaleWeightG != null ? last.scaleWeightG.toFixed(1) + ' g' : ''),
+      pluginVersion: pluginVersion || null,
+      source: 'hec',
+      samples, events,
+      liveFlowTrim: trace.length ? { trace } : null,
+    };
+    const res = HxArchive.appendRun(archive || HxArchive.emptyArchive(), shot, MAX_SHOTS);
+    archive = res.archive;
+    await saveArchive();
+    rebuildCupList();
   }
   function scaleTsSec(v) {
     if (v == null || v === '') return null;

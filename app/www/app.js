@@ -124,6 +124,20 @@ const fmtT = (ms) => (ms / 1000).toFixed(2) + 's';
 const num = (v, d) => (v == null || !Number.isFinite(Number(v))) ? (d == null ? '—' : d) : Number(v);
 const f2 = (v) => Number.isFinite(v) ? v.toFixed(2) : '—';
 const f3 = (v) => Number.isFinite(v) ? v.toFixed(3) : '—';
+// 温度纵轴自适应量程（口径同控制页 tempRange，两个 IIFE 各放一份）：
+// 本杯样本 temp 的 min/max ±15% 边距（≥1°C）向外取整，最小跨度 6°C；无数据回退 88–96。
+function tempRange(samples) {
+  const vals = [];
+  for (const s of samples) if (s && s.temp != null && Number.isFinite(s.temp)) vals.push(s.temp);
+  if (!vals.length) return null;
+  let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  const pad = Math.max(1, (hi - lo) * 0.15);
+  lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
+  if (hi - lo < 6) { const c = (hi + lo) / 2; lo = Math.floor(c - 3); hi = Math.ceil(c + 3); }
+  return { lo, hi };
+}
+// 温度数据源：raw 优先的杯（合并了插件导出）温度在 samples 里，不在 raw 帧上
+function tempSource() { return isRaw ? ((cup && cup.fullRecord && cup.fullRecord.samples) || []) : frames; }
 let lastStatus = null;
 function setStatus(msg, busy) { lastStatus = { fn: typeof msg === 'function' ? msg : () => msg, busy: !!busy }; renderStatus(); }
 function renderStatus() { if (!lastStatus) return; $('status').textContent = lastStatus.fn(); $('status').classList.toggle('busy', lastStatus.busy); }
@@ -171,7 +185,13 @@ function cupItemLabel(c, full) {
 }
 
 // ---- 归档与取数 ----
-async function saveArchive() { await dbSet('archive', archive); renderArchiveInfo(); }
+// 写盘串行化：杯末直写与后台抓取可能并发，避免两次写交错（后写覆盖先写是预期行为）
+let saveChain = Promise.resolve();
+function saveArchive() {
+  const snap = archive;
+  saveChain = saveChain.then(() => dbSet('archive', snap)).catch(() => {});
+  return saveChain.then(() => renderArchiveInfo());
+}
 function renderArchiveInfo() {
   if (!archive) { $('archiveInfo').textContent = t('空'); return; }
   let line = archive.count + ' ' + t('杯') + ' · ' + archive.fullRecordCount + ' ' + t('杯有全点') + ' · ' + t('更新') + ' ' + (archive.updatedAt || '').replace('T', ' ').slice(0, 19);
@@ -799,6 +819,7 @@ const chartDefs = [
     { get: (f) => num(f.pressureBar, null), color: '#63d89b', width: 1.6, label: '压力' },
     { get: (f) => num(f.machineFlowMlS, null), color: '#6ea8fe', width: 1.2, label: '机器流量' },
     { get: (f) => num(f.targetFlowMlS, null), color: '#f5a442', width: 1.2, dash: [5, 4], label: '目标指令' },
+    { get: (f) => { const s = isRaw ? nearestSample(Number(f.tMs) || 0) : f; return s ? num(s.temp, null) : null; }, color: '#f2a0aa', width: 1.6, label: '温度', axis: 'temp' },
   ] },
 ];
 // 每个卡片的图示上移到它自己标题那一行：图例靠左、标题文字靠右（画布内不再画）；
@@ -807,7 +828,8 @@ function renderChartLegend() {
   for (const def of chartDefs) {
     const box = $('legend-' + def.id);
     if (!box) continue;
-    const lines = def.id === 'cFlow' && !$('rawToggle').checked ? def.lines.filter((l) => l.label !== 'RAW dW/dt') : def.lines;
+    let lines = def.id === 'cFlow' && !$('rawToggle').checked ? def.lines.filter((l) => l.label !== 'RAW dW/dt') : def.lines;
+    if (def.id === 'cPress' && !tempSource().some((f) => f && f.temp != null && Number.isFinite(Number(f.temp)))) lines = lines.filter((l) => l.axis !== 'temp');
     const items = lines.map((ln) => ({ label: t(ln.label), color: ln.color, dash: !!ln.dash }));
     if (def.id === 'cPress' && cup && cup.log && cup.log.some((e) => e.src === 'trace' && e.name === 'write')) items.push({ label: t('▲ 写入'), color: '#e8833a', dash: false });
     box.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + '" style="color:' + it.color + '"><i style="background:' + it.color + '"></i><span style="color:#aab2bf">' + it.label + '</span></span>').join('');
@@ -815,8 +837,13 @@ function renderChartLegend() {
 }
 function buildCharts() {
   sampleTimes = []; chartGeo = []; chartBase = [];
+  // 温度线只在本杯样本带 temp 时出现（HEC 直写杯）；老数据/插件导出杯不受影响
+  const hasTemp = tempSource().some((f) => f && f.temp != null && Number.isFinite(Number(f.temp)));
+  const tr = hasTemp ? tempRange(tempSource()) : null;
   for (const def of chartDefs) {
-    const lines = def.id === 'cFlow' && !$('rawToggle').checked ? def.lines.filter((l) => l.label !== 'RAW dW/dt') : def.lines;
+    let lines = def.id === 'cFlow' && !$('rawToggle').checked ? def.lines.filter((l) => l.label !== 'RAW dW/dt') : def.lines;
+    const isPressTemp = def.id === 'cPress' && tr;
+    if (def.id === 'cPress' && !tr) lines = lines.filter((l) => l.axis !== 'temp');
     const view = { id: def.id, lines };
     const canvas = $(def.id);
     const dpr = window.devicePixelRatio || 1;
@@ -825,10 +852,11 @@ function buildCharts() {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    const pad = { l: 42, r: 10, t: 8, b: 20 };
+    const pad = { l: 42, r: isPressTemp ? 34 : 10, t: 8, b: 20 };
     const xMax = Math.max(0.001, (frameTimes[frameTimes.length - 1] || 0) / 1000);
     let yMin = Infinity, yMax = -Infinity;
     for (const ln of lines) for (const f of frames) {
+      if (ln.axis === 'temp') continue;
       const v = ln.get(f);
       if (v == null || !Number.isFinite(v)) continue;
       yMin = Math.min(yMin, v); yMax = Math.max(yMax, v);
@@ -845,6 +873,7 @@ function buildCharts() {
         rawCap = rv[Math.floor((rv.length - 1) * 0.99)];
         yMax = -Infinity;
         for (const ln of lines) for (const f of frames) {
+          if (ln.axis === 'temp') continue;
           let v = ln.get(f);
           if (v == null || !Number.isFinite(v)) continue;
           if (ln === rawLine) v = Math.min(v, rawCap);
@@ -873,6 +902,12 @@ function buildCharts() {
       ctx.fillText(v.toFixed(1), 6, yy + 3);
     }
     for (let t = 0; t <= xMax; t += Math.max(5, Math.round(xMax / 6))) ctx.fillText(t + 's', x(t) - 6, h - 5);
+    // 温度右轴：真实 °C，5 档（同控制页）；温度线用 tr.lo/tr.hi 独立量程
+    const yTemp = (v) => h - pad.b - (h - pad.t - pad.b) * ((v - tr.lo) / (tr.hi - tr.lo));
+    if (isPressTemp) {
+      ctx.fillStyle = '#f2a0aa';
+      for (let i = 0; i <= 4; i++) { const yy = pad.t + (h - pad.t - pad.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, yy + 3); }
+    }
     for (const ln of lines) {
       ctx.strokeStyle = ln.color; ctx.lineWidth = ln.width || 1.5;
       ctx.setLineDash(ln.dash || []);
@@ -882,7 +917,7 @@ function buildCharts() {
       for (let i = 0; i < frames.length; i++) {
         const v = ln.get(frames[i]);
         if (v == null || !Number.isFinite(v) || (ln === rawLine && v > rawCap)) { started = false; continue; }
-        const px = x(frameTimes[i] / 1000), py = y(v);
+        const px = x(frameTimes[i] / 1000), py = ln.axis === 'temp' ? yTemp(v) : y(v);
         if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
       }
       ctx.stroke(); ctx.setLineDash([]);
@@ -896,7 +931,7 @@ function buildCharts() {
         ctx.beginPath(); ctx.moveTo(px - 4, pad.t + 12); ctx.lineTo(px + 4, pad.t + 12); ctx.lineTo(px, pad.t + 19); ctx.closePath(); ctx.fill();
       }
     }
-    chartGeo.push({ canvas, ctx, def: view, x, y, w, h, pad, dpr, yMin, yMax });
+    chartGeo.push({ canvas, ctx, def: view, x, y, yTemp: isPressTemp ? yTemp : null, w, h, pad, dpr, yMin, yMax });
   }
   chartsReady = true;
   renderChartLegend();
@@ -964,7 +999,7 @@ function drawCursor() {
       const v = ln.get(frames[idx]);
       if (v == null || !Number.isFinite(v)) continue;
       g.ctx.fillStyle = ln.color;
-      g.ctx.beginPath(); g.ctx.arc(px, g.y(v), 3, 0, Math.PI * 2); g.ctx.fill();
+      g.ctx.beginPath(); g.ctx.arc(px, (ln.axis === 'temp' && g.yTemp) ? g.yTemp(v) : g.y(v), 3, 0, Math.PI * 2); g.ctx.fill();
     }
   });
 }

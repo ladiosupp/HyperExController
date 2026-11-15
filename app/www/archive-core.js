@@ -74,7 +74,12 @@
     var changed = false;
     for (var i = 0; i < ARRAY_KEYS.length; i++) {
       var key = ARRAY_KEYS[i], v = fr[key], cur = rec.fullRecord[key];
-      if (Array.isArray(v) && v.length > (Array.isArray(cur) ? cur.length : 0)) { rec.fullRecord[key] = v; changed = true; }
+      if (Array.isArray(v) && v.length > (Array.isArray(cur) ? cur.length : 0)) {
+        // HEC 直写杯的 samples 带温度列；插件导出的不带。更长但不带温度的一份不顶掉带温度的。
+        if (key === 'samples' && !v.some(function (s) { return s && s.temp != null; }) &&
+            Array.isArray(cur) && cur.some(function (s) { return s && s.temp != null; })) continue;
+        rec.fullRecord[key] = v; changed = true;
+      }
     }
     var trim = fr.liveFlowTrim;
     if (trim && typeof trim === 'object') {
@@ -121,7 +126,11 @@
         src.newShots++;
       } else {
         src.duplicates++;
-        if (rec.startedAt && startedAt && rec.startedAt !== startedAt) throw new Error('同一 runId 的 startedAt 冲突: ' + runId);
+        if (rec.startedAt && startedAt && rec.startedAt !== startedAt) {
+          // 同一时刻的 ISO 尾零写法差异（...26Z vs ...26.000Z）不算冲突
+          var ta = Date.parse(rec.startedAt), tb = Date.parse(startedAt);
+          if (!(Number.isFinite(ta) && Number.isFinite(tb) && ta === tb)) throw new Error('同一 runId 的 startedAt 冲突: ' + runId);
+        }
         if (!rec.startedAt && startedAt) rec.startedAt = startedAt;
         rec.summary = Object.assign({}, rec.summary, cleanSummary(shot));
       }
