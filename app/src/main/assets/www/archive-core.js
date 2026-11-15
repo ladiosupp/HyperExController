@@ -10,7 +10,7 @@
   var ARRAY_KEYS = ['samples', 'rawScaleSamples', 'events'];
 
   function emptyArchive() {
-    return { kind: 'HyperExHistoryArchive', schema: 1, updatedAt: null, count: 0, fullRecordCount: 0, shots: [] };
+    return { kind: 'HyperExHistoryArchive', schema: 1, updatedAt: null, count: 0, fullRecordCount: 0, gainMemory: null, shots: [] };
   }
 
   function cleanSummary(shot) {
@@ -141,21 +141,24 @@
     return src;
   }
 
-  function buildArchive(records, maxShots) {
+  function buildArchive(records, maxShots, gainMemory) {
     var rows = Array.from(records.values());
     rows.sort(function (a, b) { return String(a.startedAt || '').localeCompare(String(b.startedAt || '')) || String(a.runId).localeCompare(String(b.runId)); });
     if (maxShots > 0 && rows.length > maxShots) rows = rows.slice(-maxShots);
     var shots = rows.map(function (r) { return Object.assign({}, r.summary, { runId: r.runId, startedAt: r.startedAt || r.summary.startedAt || null, fullRecord: r.fullRecord }); });
     var fullCount = 0;
     for (var i = 0; i < shots.length; i++) if (hasAnyFull(shots[i].fullRecord)) fullCount++;
-    return { kind: 'HyperExHistoryArchive', schema: 1, updatedAt: new Date().toISOString(), count: shots.length, fullRecordCount: fullCount, shots: shots };
+    return { kind: 'HyperExHistoryArchive', schema: 1, updatedAt: new Date().toISOString(), count: shots.length, fullRecordCount: fullCount, gainMemory: gainMemory || null, shots: shots };
   }
 
   // 一步合并：archive + 导出 JSON → { archive, stats }
   function merge(archive, exportJson, maxShots) {
     var records = loadRecords(archive || emptyArchive());
-    var stats = mergeExport(records, normalizeExport(exportJson));
-    return { archive: buildArchive(records, maxShots || 0), stats: stats };
+    var norm = normalizeExport(exportJson);
+    var stats = mergeExport(records, norm);
+    // 顶层增益记忆随导出更新（学习成果展示用）；导出没有时保留已有
+    var gm = (exportJson && exportJson.gainMemory) || (archive && archive.gainMemory) || null;
+    return { archive: buildArchive(records, maxShots || 0, gm), stats: stats };
   }
 
   // 杯末追加：把当前 run 的全点直接并进归档（插件端用，不经导出形状）
@@ -171,7 +174,7 @@
       rec.summary = Object.assign({}, rec.summary, shot);
     }
     applyFull(rec, { samples: run.samples, rawScaleSamples: run.rawScaleSamples, events: run.events, liveFlowTrim: run.liveFlowTrim });
-    return { archive: buildArchive(records, maxShots || 0), stats: { newShots: isNew ? 1 : 0 } };
+    return { archive: buildArchive(records, maxShots || 0, archive && archive.gainMemory), stats: { newShots: isNew ? 1 : 0 } };
   }
 
   return { emptyArchive: emptyArchive, normalizeExport: normalizeExport, merge: merge, appendRun: appendRun, hasAnyFull: hasAnyFull, loadRecords: loadRecords, buildArchive: buildArchive };

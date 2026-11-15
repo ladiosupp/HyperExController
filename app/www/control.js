@@ -1060,7 +1060,10 @@
       $('modeLb').textContent = t(mode === 'control' ? '控制' : '回放');
       $('modeSub1').textContent = t('选曲线 · 调温重量 · 实时调流');
       $('modeSub2').textContent = t('ProfileReplayer 原页');
+      if (window.HxLearn && window.HxLearn.onLang) window.HxLearn.onLang();
     },
+    // 学习中心弹窗拉在线数据用（只读 GET，走同一条桥）
+    httpJson: httpJson,
     onMachine: function (st) {
       // 回放页的 10s 轮询也喂控制页状态（WS 之外的兜底）
       if (st && st.ok && st.state) { machineStateStr = st.state; if (mode === 'control') renderHeaderState(); }
