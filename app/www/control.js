@@ -107,6 +107,8 @@
   let helloBusy = false;           // 主动握手进行中
   let tareBusy = false;            // 去皮请求进行中
   let takeLast = null;
+  let stageWeights = null;         // 阶段目标重量 {stage2, final}：calibration-status curveEditor.stageWeights
+                                   // （external-status 不带此字段；影子救急 remainingS 需要）
   const netCbs = {};
   let netSeq = 0;
 
@@ -148,6 +150,7 @@
     hecMode = !!(cm.ok && cm.body && cm.body.algorithmIntervention === 'hec');
     await loadCurves();
     await loadWorkflow();
+    loadStageWeights();
     startPoll();
     openWs();
     renderAll();
@@ -180,7 +183,15 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.9'; } catch (_) { return '0.9'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.10'; } catch (_) { return '0.10'; } }
+  // 阶段目标重量（只读）：开杯前拉一次；影子救急判据 remainingS 用。
+  async function loadStageWeights() {
+    const r = await httpJson('GET', pluginPath('calibration-status'));
+    const sw = r.ok && r.body && r.body.curveEditor && r.body.curveEditor.stageWeights;
+    if (sw && Number.isFinite(Number(sw.stage2)) && Number.isFinite(Number(sw.final))) {
+      stageWeights = { stage2: Number(sw.stage2), final: Number(sw.final) };
+    }
+  }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
@@ -321,7 +332,9 @@
           frame: ext && ext.logicalFrame, pressureBar: machine && machine.pressure,
           machineFlowMlS: machine && machine.flow, cumulativeWeightG: weight,
           limiterBar: ext && ext.limiterBar,
-          trendAngleDeg: lastCheck ? lastCheck.ang : null, predictedGS: null, rescue: false,
+          mode: ext && ext.mode, pending: ext && ext.pending,
+          stage2WeightG: stageWeights ? stageWeights.stage2 : null, finalWeightG: stageWeights ? stageWeights.final : null,
+          trendAngleDeg: lastCheck ? lastCheck.ang : null,
         });
       }
     }
