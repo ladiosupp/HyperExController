@@ -11,7 +11,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none !important}
 /* 顶栏胶囊/按钮统一高度 */
-header .modedrop-btn,header .de1pill,header .hb,header .sleepbtn,header .fetchbtn{height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;line-height:1}
+header .modedrop-btn,header .de1pill,header .hb,header .sleepbtn,header .fetchbtn,header .waterpill{height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;line-height:1}
 header #lang{height:34px;padding:0 8px}
 html,body{margin:0;height:100%}
 body{background:#121418;color:#e8eaee;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;overflow:hidden}
@@ -136,6 +136,7 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 .chartlegend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .chartlegend .lg i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
 .chartlegend .lg.dash i{background:transparent !important;border-top:2px dashed currentColor;height:0;border-radius:0}
+.chartlegend .lg.dot i{width:7px;height:7px;border-radius:50%;opacity:.45}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:#2b3038;border-radius:4px}
 *{scrollbar-width:thin;scrollbar-color:#2b3038 transparent}
@@ -187,6 +188,9 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 .hstat{margin-left:auto;font-size:12px;color:#9fd4a8;text-align:right;white-space:nowrap}
 .sleepbtn{flex:none;margin-left:10px;display:inline-flex;align-items:center;gap:6px;background:linear-gradient(180deg,#1c2333,#161c2a);color:#9fb4e8;border:1px solid #35426a;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,box-shadow .15s,filter .12s,transform .08s}
 #hstat[hidden] ~ .sleepbtn{margin-left:auto}
+#hstat[hidden] ~ .waterpill{margin-left:auto}
+#hstat[hidden] ~ .waterpill[hidden] ~ .sleepbtn{margin-left:auto}
+#hstat[hidden] ~ .waterpill:not([hidden]) ~ .sleepbtn{margin-left:0}
 .sleepbtn:hover{border-color:#4a5c92;box-shadow:0 0 12px rgba(110,140,254,.28);filter:brightness(1.18)}
 .sleepbtn:active{transform:scale(.95)}
 .sleepbtn .ic{display:inline-flex}
@@ -195,6 +199,14 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 .sleepbtn.wake:hover{border-color:#8a7440;box-shadow:0 0 12px rgba(245,192,120,.25)}
 .de1pill.sleep{background:#20263a;color:#9fb4e8}
 .de1pill.sleep .dot{background:#7d8db8}
+/* 水位胶囊：进度条打底 + mm 数字（≥33 满淡蓝 / 12–18 黄 / <12 红报警留 1/10） */
+.waterpill{flex:none;position:relative;overflow:hidden;border-radius:999px;border:1px solid #33415c;background:#141a24;min-width:86px;justify-content:center;padding:6px 13px;font-size:12.5px;font-weight:700;color:#bfe0ff;white-space:nowrap}
+.waterpill .wfill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(110,168,254,.30);transition:width .4s ease,background .3s}
+.waterpill .wtxt{position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.waterpill.warn{border-color:#6b5a2e;color:#f5c078}
+.waterpill.warn .wfill{background:rgba(240,168,78,.32)}
+.waterpill.low{border-color:#6b2a33;color:#f2a0aa}
+.waterpill.low .wfill{background:rgba(242,144,154,.38)}
 body.hec-mode main{overflow:hidden}
 body.hec-mode aside{width:219px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
 body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
@@ -246,11 +258,18 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .hec-cards .card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:7px 10px;min-width:0}
 .hec-cards .card .k{font-size:11.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hec-cards .card .v{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hec-cards .card .v .phasepill.idle{font-size:12px;padding:2px 8px}
 .hec-cards .card .v small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:2px}
 .hec-cards .card .v sup.deg{font-size:9px;font-weight:400;color:#8b93a1;margin-left:1px;vertical-align:super;line-height:0}
 .hec-chartbox{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px 6px;margin-bottom:10px;flex:1;display:flex;flex-direction:column;min-height:140px}
 .hec-chartbox h3{margin:2px 0 4px;font-size:12px;color:#aab2bf;font-weight:600;display:flex;justify-content:space-between;align-items:center;flex:none}
 .hec-chartbox .chartlegend{margin-left:0;gap:13px}
+/* RAW 滤波窗宽小拨轮（0=关，0.5–2.0s 步长 0.1） */
+.rawwin{display:inline-flex;align-items:center;gap:5px;flex:none;font-size:11px;color:#8b93a1;font-weight:400}
+.rawwin .rw-v{font:700 11px ui-monospace,monospace;color:#dceaff;min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
+.rawwin button{border:1px solid #33507e;border-radius:4px;background:linear-gradient(180deg,#232c3a,#1a212c);color:#9cc0ff;line-height:1;padding:0 6px;height:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:auto;margin:0}
+.rawwin button svg{width:6px;height:4px;display:block;fill:currentColor}
+.rawwin button:active{transform:scale(.9);background:#2c3a52}
 .hec-chartbox .chartwrap{flex:1;min-height:0;position:relative}
 .hec-chartbox canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .hec-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;background:#20304d;color:#cfe1ff;border:1px solid #33507e;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
@@ -288,6 +307,7 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
   <span class="hb off" id="hbPill" hidden><span class="dot"></span><span id="hbPillTxt"></span></span>
   <span class="hb rec" id="recPill" hidden><span class="dot"></span><span data-i18n="recorder 在录">recorder 在录</span></span>
   <span class="hstat" id="hstat" hidden></span>
+  <span class="waterpill" id="waterPill" hidden><span class="wfill" id="waterFill"></span><span class="wtxt" id="waterTxt"></span></span>
   <button type="button" class="sleepbtn" id="sleepBtn" hidden><span class="ic" id="sleepIc"></span><span id="sleepLb" data-i18n="咖啡机休眠">咖啡机休眠</span></button>
   <button type="button" class="fetchbtn" id="manualFetch" hidden><span class="fetch-ico">⟳</span><span class="fetch-txt" data-i18n="抓取">抓取</span><span class="fetch-count" id="fetchCount">—</span></button>
   <select id="lang" style="width:auto"><option value="zh">中文</option><option value="en">EN</option></select>
@@ -391,7 +411,7 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 <section class="view" id="controlView" hidden>
   <div class="takeover" id="takeoverBanner" hidden data-i18n="接管横幅">插件已接管本杯 · 指令已收回基值，曲线继续</div>
   <div class="hec-cards" id="hecCards"></div>
-  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
+  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="rawwin" id="rawWin"><span id="rawWinK">滤波</span><span class="rw-v" id="rawWinV">1.0s</span><button type="button" data-rw="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-rw="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
   <div class="hec-chartbox"><h3><span class="chartlegend" id="lgPress"></span><span class="charttitle" data-i18n="温度">温度</span></h3><div class="chartwrap"><canvas id="hcPress"></canvas></div></div>
 </section>
 </main>

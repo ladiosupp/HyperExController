@@ -2,6 +2,7 @@ package com.ladios.hxcontroller;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -13,6 +14,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 前台常亮：App 在前台时不熄屏，切后台/退出自动恢复系统熄屏设置（用户 2026-11-15 定）。
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);

@@ -46,6 +46,8 @@
     '未连接 Decaid': 'Decaid not connected', '地址无效': 'Invalid address',
     '无曲线': 'No curves', '加载曲线失败': 'Failed to load curves',
     '接管': 'Takeover', '心跳断': 'Heartbeat lost',
+    '已去皮': 'Scale tared', '去皮失败': 'Tare failed', '萃取中不可去皮': 'Cannot tare while extracting', '去皮': 'Tare',
+    '滤波': 'Filter', '关': 'Off', 'RAW 滤波': 'RAW filtered', '原始': 'Raw',
   };
   // 控制页键优先，其次复用回放页 EN（插件/逻辑帧等共用词；顶层 const 不挂 window，走全局 t）
   function t(k) {
@@ -69,8 +71,11 @@
   let pollTimer = 0, pollBusy = false;
   let machine = null;              // 最近 machine snapshot（解析后）
   let scale = null;                // 最近 scale snapshot
-  let machineWs = null, scaleWs = null, wsRetry = 0;
+  let machineWs = null, scaleWs = null, waterWs = null, wsRetry = 0;
+  let water = null;                // 最近水位快照 {current, refill, at}（ws/v1/machine/waterLevels）
   let run = null;                  // 当前杯实时缓冲
+  let runEnded = false;            // 杯结束后冻结保留曲线，下一次开杯才清空（用户 2026-11-15 定）
+  let runEndedAt = 0;
   let checks = [];                 // 趋势角检测点
   let lastCheck = null;
   let toastTimer = 0;
@@ -82,11 +87,13 @@
   let dialDirty = { temp: false, weight: false };
   let applying = false;
   let rawOn = true;
+  let rawWin = 1.0;                // RAW 滤波窗宽（s）：0=关，0.5–2.0 步长 0.1（用户 2026-11-15 定）
   let recorderOn = false;
   let machineStateStr = '';
   let sleepSeq = 0;                // 休眠弹窗代数：取消/关闭后丢弃迟到的状态查询响应
   let machineSubstate = '';        // 机器子状态（加热判定兜底）
   let helloBusy = false;           // 主动握手进行中
+  let tareBusy = false;            // 去皮请求进行中
   let takeLast = null;
   const netCbs = {};
   let netSeq = 0;
@@ -161,17 +168,17 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.3'; } catch (_) { return '0.3'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.4'; } catch (_) { return '0.4'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
     return { startedAt: Date.now(), samples: [], phases: [], lastPhase: null, lastWeight: null, lastStamp: null, lastRaw: null, cmd: [], lastCmd: null };
   }
-  function runT() { return run ? (Date.now() - run.startedAt) / 1000 : 0; }
+  function runT() { return run ? ((runEnded ? runEndedAt : Date.now()) - run.startedAt) / 1000 : 0; }
   function noteExternal(x) {
     // 相位色带 / 接管锁存 / 指令台账（事件日志卡已移除，只保留状态）
     if (!x) return;
-    if (x.phase && run && x.phase !== run.lastPhase) {
+    if (x.phase && run && !runEnded && x.phase !== run.lastPhase) {
       run.phases.push({ t: runT(), phase: x.phase });
       run.lastPhase = x.phase;
     }
@@ -179,7 +186,7 @@
       takeLast = x.takeover;
     }
     if (!x.takeover) takeLast = null;
-    if (Number.isFinite(x.lastCommandMlS) && run && x.lastCommandMlS !== run.lastCmd) {
+    if (Number.isFinite(x.lastCommandMlS) && run && !runEnded && x.lastCommandMlS !== run.lastCmd) {
       run.cmd.push({ t: runT(), v: x.lastCommandMlS });
       run.lastCmd = x.lastCommandMlS;
     }
@@ -207,14 +214,18 @@
     machineStateStr = st || machineStateStr;
     machineSubstate = sub || machineSubstate;
     const extracting = st === 'espresso';
-    if (extracting && !run) {
-      run = newRun(); checks = []; lastCheck = null; takeLast = null;
+    if (extracting && (!run || runEnded)) {
+      run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
       // 开杯即落第一段色带：用插件当前相位（握手/轮询可能晚于机器快照）
       const ph = (ext && ext.phase) || 'stage1';
       run.phases.push({ t: 0, phase: ph });
       run.lastPhase = ph;
     }
-    if (!extracting && run && (st === 'idle' || st === 'ready' || st === 'sleeping')) { run = null; if (window.HxShadow) window.HxShadow.onCupEnd(); }
+    if (!extracting && run && !runEnded && (st === 'idle' || st === 'ready' || st === 'sleeping')) {
+      // 杯结束：冻结计时并保留完整曲线，下一次开杯才清空
+      runEnded = true; runEndedAt = Date.now();
+      if (window.HxShadow) window.HxShadow.onCupEnd();
+    }
     renderHeaderState();
     drawCharts();
   }
@@ -234,16 +245,16 @@
     const stamp = scaleTsSec(p.timestamp);
     const now = Date.now();
     let raw = null, tare = false;
-    if (run && run.lastWeight != null) {
+    if (run && !runEnded && run.lastWeight != null) {
       const drop = run.lastWeight - weight;
       tare = Number.isFinite(drop) && drop >= TARE_RESET_THRESHOLD_G;
       const dt = (stamp != null && run.lastStamp != null) ? stamp - run.lastStamp : null;
       if (!tare && dt != null && dt > 0 && dt <= 10) raw = (weight - run.lastWeight) / dt;
     }
     scale = { weight, weightFlow: Number.isFinite(wf) ? wf : null, raw, tare, at: now };
-    if (run) {
+    if (run && !runEnded) {
       run.lastWeight = weight; if (stamp != null) run.lastStamp = stamp;
-      const s = { t: runT(), stamp, weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix };
+      const s = { t: runT(), stamp, weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix, tgt: ext && Number.isFinite(ext.targetGS) ? ext.targetGS : null };
       run.samples.push(s);
       if (run.samples.length > 4000) run.samples.shift();
       maybeCheck(s);
@@ -295,6 +306,47 @@
     checks.push(ck); if (checks.length > 40) checks.shift();
     lastCheck = ck;
   }
+  // ---- RAW 滤波（仅显示层；趋势角/影子仍用原始 raw）----
+  function rawSeries(samples) {
+    const pts = [];
+    for (const s of samples) if (s.raw != null && Number.isFinite(s.raw)) pts.push([s.t, s.raw]);
+    return pts;
+  }
+  // 居中时间窗滑动平均（双指针 O(n)，不引入滞后）
+  function filterRaw(pts, win) {
+    const half = win / 2, out = [];
+    let lo = 0, hi = 0, sum = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const t = pts[i][0];
+      while (lo < pts.length && pts[lo][0] < t - half) { sum -= pts[lo][1]; lo++; }
+      while (hi < pts.length && pts[hi][0] <= t + half) { sum += pts[hi][1]; hi++; }
+      out.push([t, sum / (hi - lo)]);
+    }
+    return out;
+  }
+  function scatterRaw(ctx, pts, p, w, h, xMax, yMin, yMax, color) {
+    const stride = Math.max(1, Math.ceil(pts.length / 600));
+    ctx.fillStyle = color; ctx.globalAlpha = .28;
+    for (let i = 0; i < pts.length; i += stride) {
+      const q = pts[i];
+      const x = p.l + (w - p.l - p.r) * q[0] / xMax, y = p.t + (h - p.t - p.b) * (1 - (q[1] - yMin) / (yMax - yMin));
+      ctx.beginPath(); ctx.arc(x, y, 1.2, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function rawWinStep(dir) {
+    if (rawWin <= 0) { if (dir > 0) rawWin = 0.5; }
+    else {
+      let v = Math.round((rawWin + dir * 0.1) * 10) / 10;
+      if (v < 0.5) v = 0;               // 0.5 以下一档 = 0（滤波关）
+      rawWin = Math.min(2, Math.max(0, v));
+    }
+    renderRawWin(); drawCharts();
+  }
+  function renderRawWin() {
+    const el = $('rawWinV'); if (el) el.textContent = rawWin > 0 ? rawWin.toFixed(1) + 's' : t('关');
+    const k = $('rawWinK'); if (k) k.textContent = t('滤波');
+  }
   function linreg(pts) {
     const n = pts.length; if (n < 3) return null;
     let mx = 0, my = 0; for (const p of pts) { mx += p.x; my += p.y; } mx /= n; my /= n;
@@ -318,6 +370,12 @@
       machineWs.onerror = () => { try { machineWs.close(); } catch (_) {} };
     } catch (_) {}
     try {
+      waterWs = new WebSocket(wsBase() + '/ws/v1/machine/waterLevels');
+      waterWs.onmessage = (e) => { try { onWaterSnapshot(JSON.parse(e.data)); } catch (_) {} };
+      waterWs.onclose = () => scheduleWsRetry();
+      waterWs.onerror = () => { try { waterWs.close(); } catch (_) {} };
+    } catch (_) {}
+    try {
       scaleWs = new WebSocket(wsBase() + '/ws/v1/scale/snapshot');
       scaleWs.onmessage = (e) => { try { onScaleSnapshot(JSON.parse(e.data)); } catch (_) {} };
       scaleWs.onclose = () => scheduleWsRetry();
@@ -325,8 +383,17 @@
     } catch (_) {}
   }
   function closeWs() {
-    for (const w of [machineWs, scaleWs]) { if (w) { w.onclose = null; try { w.close(); } catch (_) {} } }
-    machineWs = scaleWs = null;
+    for (const w of [machineWs, scaleWs, waterWs]) { if (w) { w.onclose = null; try { w.close(); } catch (_) {} } }
+    machineWs = scaleWs = waterWs = null;
+  }
+  // ---- 水位（Decaid 官方 ws/v1/machine/waterLevels，与插件同源；字段 currentLevel/refillLevel，mm）----
+  function onWaterSnapshot(payload) {
+    const p = payload || {};
+    const cur = Number(p.currentLevel);
+    if (!Number.isFinite(cur)) return;
+    const refill = Number(p.refillLevel);
+    water = { current: cur, refill: Number.isFinite(refill) ? refill : null, at: Date.now() };
+    renderHeaderState();
   }
   let wsRetryTimer = 0;
   function scheduleWsRetry() {
@@ -513,6 +580,18 @@
     const hs = $('hstat');
     if (taken) { hs.hidden = false; hs.textContent = t('只读 · 下一杯恢复'); }
     else hs.hidden = true;
+    renderWaterPill();
+  }
+  // 水位胶囊（用户 2026-11-15 定）：≥33mm 满格淡蓝；18–33 淡蓝按比例；12–18 黄；<12 红报警、进度条留 1/10
+  function renderWaterPill() {
+    const el = $('waterPill'); if (!el) return;
+    if (!water || mode !== 'control' || connState !== 'ok') { el.hidden = true; return; }
+    const mm = water.current;
+    const low = mm < 12, warn = !low && mm < 18;
+    el.hidden = false;
+    el.className = 'waterpill' + (low ? ' low' : warn ? ' warn' : '');
+    $('waterFill').style.width = (low ? 10 : Math.min(100, mm / 33 * 100)).toFixed(1) + '%';
+    $('waterTxt').textContent = (low ? '缺水 ' : '') + mm.toFixed(1) + ' mm';
   }
   function renderCards() {
     if (mode !== 'control') return;
@@ -530,14 +609,29 @@
     const card = (k, v) => '<div class="card"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
     let html = '';
     html += card(t('时刻'), mm + ':' + (ss < 10 ? '0' : '') + ss);
-    if (hx) html += card(t('相位'), '<span class="phasepill" style="background:' + pill[0] + ';color:' + pill[1] + '">' + esc(phaseName(phase)) + '</span>');
-    html += card(t('秤重'), f1(s.weight) + '<small>g</small>');
+    if (hx) html += card(t('相位'), '<span class="phasepill' + (phase === 'idle' ? ' idle' : '') + '" style="background:' + pill[0] + ';color:' + pill[1] + '">' + esc(phaseName(phase)) + '</span>');
+    html += '<div class="card tareable" id="tareCard" title="' + esc(t('去皮')) + '"><div class="k">' + t('秤重') + '</div><div class="v">' + f1(s.weight) + '<small>g</small></div></div>';
     html += card(t('杯流'), f2(s.decaid != null ? s.decaid : s.raw) + '<small>g/s</small>');
     html += card(t('压力'), f2(m.pressure) + '<small>bar</small>');
     html += card(t('温度'), f1(m.mix) + '<small>°C</small>');
     if (hx) html += card(t('趋势角'), (lastCheck ? lastCheck.ang : '—') + '<sup class="deg">°</sup>');
     else html += card(t('机器流量'), f2(m.flow) + '<small>ml/s</small>');
     box.innerHTML = html;
+    $('tareCard').addEventListener('click', tareScale);
+  }
+  // ---- 秤去皮（点秤重卡片；Decaid 官方 /api/v1/scale/tare，PUT 失败回退 POST，同 NSX 皮肤）----
+  async function tareScale() {
+    if (tareBusy || !baseUrl || connState !== 'ok') return;
+    if ((ext && ext.extracting) || (machine && machine.state === 'espresso')) { toast(t('萃取中不可去皮')); return; }
+    tareBusy = true;
+    let r = await httpJson('PUT', '/api/v1/scale/tare');
+    if (!r.ok) r = await httpJson('POST', '/api/v1/scale/tare');
+    tareBusy = false;
+    if (r.ok) {
+      // 清掉上一杯重量基准，避免去皮造成的重量跳变被当成流量/去皮事件
+      if (run && !runEnded) { run.lastWeight = null; run.lastStamp = null; }
+      toast(t('已去皮'));
+    } else toast(t('去皮失败') + (r.status ? ': HTTP ' + r.status : ''));
   }
   function renderHecBox() {
     const box = $('hecBox'), tb = $('takeoverBox');
@@ -688,10 +782,16 @@
       const yMin = 0, yMax = 8;
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
       axes(ctx, w, h, pad, yMin, yMax);
-      const tgt = samples.map((s) => [s.t, ext && ext.targetGS != null && hx ? ext.targetGS : null]);
+      const tgt = samples.map((s) => [s.t, hx ? (run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : s.tgt) : null]);
       if (hx) line(ctx, tgt, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
       line(ctx, samples.map((s) => [s.t, s.decaid]), pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
-      if (rawOn) line(ctx, samples.map((s) => [s.t, s.raw]), pad, w, h, xMax, yMin, yMax, C.raw, 1.8);
+      if (rawOn) {
+        const rp = rawSeries(samples);
+        if (rawWin > 0) {
+          scatterRaw(ctx, rp, pad, w, h, xMax, yMin, yMax, C.raw);
+          line(ctx, filterRaw(rp, rawWin), pad, w, h, xMax, yMin, yMax, C.raw, 1.8);
+        } else line(ctx, rp, pad, w, h, xMax, yMin, yMax, C.raw, 1.8);
+      }
       if (hx) vecArrows(ctx, checks, pad, w, h, xMax, yMin, yMax);
       if (run) nowLine(ctx, w, h, pad, xMax, runT());
     }
@@ -717,8 +817,9 @@
     renderLegends(hx);
   }
   function renderLegends(hx) {
-    const lg = (id, items) => { const el = $(id); if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span style="color:#aab2bf">' + it.l + '</span></span>').join(''); };
-    const flow = [{ l: t('decaid 杯流'), c: C.decaid }, { l: 'RAW dW/dt', c: C.raw }];
+    const lg = (id, items) => { const el = $(id); if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + (it.dot ? ' dot' : '') + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span style="color:#aab2bf">' + it.l + '</span></span>').join(''); };
+    const flow = [{ l: t('decaid 杯流'), c: C.decaid }, { l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
+    if (rawOn && rawWin > 0) flow.push({ l: t('原始'), c: C.raw, dot: 1 });
     if (hx) flow.push({ l: t('目标杯流'), c: C.target, dash: 1 }, { l: t('矢量·增'), c: C.vec, arrow: 1 }, { l: t('矢量·减'), c: C.vecdn, arrow: 1 });
     lg('lgFlow', flow);
     const press = [{ l: t('压力'), c: C.press }, { l: t('机器流量'), c: C.mflow }];
@@ -813,7 +914,7 @@
     $('controlView').hidden = !control;
     $('manualFetch').hidden = control;
     $('status').hidden = control;
-    $('hbPill').hidden = true; $('recPill').hidden = true; $('sleepBtn').hidden = true; $('hstat').hidden = true;
+    $('hbPill').hidden = true; $('recPill').hidden = true; $('sleepBtn').hidden = true; $('hstat').hidden = true; $('waterPill').hidden = true;
     $('modeLb').textContent = t(control ? '控制' : '回放');
     $('modeLb').dataset.i18n = control ? '控制' : '回放';
     document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.classList.toggle('sel', it.dataset.mode === m));
@@ -880,6 +981,8 @@
       $('hbPill').addEventListener('click', () => { if (connState === 'ok' && pluginOk && hecMode && !helloOk) hello(); });
       $('hecDim').addEventListener('click', (e) => { if (e.target === $('hecDim')) closeModal(); });
       $('hecRawToggle').addEventListener('change', function () { rawOn = this.checked; drawCharts(); });
+      document.querySelectorAll('#rawWin [data-rw]').forEach((b) => b.addEventListener('click', () => rawWinStep(Number(b.dataset.rw))));
+      renderRawWin();
       $('modeBtn').addEventListener('click', (e) => { e.stopPropagation(); $('modePanel').hidden = !$('modePanel').hidden; });
       document.addEventListener('click', () => { $('modePanel').hidden = true; });
       document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.addEventListener('click', () => { setMode(it.dataset.mode); $('modePanel').hidden = true; }));
@@ -897,6 +1000,7 @@
     },
     onLang: function () {
       if (mode === 'control') { renderAll(); }
+      renderRawWin();
       $('modeLb').textContent = t(mode === 'control' ? '控制' : '回放');
       $('modeSub1').textContent = t('选曲线 · 调温重量 · 实时调流');
       $('modeSub2').textContent = t('ProfileReplayer 原页');
@@ -908,9 +1012,10 @@
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
+    _injectWater: onWaterSnapshot,
     // 联调/回归用：注入检测点并重画（验证超长示意标注）
     _injectChecks: function (cks) { checks = cks.slice(); lastCheck = checks[checks.length - 1] || null; drawCharts(); },
-    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
+    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, runEnded, water, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
   };
 })();
 
