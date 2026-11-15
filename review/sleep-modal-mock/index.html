@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>休眠弹窗示意 · 状态检查 + 确认</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0d10;color:#e8eaee;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;padding:28px 30px 24px}
+h1{font-size:17px;margin:0 0 4px}
+.sub{font-size:12.5px;color:#8b93a1;margin:0 0 20px}
+.board{display:flex;gap:22px;align-items:flex-start}
+.frame{width:372px;flex:none}
+.flabel{font-size:13px;font-weight:700;color:#cfd5de;margin:0 0 8px}
+.flabel small{font-weight:400;color:#8b93a1;margin-left:6px}
+.stage{position:relative;height:316px;background:#121418;border:1px solid #232830;border-radius:12px;overflow:hidden}
+/* 背景里淡化的顶栏，交代上下文 */
+.ghostbar{position:absolute;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:8px;padding:0 14px;opacity:.5}
+.glogo{width:96px;height:14px;border-radius:4px;background:#2a2f37}
+.gbtn{width:118px;height:30px;border-radius:999px;background:#1c2333;border:1px solid #35426a;margin-left:auto;display:flex;align-items:center;justify-content:center;gap:6px;color:#9fb4e8;font-size:12px;font-weight:700}
+.gbtn svg{width:12px;height:12px}
+.gbody{position:absolute;top:66px;left:14px;right:14px;bottom:14px;border-radius:10px;background:#171b21;border:1px solid #232830}
+.dim{position:absolute;inset:0;background:rgba(6,8,10,.74);display:flex;align-items:center;justify-content:center;padding:16px}
+/* 以下 modal 样式与 index.html 定稿一致 */
+.modal{width:100%;max-width:340px;background:#191d23;border:1px solid #333a44;border-radius:14px;padding:16px 16px 14px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.modal h3{margin:0 0 10px;font-size:16px;font-weight:700}
+.statrow{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.statrow .k{font-size:12.5px;color:#8b93a1}
+.de1pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;line-height:1.5;font-weight:700;border-radius:999px;padding:5px 11px;background:#2a2f37;color:#cfd5de;white-space:nowrap}
+.de1pill .dot{width:7px;height:7px;border-radius:50%;background:#8b93a1;flex:none}
+.de1pill.idle{background:#173a2a;color:#8fe0b0}
+.de1pill.idle .dot{background:#7ed492}
+.de1pill.espresso{background:#3d2c17;color:#f5c078}
+.de1pill.espresso .dot{background:#f0a84e}
+.ask{font-size:14px;color:#e8eaee;margin:0 0 2px}
+.blocknote{font-size:12.5px;color:#aab2bf;line-height:1.6;margin:0}
+.modal-actions{display:flex;gap:8px;margin-top:13px}
+.modal-actions button{flex:1;border:0;border-radius:10px;padding:11px 10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.modal-actions .primary{background:#e8833a;color:#1a1208}
+.modal-actions .ghost{background:#2a2f37;color:#cfd5de}
+.checkrow{display:flex;align-items:center;gap:9px;margin:2px 0 4px;font-size:13px;color:#aab2bf}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid #3a4250;border-top-color:#e8833a;animation:sp 1s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.notes{margin-top:20px;font-size:12.5px;color:#8b93a1;line-height:1.8;max-width:1180px}
+.notes b{color:#cfd5de;font-weight:700}
+</style>
+</head>
+<body>
+<h1>「咖啡机休眠」弹窗 · 示意图</h1>
+<p class="sub">点击按钮后先实时检查机器状态（GET /api/v1/machine/state），待机才询问确认；弹窗样式沿用现有定稿。</p>
+<div class="board">
+
+  <div class="frame">
+    <p class="flabel">① 点击后<small>检查状态，瞬时过渡</small></p>
+    <div class="stage">
+      <div class="ghostbar"><div class="glogo"></div><div class="gbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>咖啡机休眠</div></div>
+      <div class="gbody"></div>
+      <div class="dim"><div class="modal">
+        <h3>咖啡机休眠</h3>
+        <div class="checkrow"><span class="spin"></span>正在检查机器状态…</div>
+        <div class="modal-actions"><button class="ghost">取消</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <p class="flabel">② 待机<small>询问确认</small></p>
+    <div class="stage">
+      <div class="ghostbar"><div class="glogo"></div><div class="gbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>咖啡机休眠</div></div>
+      <div class="gbody"></div>
+      <div class="dim"><div class="modal">
+        <h3>咖啡机休眠</h3>
+        <div class="statrow"><span class="k">当前状态</span><span class="de1pill idle"><span class="dot"></span>待机</span></div>
+        <p class="ask">确定让咖啡机休眠吗？</p>
+        <div class="modal-actions"><button class="ghost">取消</button><button class="primary">确定休眠</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <p class="flabel">③ 非待机<small>只提示，不询问</small></p>
+    <div class="stage">
+      <div class="ghostbar"><div class="glogo"></div><div class="gbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>咖啡机休眠</div></div>
+      <div class="gbody"></div>
+      <div class="dim"><div class="modal">
+        <h3>咖啡机休眠</h3>
+        <div class="statrow"><span class="k">当前状态</span><span class="de1pill espresso"><span class="dot"></span>萃取中</span></div>
+        <p class="blocknote">机器不在待机状态，本杯结束后再试。</p>
+        <div class="modal-actions"><button class="ghost">知道了</button></div>
+      </div></div>
+    </div>
+  </div>
+
+</div>
+<p class="notes">
+<b>口径</b>：待机 = idle / ready；确认后 PUT /api/v1/machine/state/sleeping，胶囊等机器确认后再变（不做乐观切换）。<br>
+<b>不弹窗的情况</b>：已休眠时按钮本就是「唤醒」，点了直接唤醒（维持现状）；未连接时按钮隐藏（维持现状）。<br>
+<b>边界</b>：状态查询失败按 ③ 的布局提示「无法获取机器状态」，只有「取消」；原来的长段说明文案（会中断萃取…）删除。
+</p>
+</body>
+</html>

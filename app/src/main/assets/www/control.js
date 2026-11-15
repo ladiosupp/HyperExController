@@ -20,17 +20,20 @@
 
   // ---- 中英文（控制页自己的键；回放页键在 app.js 的 EN）----
   const EN = {
-    '控制': 'Control', '回放': 'Replay', 'modeSub1': 'curve · temp/weight · live trim', 'modeSub2': 'ProfileReplayer page',
+    '控制': 'Control', '回放': 'Replay', '选曲线 · 调温重量 · 实时调流': 'curve · temp/weight · live trim', 'ProfileReplayer 原页': 'ProfileReplayer page',
     '曲线选择': 'Curve select', '萃取温度': 'Brew temp', '萃取液重': 'Beverage weight', '应用': 'Apply',
     'Decaid 地址': 'Decaid address', '本杯锁定': 'shot locked', '插件': 'Plugin', '逻辑帧': 'Frame',
     '基值/当前': 'Base/now', '目标杯流': 'Target', '限压': 'Limiter', '接管原因': 'Reason', '接管时刻': 'At', '当前指令': 'Command',
     '时刻': 'Time', '相位': 'Phase', '秤重': 'Weight', '杯流': 'Flow', '压力': 'Pressure', '温度': 'Temp', '趋势角': 'Trend°', '机器流量': 'Machine flow',
     '杯流 (g/s)': 'Flow (g/s)',
-    '握手': 'Handshake', '未握手 · 只读': 'No handshake · read-only', 'recorder 在录': 'recorder recording',
+    '握手': 'Handshake', '未握手': 'No handshake', '未握手 · 只读': 'No handshake · read-only', 'recorder 在录': 'recorder recording',
     '插件已接管本杯': 'Plugin took over', '只读 · 下一杯恢复': 'read-only · resumes next shot',
     '接管横幅': 'Plugin took over · command returned to base, chart continues',
-    '咖啡机休眠': 'Machine sleep', '唤醒': 'Wake', '已休眠': 'Asleep', '萃取中': 'Extracting', '待机': 'Idle', '睡眠': 'Sleep', '未连接': 'Offline',
-    '休眠标题': 'Put machine to sleep', '休眠说明': 'This aborts the current shot and puts the DE1 into standby (boiler cools, heating stops). Wake anytime.',
+    '咖啡机休眠': 'Machine sleep', '唤醒': 'Wake', '已休眠': 'Asleep', '萃取中': 'Extracting', '待机': 'Ready', '加热中': 'Heating', '睡眠': 'Sleep', '未连接': 'Offline',
+    '正在检查机器状态': 'Checking machine state…', '当前状态': 'Current state',
+    '确定让咖啡机休眠吗？': 'Put the machine to sleep?', '确定休眠': 'Sleep',
+    '机器不在待机状态': 'Machine is not idle; try again after this shot.',
+    '无法获取机器状态': 'Cannot read machine state.', '知道了': 'OK',
     '取消': 'Cancel', '连接': 'Connect', '连接失败': 'Connect failed', '选择曲线': 'Select curve',
     'HyperEx': 'HyperEx', '非HyperEx': 'Non-HyperEx', '非 HyperEx · 只读': 'Non-HyperEx · read-only', 'HyperEx · 插件接管': 'HyperEx · takeover',
     '预算': 'Budget', '拒绝': 'Rejects', '调流·写入': 'Trim·write', '检测': 'Check', '相位切换': 'Phase',
@@ -39,7 +42,7 @@
     '插件版本过低': 'Plugin too old', '需要插件': 'Requires plugin', '升级提示': 'HEC needs plugin ≥ 2.2.48. Update HyperEx Pulse Filter, then reconnect.',
     '切档失败': 'Mode switch failed', '本杯进行中': 'Shot in progress; mode applies next shot.',
     '应用失败': 'Apply failed', '已应用': 'Applied', '温度已应用': 'Temperature applied', '液重已应用': 'Weight applied',
-    '曲线已切换': 'Curve sent', '切换失败': 'Switch failed', '空闲才能改': 'Only while idle',
+    '曲线已切换': 'Curve sent', '切换失败': 'Switch failed', '空闲才能改': 'Only while idle', '液重由插件控制': 'Weight is plugin-controlled',
     '未连接 Decaid': 'Decaid not connected', '地址无效': 'Invalid address',
     '无曲线': 'No curves', '加载曲线失败': 'Failed to load curves',
     '接管': 'Takeover', '心跳断': 'Heartbeat lost',
@@ -81,6 +84,9 @@
   let rawOn = true;
   let recorderOn = false;
   let machineStateStr = '';
+  let sleepSeq = 0;                // 休眠弹窗代数：取消/关闭后丢弃迟到的状态查询响应
+  let machineSubstate = '';        // 机器子状态（加热判定兜底）
+  let helloBusy = false;           // 主动握手进行中
   let takeLast = null;
   const netCbs = {};
   let netSeq = 0;
@@ -135,9 +141,12 @@
   }
   function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = 0; helloOk = false; }
   async function hello() {
+    if (helloBusy) return;
+    helloBusy = true;
     const r = await httpJson('POST', pluginPath('external-hello'), { client: 'HyperExController', version: appVer() });
     helloOk = !!(r.ok && r.body && r.body.ok);
     if (helloOk && r.body) ext = r.body;
+    helloBusy = false;
     renderAll();
   }
   async function poll() {
@@ -152,7 +161,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.1'; } catch (_) { return '0.1'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.2'; } catch (_) { return '0.2'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
@@ -196,6 +205,7 @@
       at: Date.now(),
     };
     machineStateStr = st || machineStateStr;
+    machineSubstate = sub || machineSubstate;
     const extracting = st === 'espresso';
     if (extracting && !run) {
       run = newRun(); checks = []; lastCheck = null; takeLast = null;
@@ -388,17 +398,13 @@
         toast(t('温度已应用') + ' ' + dial.temp.v.toFixed(1) + '°C');
       }
       if (dialDirty.weight) {
-        if (isHxSelected()) {
-          const r = await httpJson('POST', pluginPath('settings'), { FinalWeight: dial.weight.v });
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          // settings 会 reload 插件 → 丢心跳 → 重发 hello
-          setTimeout(() => { hello(); }, 1500);
-        } else {
+        if (isHxSelected()) { toast(t('液重由插件控制')); }
+        else {
           const r = await httpJson('PUT', '/api/v1/workflow', { profile: { target_weight: dial.weight.v } });
           if (!r.ok) throw new Error('HTTP ' + r.status);
+          dialDirty.weight = false;
+          toast(t('液重已应用') + ' ' + dial.weight.v.toFixed(1) + ' g');
         }
-        dialDirty.weight = false;
-        toast(t('液重已应用') + ' ' + dial.weight.v.toFixed(1) + ' g');
       }
       await loadWorkflow();
       toast(t('已应用'));
@@ -422,7 +428,18 @@
   // ---- 休眠 / 唤醒 ----
   const MOON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
-  function machineAsleep() { return String(machineStateStr || '').toLowerCase() === 'sleeping'; }
+  function machineAsleep() { const s = String(machineStateStr || '').toLowerCase(); return s === 'sleeping' || s === 'sleep'; }
+  // 机器状态胶囊映射（顶栏与休眠弹窗共用）：sleeping→已休眠、ready/idle→待机、heating→加热中、espresso→萃取中
+  function machinePillInfo() {
+    const s = String(machineStateStr || '').toLowerCase();
+    const sub = String(machineSubstate || '').toLowerCase();
+    if (s === 'sleeping' || s === 'sleep') return { cls: 'sleep', label: t('已休眠'), raw: s };
+    if (s === 'espresso') return { cls: 'espresso', label: t('萃取中'), raw: s };
+    if (s === 'heating' || s === 'warmup' || s === 'warming' || sub === 'heating') return { cls: 'heating', label: t('加热中'), raw: s };
+    if (s === 'ready' || s === 'idle') return { cls: 'idle', label: t('待机'), raw: s };
+    if (s) return { cls: 'idle', label: machineStateStr, raw: s };
+    return { cls: 'off', label: t('未连接'), raw: '' };
+  }
   async function doSleep() {
     const target = machineAsleep() ? 'idle' : 'sleeping';
     const r = await httpJson('PUT', '/api/v1/machine/state/' + target);
@@ -456,33 +473,33 @@
   function renderApply() {
     const b = $('applyBtn'); if (!b) return;
     const locked = !!(ext && ext.extracting) || applying;
-    b.disabled = locked || (!dialDirty.temp && !dialDirty.weight);
+    const hxWeightLock = isHxSelected();
+    b.disabled = locked || (!dialDirty.temp && (hxWeightLock || !dialDirty.weight));
     document.querySelectorAll('#controlAside .dial').forEach((d) => {
       if (d.classList.contains('curve-card')) return;
-      d.classList.toggle('locked', locked);
+      const isWeight = !!d.querySelector('[data-dial="weight"]');
+      d.classList.toggle('locked', locked || (isWeight && hxWeightLock));
+      d.classList.toggle('hxlock', isWeight && hxWeightLock);
     });
   }
   function renderHeaderState() {
     const pill = $('de1Pill'), txt = $('de1PillTxt');
     if (mode !== 'control') return;
     const wl = $('whitelistBar'); if (wl) wl.hidden = true;
-    const s = String(machineStateStr || '');
-    let cls = 'off', label = t('未连接');
-    if (s === 'sleeping') { cls = 'sleep'; label = t('已休眠'); }
-    else if (s === 'espresso') { cls = 'espresso'; label = t('萃取中'); }
-    else if (s === 'idle' || s === 'ready') { cls = 'idle'; label = t('待机'); }
-    else if (s) { cls = 'idle'; label = s; }
-    pill.className = 'de1pill ' + cls;
-    txt.textContent = label;
+    const mp = machinePillInfo();
+    pill.className = 'de1pill ' + mp.cls;
+    txt.textContent = mp.label;
     // 握手胶囊
     const hb = $('hbPill'), hbt = $('hbPillTxt');
     const taken = !!(ext && ext.takeover);
+    hb.classList.remove('clickable');
     if (taken) { hb.className = 'hb bad'; hbt.textContent = t('插件已接管本杯'); hb.hidden = false; }
     else if (helloOk && ext && ext.heartbeat) { hb.className = 'hb ok'; hbt.textContent = t('握手') + ' ' + ((ext.heartbeat.ageMs || 0) / 1000).toFixed(1) + ' s'; hb.hidden = false; }
-    else if (connState === 'ok' && !hecMode) { hb.className = 'hb off'; hbt.textContent = t('未握手 · 只读'); hb.hidden = false; }
+    else if (connState === 'ok' && hecMode) { hb.className = 'hb off clickable'; hbt.textContent = t('未握手'); hb.hidden = false; }
+    else if (connState === 'ok') { hb.className = 'hb off'; hbt.textContent = t('未握手 · 只读'); hb.hidden = false; }
     else { hb.hidden = true; }
     // recorder 胶囊：非 HyperEx 且机器在录
-    $('recPill').hidden = !(connState === 'ok' && !isHxSelected() && s === 'espresso' && recorderOn);
+    $('recPill').hidden = !(connState === 'ok' && !isHxSelected() && mp.raw === 'espresso' && recorderOn);
     // 休眠按钮
     const sb = $('sleepBtn');
     sb.hidden = connState !== 'ok';
@@ -711,7 +728,7 @@
 
   // ---- 弹窗 ----
   function openModal(inner) { const d = $('hecDim'); d.innerHTML = '<div class="modal">' + inner + '</div>'; d.hidden = false; }
-  function closeModal() { const d = $('hecDim'); d.hidden = true; d.innerHTML = ''; }
+  function closeModal() { sleepSeq++; const d = $('hecDim'); d.hidden = true; d.innerHTML = ''; }
   // 事件日志卡已按用户口径移除；操作反馈改走底部短暂提示，不占曲线空间。
   function toast(msg) {
     let el = $('hecToast');
@@ -743,11 +760,45 @@
       await connect();
     });
   }
-  function openSleepModal() {
+  // 休眠弹窗：先实时查一次机器状态，待机才询问确认；非待机/查询失败只提示（用户 2026-11-15 定稿）
+  function sleepPill(s) {
+    const info = machinePillInfo();
+    return '<span class="de1pill ' + info.cls + '"><span class="dot"></span>' + esc(info.label) + '</span>';
+  }
+  function sleepModalBody(inner, actions) {
+    return '<h3>' + t('咖啡机休眠') + '</h3>' + inner + '<div class="modal-actions">' + actions + '</div>';
+  }
+  async function openSleepModal() {
     if (machineAsleep()) { doSleep(); return; }
-    openModal('<h3>' + t('休眠标题') + '</h3><p class="modal-note">' + t('休眠说明') + '</p><div class="modal-actions"><button class="ghost" id="sleepCancel">' + t('取消') + '</button><button class="primary" id="sleepOk">' + t('咖啡机休眠') + '</button></div>');
+    const seq = ++sleepSeq;
+    openModal(sleepModalBody('<div class="sleep-check"><span class="spin"></span>' + t('正在检查机器状态') + '…</div>',
+      '<button class="ghost" id="sleepCancel">' + t('取消') + '</button>'));
     $('sleepCancel').addEventListener('click', closeModal);
-    $('sleepOk').addEventListener('click', doSleep);
+    const r = await httpJson('GET', '/api/v1/machine/state');
+    if (seq !== sleepSeq || $('hecDim').hidden) return; // 弹窗已被取消/替换，丢弃迟到响应
+    const p = (r.ok && r.body) || {};
+    const m = p.machine || p;
+    const st = m.state && typeof m.state === 'object' ? m.state : (p.state && typeof p.state === 'object' ? p.state : null);
+    const s = String((st ? st.state : (m.state || p.state)) || '').toLowerCase();
+    const sub = String((st ? st.substate : (m.substate || p.substate)) || '').toLowerCase();
+    if (!r.ok || !s) {
+      openModal(sleepModalBody('<p class="modal-note">' + t('无法获取机器状态') + '</p>',
+        '<button class="ghost" id="sleepCancel">' + t('取消') + '</button>'));
+      $('sleepCancel').addEventListener('click', closeModal);
+      return;
+    }
+    machineStateStr = s; machineSubstate = sub; renderHeaderState();
+    const stat = '<span class="k">' + t('当前状态') + '</span>' + sleepPill(s);
+    if (s === 'idle' || s === 'ready') {
+      openModal(sleepModalBody('<div class="sleep-stat">' + stat + '<span class="sleep-ask">' + t('确定让咖啡机休眠吗？') + '</span></div>',
+        '<button class="ghost" id="sleepCancel">' + t('取消') + '</button><button class="primary" id="sleepOk">' + t('确定休眠') + '</button>'));
+      $('sleepCancel').addEventListener('click', closeModal);
+      $('sleepOk').addEventListener('click', doSleep);
+    } else {
+      openModal(sleepModalBody('<div class="sleep-stat">' + stat + '<span class="sleep-note">' + t('机器不在待机状态') + '</span></div>',
+        '<button class="ghost" id="sleepCancel">' + t('知道了') + '</button>'));
+      $('sleepCancel').addEventListener('click', closeModal);
+    }
   }
 
   // ---- 模式切换 ----
@@ -782,6 +833,7 @@
 
   // ---- 拨轮交互 ----
   function bump(k, dir) {
+    if (k === 'weight' && isHxSelected()) { toast(t('液重由插件控制')); return; }
     const d = dial[k];
     d.v = clampDial(k, d.v + dir * d.step);
     dialDirty[k] = true;
@@ -792,13 +844,14 @@
       b.addEventListener('click', () => {
         if (ext && ext.extracting) return;
         const k = b.closest('.dial').querySelector('[data-dial]').dataset.dial;
+        if (k === 'weight' && isHxSelected()) { toast(t('液重由插件控制')); return; }
         bump(k, Number(b.dataset.step));
       });
     });
     document.querySelectorAll('#controlAside [data-dial]').forEach((num) => {
       const k = num.dataset.dial;
       let sy = 0, sv = 0, drag = false;
-      num.addEventListener('pointerdown', (e) => { if (ext && ext.extracting) return; drag = true; sy = e.clientY; sv = dial[k].v; num.setPointerCapture(e.pointerId); });
+      num.addEventListener('pointerdown', (e) => { if (ext && ext.extracting) return; if (k === 'weight' && isHxSelected()) { toast(t('液重由插件控制')); return; } drag = true; sy = e.clientY; sv = dial[k].v; num.setPointerCapture(e.pointerId); });
       num.addEventListener('pointermove', (e) => {
         if (!drag) return;
         const d = dial[k];
@@ -823,6 +876,7 @@
       $('connBtn').addEventListener('click', openAddrModal);
       $('applyBtn').addEventListener('click', applyDials);
       $('sleepBtn').addEventListener('click', openSleepModal);
+      $('hbPill').addEventListener('click', () => { if (connState === 'ok' && pluginOk && hecMode && !helloOk) hello(); });
       $('hecDim').addEventListener('click', (e) => { if (e.target === $('hecDim')) closeModal(); });
       $('hecRawToggle').addEventListener('change', function () { rawOn = this.checked; drawCharts(); });
       $('modeBtn').addEventListener('click', (e) => { e.stopPropagation(); $('modePanel').hidden = !$('modePanel').hidden; });
@@ -843,6 +897,8 @@
     onLang: function () {
       if (mode === 'control') { renderAll(); }
       $('modeLb').textContent = t(mode === 'control' ? '控制' : '回放');
+      $('modeSub1').textContent = t('选曲线 · 调温重量 · 实时调流');
+      $('modeSub2').textContent = t('ProfileReplayer 原页');
     },
     onMachine: function (st) {
       // 回放页的 10s 轮询也喂控制页状态（WS 之外的兜底）
