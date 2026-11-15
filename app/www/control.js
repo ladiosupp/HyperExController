@@ -168,7 +168,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.4'; } catch (_) { return '0.4'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.5'; } catch (_) { return '0.5'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
@@ -531,6 +531,8 @@
     const taken = !!(ext && ext.takeover);
     tag.textContent = taken ? t('HyperEx · 插件接管') : hx ? 'HyperEx · HEC' : t('非 HyperEx · 只读');
     tag.className = 'curvetag' + (hx && !taken ? '' : ' plain');
+    const lock = $('curveLock');
+    if (lock) lock.hidden = !(hx && !taken);
   }
   function renderDial(k) {
     const el = document.querySelector('[data-dial="' + k + '"] .dv');

@@ -208,7 +208,7 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 .waterpill.low{border-color:#6b2a33;color:#f2a0aa}
 .waterpill.low .wfill{background:rgba(242,144,154,.38)}
 body.hec-mode main{overflow:hidden}
-body.hec-mode aside{width:219px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+body.hec-mode aside{width:219px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .side-k{font-size:10.5px;letter-spacing:.08em;color:#8b93a1;margin:0 0 5px}
 .dial{background:linear-gradient(180deg,#1b2027,#161a20);border:1px solid #2a2f38;border-radius:11px;padding:8px 10px 9px;user-select:none;position:relative;overflow:hidden;flex:none}
@@ -235,8 +235,10 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .curvebtn:hover{border-color:#3a4a63;box-shadow:0 0 0 1px rgba(110,168,254,.15)}
 .curvebtn .lb{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .curvebtn .arr{color:#6f87ad;font-size:11px;flex:none;margin-top:2px}
-.curvetag{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#3d2c17;color:#f5c078}
+.curvetags{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.curvetag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#3d2c17;color:#f5c078}
 .curvetag.plain{background:#2a2f37;color:#cfd5de}
+.curvetag.lock{background:#20304d;color:#9cc0ff}
 .applybtn{width:100%;border:0;border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:700;background:#e8833a;color:#1a1208;cursor:pointer;flex:none;margin:0}
 .applybtn:disabled{opacity:.45;cursor:default}
 .connbtn{display:flex;align-items:center;gap:7px;width:100%;border:1px solid #333a44;border-radius:9px;padding:9px 10px;font:12px ui-monospace,monospace;cursor:pointer;background:#0e1116;color:#cfd5de;margin:0}
@@ -247,17 +249,15 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .connbtn.ok .dot{background:#7ed492}
 .connbtn.bad{border-color:#6b2a33;color:#f2a0aa}
 .connbtn.bad .dot{background:#f2909a}
-.hecbox{background:#14171c;border:1px solid #2a2f38;border-radius:11px;padding:9px 10px;flex:none}
-.hecchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:#20304d;color:#9cc0ff;margin-bottom:6px}
-.hecchip .dot{width:6px;height:6px;border-radius:50%;background:#6ea8fe}
-.kv{display:flex;justify-content:space-between;gap:6px;font:11px ui-monospace,monospace;color:#aeb6c2;padding:2.5px 0}
+.hecbox{background:#14171c;border:1px solid #2a2f38;border-radius:11px;padding:7px 10px;flex:none}
+.kv{display:flex;justify-content:space-between;gap:6px;font:11px/1.35 ui-monospace,monospace;color:#aeb6c2;padding:1px 0}
 .kv b{color:#e8eaee;font-weight:600;text-align:right}
 .side-spacer{flex:1}
 .hec-cards{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:10px;flex:none}
 .hec-cards.plain{grid-template-columns:repeat(6,minmax(0,1fr))}
-.hec-cards .card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:7px 10px;min-width:0}
-.hec-cards .card .k{font-size:11.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hec-cards .card .v{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hec-cards .card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:5px 10px;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.hec-cards .card .k{font-size:11.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.hec-cards .card .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0;text-align:right}
 .hec-cards .card .v .phasepill.idle{font-size:12px;padding:2px 8px}
 .hec-cards .card .v small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:2px}
 .hec-cards .card .v sup.deg{font-size:9px;font-weight:400;color:#8b93a1;margin-left:1px;vertical-align:super;line-height:0}
@@ -345,7 +345,7 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
   <div class="dial curve-card">
     <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
     <button type="button" class="curvebtn" id="curveBtn"><span class="lb" id="curveLb">—</span><span class="arr">▾</span></button>
-    <span class="curvetag" id="curveTag">—</span>
+    <span class="curvetags"><span class="curvetag" id="curveTag">—</span><span class="curvetag lock" id="curveLock" hidden data-i18n="本杯锁定">本杯锁定</span></span>
   </div>
   <div class="dial" id="dialTemp">
     <div class="dial-k" data-i18n="萃取温度">萃取温度</div>
@@ -372,7 +372,6 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
     <div class="kv"><span data-i18n="当前指令">当前指令</span><b id="kvTakeCmd">—</b></div>
   </div>
   <div class="hecbox" id="hecBox">
-    <span class="hecchip"><span class="dot"></span>HEC · <span data-i18n="本杯锁定">本杯锁定</span></span>
     <div class="kv"><span data-i18n="插件">插件</span><b id="kvVer">—</b></div>
     <div class="kv"><span data-i18n="逻辑帧">逻辑帧</span><b id="kvFrame">—</b></div>
     <div class="kv"><span data-i18n="基值/当前">基值/当前</span><b id="kvCmd">—</b></div>
