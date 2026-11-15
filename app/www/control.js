@@ -161,7 +161,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.2'; } catch (_) { return '0.2'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.3'; } catch (_) { return '0.3'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
@@ -435,7 +435,8 @@
     const sub = String(machineSubstate || '').toLowerCase();
     if (s === 'sleeping' || s === 'sleep') return { cls: 'sleep', label: t('已休眠'), raw: s };
     if (s === 'espresso') return { cls: 'espresso', label: t('萃取中'), raw: s };
-    if (s === 'heating' || s === 'warmup' || s === 'warming' || sub === 'heating') return { cls: 'heating', label: t('加热中'), raw: s };
+    // 真机实测：加热期 Decaid 报 idle/preparingForShot（无 heating 字符串），到温后回 idle/idle
+    if (s === 'heating' || s === 'warmup' || s === 'warming' || sub === 'heating' || sub === 'preparingforshot') return { cls: 'heating', label: t('加热中'), raw: s };
     if (s === 'ready' || s === 'idle') return { cls: 'idle', label: t('待机'), raw: s };
     if (s) return { cls: 'idle', label: machineStateStr, raw: s };
     return { cls: 'off', label: t('未连接'), raw: '' };
