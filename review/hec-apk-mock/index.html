@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HyperExController · 控制页 UI 示意（提案，未实现）</title>
+<style>
+@font-face{font-family:'Orbitron';font-style:normal;font-weight:500 800;font-display:swap;src:url(data:font/woff2;base64,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) format('woff2')}
+:root{color-scheme:dark;--tech:'Orbitron','Segoe UI',ui-monospace,monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:#0c0e11;color:#e8eaee;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;padding:26px 30px 50px}
+.wrap{max-width:1280px;margin:0 auto}
+.mockhead{margin:0 0 18px}
+.mockhead h1{font-size:19px;margin:0 0 4px}
+.mockhead p{margin:0;font-size:12.5px;color:#8b93a1}
+.frame{border:1px solid #2b3038;border-radius:14px;overflow:hidden;background:#121418;margin-bottom:26px;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+.frame-cap{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#14171c;border-bottom:1px solid #262a31;font-size:12.5px;color:#aab2bf}
+.frame-cap b{color:#e8eaee}
+.frame-cap .tag{margin-left:auto;font:600 10.5px ui-monospace,monospace;color:#f4c48c;border:1px solid rgba(232,131,58,.4);border-radius:999px;padding:3px 9px}
+.app{display:flex;flex-direction:column;height:880px}
+header{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid #262a31;background:#171a1f;flex:none;min-width:0}
+h1{font-size:17px;margin:0;letter-spacing:.02em}
+.appver{font-size:12px;font-weight:400;color:#8b93a1;margin-left:6px}
+.modedrop{position:relative;flex:none}
+.modedrop-btn{display:inline-flex;align-items:center;gap:6px;background:#20304d;color:#9cc0ff;border:1px solid #33507e;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+.modedrop-btn .arr{font-size:10px;color:#6f87ad}
+.modedrop-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:40;background:#14171c;border:1px solid #333a44;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);padding:4px;min-width:210px}
+.modedrop-item{padding:9px 12px;border-radius:7px;font-size:13px;color:#c6ccd6;white-space:nowrap;display:flex;align-items:center;gap:8px;cursor:pointer}
+.modedrop-item .sub{font-size:11px;color:#8b93a1}
+.modedrop-item.sel{background:#2c3442;color:#e8eaee;box-shadow:inset 3px 0 0 #6ea8fe}
+.de1pill{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;border-radius:999px;padding:7px 11px;background:#3d2c17;color:#f5c078;white-space:nowrap}
+.de1pill .dot{width:7px;height:7px;border-radius:50%;background:#e8833a}
+.de1pill.sleep{background:#20263a;color:#9fb4e8}
+.de1pill.sleep .dot{background:#7d8db8}
+.hb{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:6px 11px;white-space:nowrap}
+.hb.ok{background:#173a2a;color:#8fe0b0}
+.hb.bad{background:#3d1d22;color:#f2a0aa}
+.hb.off{background:#2a2f37;color:#8b93a1}
+.hb.rec{background:#20304d;color:#9cc0ff}
+.hb .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.hb.rec .dot{animation:recpulse 1.2s ease-in-out infinite}
+@keyframes recpulse{50%{opacity:.35}}
+.hstat{margin-left:auto;font-size:12px;color:#9fd4a8;text-align:right;white-space:nowrap}
+.langsel{flex:none;background:#0e1116;color:#cfd5de;border:1px solid #333a44;border-radius:8px;padding:6px 8px;font-size:12px;cursor:pointer}
+.sleepbtn{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:linear-gradient(180deg,#1c2333,#161c2a);color:#9fb4e8;border:1px solid #35426a;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,box-shadow .15s,filter .12s,transform .08s}
+.sleepbtn:hover{border-color:#4a5c92;box-shadow:0 0 12px rgba(110,140,254,.28);filter:brightness(1.18)}
+.sleepbtn:active{transform:scale(.95)}
+.sleepbtn .ic{display:inline-flex}
+.sleepbtn .ic svg{width:13px;height:13px;display:block}
+.sleepbtn.wake{background:linear-gradient(180deg,#2a2417,#201c12);color:#f5c078;border-color:#6b5a2e}
+.sleepbtn.wake:hover{border-color:#8a7440;box-shadow:0 0 12px rgba(245,192,120,.25)}
+main{flex:1;display:flex;min-height:0}
+aside{width:216px;flex:none;border-right:1px solid #262a31;padding:12px 12px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+section.view{flex:1;min-width:0;padding:12px 16px 16px;display:flex;flex-direction:column;min-height:0}
+.side-k{font-size:10.5px;letter-spacing:.08em;color:#8b93a1;margin:0 0 5px}
+.curvebtn{display:flex;align-items:flex-start;gap:8px;width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:8px 9px;font:12.5px/1.45 ui-monospace,monospace;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.curvebtn:hover{border-color:#3a4a63;box-shadow:0 0 0 1px rgba(110,168,254,.15)}
+.curve-card .curvetag{margin-top:7px}
+.curvebtn .lb{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.curvebtn .arr{color:#6f87ad;font-size:11px;flex:none;margin-top:2px}
+.curvetag{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#3d2c17;color:#f5c078}
+.curvetag.plain{background:#2a2f37;color:#cfd5de}
+.dial{background:linear-gradient(180deg,#1b2027,#161a20);border:1px solid #2a2f38;border-radius:11px;padding:8px 10px 9px;user-select:none;position:relative;overflow:hidden}
+.dial::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#6ea8fe,rgba(110,168,254,.05))}
+.dial .dial-k{font-size:11px;color:#8b93a1;margin-bottom:2px;letter-spacing:.04em}
+.dial-body{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.dial-num{flex:1;text-align:left;cursor:ns-resize;touch-action:none;padding:2px 0 2px 5px;border-radius:8px;transition:background .12s}
+.dial-num:active{background:#222732}
+.dial-num .dv{display:inline-block;font-family:var(--tech);font-weight:700;font-size:27px;line-height:1.15;color:#dceaff;font-variant-numeric:tabular-nums;letter-spacing:.03em;text-shadow:0 0 12px rgba(110,168,254,.35)}
+.dial-num .dv.bump{animation:dvbump .18s ease-out}
+@keyframes dvbump{0%{transform:scale(1.07);color:#ffffff;text-shadow:0 0 18px rgba(110,168,254,.7)}100%{transform:scale(1)}}
+.dial-num small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:3px;font-family:-apple-system,"Segoe UI",sans-serif}
+.dial-tri{display:flex;flex-direction:row;gap:4px;flex:none;align-self:flex-end;margin-bottom:7.5px}
+.dial-tri button{border:1px solid #33507e;border-radius:5px;background:linear-gradient(180deg,#232c3a,#1a212c);color:#9cc0ff;font-size:6px;line-height:1;padding:3px 6px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(156,192,255,.12),0 0 8px rgba(110,168,254,.10);transition:filter .12s,transform .08s,box-shadow .12s}
+.dial-tri button:hover{filter:brightness(1.25);box-shadow:inset 0 1px 0 rgba(156,192,255,.2),0 0 12px rgba(110,168,254,.28)}
+.dial-tri button:active{transform:scale(.9);background:#2c3a52;box-shadow:0 0 16px rgba(110,168,254,.45)}
+.applybtn{width:100%;border:0;border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:700;background:#e8833a;color:#1a1208;cursor:pointer}
+.applybtn:disabled{opacity:.45;cursor:default}
+.connbtn{display:flex;align-items:center;gap:7px;width:100%;border:1px solid #333a44;border-radius:9px;padding:9px 10px;font:12px ui-monospace,monospace;cursor:pointer;background:#0e1116;color:#cfd5de}
+.connbtn .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.connbtn .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.connbtn.ok{border-color:#2c5a3c;color:#8fe0b0}
+.connbtn.ok .dot{background:#7ed492}
+.connbtn.bad{border-color:#6b2a33;color:#f2a0aa}
+.connbtn.bad .dot{background:#f2909a}
+.hecbox{background:#14171c;border:1px solid #2a2f38;border-radius:11px;padding:9px 10px}
+.hecchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:#20304d;color:#9cc0ff;margin-bottom:6px}
+.hecchip .dot{width:6px;height:6px;border-radius:50%;background:#6ea8fe}
+.kv{display:flex;justify-content:space-between;gap:6px;font:11px ui-monospace,monospace;color:#aeb6c2;padding:2.5px 0}
+.kv b{color:#e8eaee;font-weight:600;text-align:right}
+.side-spacer{flex:1}
+.cards{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:10px;flex:none}
+.card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:7px 10px;min-width:0}
+.card .k{font-size:11.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .v{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.card .v small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:2px}
+.card .s{font-size:11px;color:#8b93a1;margin-top:1px;white-space:nowrap}
+.phasepill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#3d2c17;color:#f5c078}
+.chartbox{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px 6px;margin-bottom:10px;flex:1;display:flex;flex-direction:column;min-height:180px}
+.chartbox h3{margin:2px 0 4px;font-size:12px;color:#aab2bf;font-weight:600;display:flex;justify-content:space-between;align-items:center;flex:none}
+.chartlegend{display:flex;align-items:center;gap:13px;flex-wrap:wrap;min-width:0;flex:1;font-size:11px;font-weight:400;color:#aab2bf}
+.chartlegend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.chartlegend .lg i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+.chartlegend .lg.dash i{background:transparent !important;border-top:2px dashed currentColor;height:0;border-radius:0}
+.chartlegend .lg.arrow i{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid currentColor;border-radius:0;background:transparent !important}
+.charttitle{flex:none;margin-left:10px}
+.rawtoggle{display:inline-flex;align-items:center;gap:6px;margin:0 10px 0 0;font-size:11px;color:#8b93a1;font-weight:400;flex:none;cursor:pointer}
+.rawtoggle .sw{flex:none;width:30px;height:17px;border-radius:999px;background:#2b3038;border:1px solid #3a4150;position:relative;transition:background .15s}
+.rawtoggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#8b93a1;transition:transform .15s,background .15s}
+.rawtoggle.on .sw{background:#e8833a;border-color:#e8833a}
+.rawtoggle.on .sw::after{transform:translateX(13px);background:#1a1208}
+.chartwrap{flex:1;min-height:0;position:relative}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.events{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:7px 10px;font:12px ui-monospace,monospace;color:#aeb6c2;max-height:150px;overflow:auto;flex:none}
+.events .row{display:flex;gap:8px;padding:3.5px 6px;border-radius:6px;white-space:nowrap}
+.events .row .t{color:#7d8592;flex:none;width:56px;text-align:right}
+.events .row .tag{flex:none;width:118px;overflow:hidden;text-overflow:ellipsis;color:#9cc0ff}
+.events .row.ext .tag{color:#f5c078}
+.events .row .d{overflow:hidden;text-overflow:ellipsis}
+.takeover{display:flex;align-items:center;gap:8px;background:#3d1d22;border:1px solid #6b2a33;color:#f2a0aa;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;margin-bottom:10px;flex:none}
+.modal-dim{position:fixed;inset:0;z-index:60;background:rgba(6,8,10,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-dim[hidden]{display:none}
+.modal{width:100%;max-width:380px;background:#191d23;border:1px solid #333a44;border-radius:14px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.modal h3{margin:0 0 10px;font-size:15px;font-weight:700}
+.modal .mlist{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.mitem{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;background:#14171c;border:1px solid #2a2f38;font:12.5px ui-monospace,monospace;color:#c6ccd6;cursor:pointer}
+.mitem:hover{background:#222732}
+.mitem.sel{border-color:#6ea8fe;color:#e8eaee}
+.mitem .mtag{margin-left:auto;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#3d2c17;color:#f5c078;flex:none}
+.mitem .mtag.plain{background:#2a2f37;color:#cfd5de}
+.modal input[type=text]{width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:10px;font:13px ui-monospace,monospace;margin-bottom:12px}
+.modal-actions{display:flex;gap:8px}
+.modal-actions button{flex:1;border:0;border-radius:10px;padding:10px;font-size:13.5px;font-weight:700;cursor:pointer}
+.modal-actions .primary{background:#e8833a;color:#1a1208}
+.modal-actions .ghost{background:#2a2f37;color:#cfd5de}
+.modal-note{font-size:12.5px;color:#aab2bf;line-height:1.6;margin:0 0 14px}
+.notes{margin-top:8px;font-size:12.5px;color:#8b93a1;line-height:1.7}
+.notes b{color:#c6ccd6}
+.notes .sec{margin:14px 0 4px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#aab2bf}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#2b3038;border-radius:4px}
+*{scrollbar-width:thin;scrollbar-color:#2b3038 transparent}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mockhead">
+    <h1>HyperExController · <span data-i18n="控制页 UI 示意">控制页 UI 示意</span></h1>
+    <p data-i18n="intro">2026-11-15 提案稿，未实现。基线 ProfileReplayer v1.6。左侧窄控制列（曲线按钮 / 温度·重量大数字拨轮 / 地址按钮），右侧曲线撑满高度。温度按 88–96°C 线性映射到 0–10；杯流图叠加趋势矢量箭头（指令增减定上下半圆、控制角定角度、指令差定长度）。拨轮可拖动、弹窗可交互、右上角可切中英文。</p>
+  </div>
+
+  <div class="frame" id="frame1">
+    <div class="frame-cap"><b data-i18n="cap1">① HyperEx 曲线 · HEC 调流中</b>　S3 · 26.5 s<span class="tag" data-i18n="tag1">主画面 · 可交互</span></div>
+    <div class="app">
+      <header>
+        <h1>HyperExController<span class="appver">v0.1</span></h1>
+        <div class="modedrop" id="modeDrop">
+          <button class="modedrop-btn" id="modeBtn"><span id="modeLb" data-i18n="控制">控制</span> <span class="arr">▾</span></button>
+          <div class="modedrop-panel" id="modePanel" hidden>
+            <div class="modedrop-item sel" data-mode="控制"><span data-i18n="控制">控制</span> <span class="sub" data-i18n="modeSub1">选曲线 · 调温重量 · 实时调流</span></div>
+            <div class="modedrop-item" data-mode="回放"><span data-i18n="回放">回放</span> <span class="sub" data-i18n="modeSub2">ProfileReplayer 原页</span></div>
+          </div>
+        </div>
+        <span class="de1pill"><span class="dot"></span><span data-i18n="萃取中">萃取中</span></span>
+        <span class="hb ok"><span class="dot"></span><span data-i18n="握手">握手</span> 0.4 s</span>
+        <select class="langsel" id="langSel"><option value="zh">中文</option><option value="en">EN</option></select>
+        <span class="hstat"><span data-i18n="预算">预算</span> 14 / 150 · <span data-i18n="拒绝">拒绝</span> 0</span>
+      </header>
+      <main>
+        <aside>
+          <div class="dial curve-card">
+            <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
+            <button class="curvebtn" id="curveBtn"><span class="lb" id="curveLb">HyperEx · 低压纸日晒 (auto)</span><span class="arr">▾</span></button>
+            <span class="curvetag" id="curveTag">HyperEx · HEC</span>
+          </div>
+          <div class="dial" id="dialTemp">
+            <div class="dial-k" data-i18n="萃取温度">萃取温度</div>
+            <div class="dial-body">
+              <div class="dial-num" data-dial="temp"><span class="dv">92.0</span><small>°C</small></div>
+              <div class="dial-tri"><button data-step="1">▲</button><button data-step="-1">▼</button></div>
+            </div>
+          </div>
+          <div class="dial" id="dialWeight">
+            <div class="dial-k" data-i18n="萃取液重">萃取液重</div>
+            <div class="dial-body">
+              <div class="dial-num" data-dial="weight"><span class="dv">36.0</span><small>g</small></div>
+              <div class="dial-tri"><button data-step="1">▲</button><button data-step="-1">▼</button></div>
+            </div>
+          </div>
+          <button class="applybtn" id="applyBtn" disabled data-i18n="应用">应用</button>
+          <div>
+            <div class="side-k" data-i18n="Decaid 地址">Decaid 地址</div>
+            <button class="connbtn ok" id="connBtn"><span class="dot"></span><span class="lb">127.0.0.1:8080</span><span class="arr">▾</span></button>
+          </div>
+          <div class="hecbox">
+            <span class="hecchip"><span class="dot"></span>hec · <span data-i18n="本杯锁定">本杯锁定</span></span>
+            <div class="kv"><span data-i18n="插件">插件</span><b>2.2.48</b></div>
+            <div class="kv"><span data-i18n="逻辑帧">逻辑帧</span><b>2 · S3</b></div>
+            <div class="kv"><span data-i18n="基值/当前">基值/当前</span><b>1.25 / 1.31</b></div>
+            <div class="kv"><span data-i18n="目标杯流">目标杯流</span><b>1.5 g/s</b></div>
+            <div class="kv"><span data-i18n="限压">限压</span><b>3.0 bar</b></div>
+          </div>
+          <div class="side-spacer"></div>
+        </aside>
+        <section class="view">
+          <div class="cards">
+            <div class="card"><div class="k" data-i18n="时刻">时刻</div><div class="v">0:26.5</div></div>
+            <div class="card"><div class="k" data-i18n="相位">相位</div><div class="v"><span class="phasepill" style="background:#173a2a;color:#8fe0b0">S3</span></div></div>
+            <div class="card"><div class="k" data-i18n="秤重">秤重</div><div class="v">41.2<small>g</small></div></div>
+            <div class="card"><div class="k" data-i18n="杯流">杯流</div><div class="v">1.48<small>g/s</small></div></div>
+            <div class="card"><div class="k" data-i18n="压力">压力</div><div class="v">2.85<small>bar</small></div></div>
+            <div class="card"><div class="k" data-i18n="温度">温度</div><div class="v">91.6<small>°C</small></div></div>
+            <div class="card"><div class="k" data-i18n="趋势角">趋势角</div><div class="v">12<small>°</small></div></div>
+          </div>
+          <div class="chartbox"><h3><span class="chartlegend" id="lg1"></span><span class="rawtoggle on" id="rawTgl"><span class="sw"></span>RAW</span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="c1"></canvas></div></div>
+          <div class="chartbox"><h3><span class="chartlegend" id="lg2"></span><span class="charttitle" data-i18n="压力温度图题">压力 (bar) · 流量 (ml/s) · 温度 (0–10)</span></h3><div class="chartwrap"><canvas id="c2"></canvas></div></div>
+          <div class="events">
+            <div class="row ext"><span class="t">0:26.0</span><span class="tag" data-i18n="调流·写入">调流·写入</span><span class="d">[S3] 1.31 ml/s · external · ACK</span></div>
+            <div class="row"><span class="t">0:24.0</span><span class="tag" data-i18n="检测">检测</span><span class="d" data-i18n="ev2">[S3] raw 1.49 g/s · 角 12° · 上行</span></div>
+            <div class="row ext"><span class="t">0:19.0</span><span class="tag" data-i18n="调流·写入">调流·写入</span><span class="d">[S2] 3.88 ml/s · external · ACK</span></div>
+            <div class="row"><span class="t">0:10.5</span><span class="tag" data-i18n="相位">相位</span><span class="d" data-i18n="ev4">S1 → S2 · 帧 1 确认</span></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-cap"><b data-i18n="cap2">② 非 HyperEx 曲线 · 只读实时</b>　<span data-i18n="cap2sub">无相位分段 · 无趋势角</span><span class="tag" data-i18n="tag2">对照</span></div>
+    <div class="app" style="height:760px">
+      <header>
+        <h1>HyperExController<span class="appver">v0.1</span></h1>
+        <div class="modedrop"><button class="modedrop-btn"><span data-i18n="控制">控制</span> <span class="arr">▾</span></button></div>
+        <span class="de1pill" id="de1Pill2"><span class="dot"></span><span data-i18n="萃取中" id="de1State2">萃取中</span></span>
+        <span class="hb off"><span class="dot"></span><span data-i18n="未握手 · 只读">未握手 · 只读</span></span>
+        <span class="hb rec" id="recPill2"><span class="dot"></span><span data-i18n="recorder 在录">recorder 在录</span></span>
+        <button class="sleepbtn" id="sleepBtn" type="button"><span class="ic" id="sleepIc"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span><span id="sleepLb" data-i18n="咖啡机休眠">咖啡机休眠</span></button>
+      </header>
+      <main>
+        <aside>
+          <div class="dial curve-card">
+            <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
+            <button class="curvebtn"><span class="lb">John Weiss 开发的拉杆程序</span><span class="arr">▾</span></button>
+            <span class="curvetag plain" data-i18n="非 HyperEx · 只读">非 HyperEx · 只读</span>
+          </div>
+          <div class="dial"><div class="dial-k" data-i18n="萃取温度">萃取温度</div><div class="dial-body"><div class="dial-num" data-dial="temp2"><span class="dv">88.0</span><small>°C</small></div><div class="dial-tri"><button data-step="1">▲</button><button data-step="-1">▼</button></div></div></div>
+          <div class="dial"><div class="dial-k" data-i18n="萃取液重">萃取液重</div><div class="dial-body"><div class="dial-num" data-dial="weight2"><span class="dv">40.0</span><small>g</small></div><div class="dial-tri"><button data-step="1">▲</button><button data-step="-1">▼</button></div></div></div>
+          <button class="applybtn" disabled data-i18n="应用">应用</button>
+          <div><div class="side-k" data-i18n="Decaid 地址">Decaid 地址</div><button class="connbtn ok"><span class="dot"></span><span class="lb">127.0.0.1:8080</span><span class="arr">▾</span></button></div>
+          <div class="side-spacer"></div>
+        </aside>
+        <section class="view">
+          <div class="cards" style="grid-template-columns:repeat(6,minmax(0,1fr))">
+            <div class="card"><div class="k" data-i18n="时刻">时刻</div><div class="v">0:18.7</div></div>
+            <div class="card"><div class="k" data-i18n="秤重">秤重</div><div class="v">24.6<small>g</small></div></div>
+            <div class="card"><div class="k" data-i18n="杯流">杯流</div><div class="v">2.31<small>g/s</small></div></div>
+            <div class="card"><div class="k" data-i18n="压力">压力</div><div class="v">8.74<small>bar</small></div></div>
+            <div class="card"><div class="k" data-i18n="温度">温度</div><div class="v">88.1<small>°C</small></div></div>
+            <div class="card"><div class="k" data-i18n="机器流量">机器流量</div><div class="v">2.05<small>ml/s</small></div></div>
+          </div>
+          <div class="chartbox"><h3><span class="chartlegend" id="lg4"></span><span class="rawtoggle on"><span class="sw"></span>RAW</span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="c4"></canvas></div></div>
+          <div class="chartbox"><h3><span class="chartlegend" id="lg5"></span><span class="charttitle" data-i18n="压力温度图题">压力 (bar) · 流量 (ml/s) · 温度 (0–10)</span></h3><div class="chartwrap"><canvas id="c5"></canvas></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-cap"><b data-i18n="cap3">③ 插件接管态</b>　<span data-i18n="cap3sub">心跳断流 4 s · 本杯锁存 · APK 只读</span><span class="tag" data-i18n="tag3">保险</span></div>
+    <div class="app" style="height:620px">
+      <header>
+        <h1>HyperExController<span class="appver">v0.1</span></h1>
+        <div class="modedrop"><button class="modedrop-btn"><span data-i18n="控制">控制</span> <span class="arr">▾</span></button></div>
+        <span class="de1pill"><span class="dot"></span><span data-i18n="萃取中">萃取中</span></span>
+        <span class="hb bad"><span class="dot"></span><span data-i18n="插件已接管本杯">插件已接管本杯</span></span>
+        <span class="hstat" data-i18n="只读 · 下一杯恢复">只读 · 下一杯恢复</span>
+      </header>
+      <main>
+        <aside>
+          <div class="dial curve-card">
+            <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
+            <button class="curvebtn"><span class="lb">HyperEx · 低压纸日晒 (auto)</span><span class="arr">▾</span></button>
+            <span class="curvetag" data-i18n="HyperEx · 插件接管">HyperEx · 插件接管</span>
+          </div>
+          <div class="hecbox">
+            <div class="kv"><span data-i18n="接管原因">接管原因</span><b>hec-heartbeat-lost</b></div>
+            <div class="kv"><span data-i18n="接管时刻">接管时刻</span><b>0:26.8</b></div>
+            <div class="kv"><span data-i18n="当前指令">当前指令</span><b data-i18n="1.25（插件）">1.25（插件）</b></div>
+          </div>
+          <div class="side-spacer"></div>
+        </aside>
+        <section class="view">
+          <div class="takeover" data-i18n="接管横幅">插件已接管本杯 · 指令已收回基值，曲线继续</div>
+          <div class="cards">
+            <div class="card"><div class="k" data-i18n="时刻">时刻</div><div class="v">0:28.4</div></div>
+            <div class="card"><div class="k" data-i18n="相位">相位</div><div class="v"><span class="phasepill" style="background:#173a2a;color:#8fe0b0">S3</span></div></div>
+            <div class="card"><div class="k" data-i18n="秤重">秤重</div><div class="v">43.8<small>g</small></div></div>
+            <div class="card"><div class="k" data-i18n="杯流">杯流</div><div class="v">1.52<small>g/s</small></div></div>
+            <div class="card"><div class="k" data-i18n="压力">压力</div><div class="v">2.70<small>bar</small></div></div>
+            <div class="card"><div class="k" data-i18n="温度">温度</div><div class="v">91.8<small>°C</small></div></div>
+            <div class="card"><div class="k" data-i18n="趋势角">趋势角</div><div class="v">8<small>°</small></div></div>
+          </div>
+          <div class="chartbox"><h3><span class="chartlegend" id="lg7"></span><span class="rawtoggle on"><span class="sw"></span>RAW</span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="c7"></canvas></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="sec" data-i18n="notesSec">示意说明（不在真实 UI 里）</div>
+    <span data-i18n="notesBody">左侧窄控制列、上下留白把空间让给曲线；曲线按钮弹窗选择，温度/重量大数字拨轮（Orbitron 科技字体）上下拖动或点 ▲▼，地址按钮颜色=连接状态。温度按 88–96°C 线性映射到右轴 0–10（粉色），实际 °C 单独成卡。杯流图叠加趋势矢量箭头：指令增→上半圆、指令减→下半圆，控制角决定半圆内的实际角度（0°贴目标、90°平行偏离、>90°背离），长度=指令差。右上角中文/EN 切换整页语言。真实 UI 萃取中拨轮与应用锁定。</span>
+  </div>
+</div>
+
+<div class="modal-dim" id="dim" hidden></div>
+
+<script>
+const C={raw:'#63d89b',decaid:'#c77dff',target:'#f0c75e',cmd:'#e8833a',press:'#63d89b',mflow:'#6ea8fe',temp:'#f2a0aa',vec:'#8fd7ff',grid:'#232830',axis:'#7d8592'};
+const BANDS=[[0,4,'rgba(110,168,254,.10)','S1'],[4,8,'rgba(242,144,154,.08)','泄压'],[8,10.5,'rgba(199,125,255,.08)','浸泡'],[10.5,22,'rgba(245,164,66,.10)','S2'],[22,34,'rgba(99,216,155,.10)','S3']];
+// 温度线性映射：88–96°C -> 0–10
+const TEMP_LO=88,TEMP_HI=96;
+const tempNorm=c=>Math.max(0,Math.min(10,(c-TEMP_LO)/(TEMP_HI-TEMP_LO)*10));
+// 趋势矢量检测点：t, rawGS, 控制角(0-180), 指令差(ml/s, 正=增)
+const CHECKS=[[11.0,2.0,62,0.25],[13.5,4.6,118,-0.18],[16.0,4.95,31,0.13],[19.0,5.0,23,0.13],[24.0,1.49,12,0.06],[26.0,1.42,140,-0.10]];
+let LANG='zh';
+const I18N={
+'控制页 UI 示意':['控制页 UI 示意','Control Page UI Mockup'],
+'intro':['2026-11-15 提案稿，未实现。基线 ProfileReplayer v1.6。左侧窄控制列（曲线按钮 / 温度·重量大数字拨轮 / 地址按钮），右侧曲线撑满高度。温度按 88–96°C 线性映射到 0–10；杯流图叠加趋势矢量箭头（指令增减定上下半圆、控制角定角度、指令差定长度）。拨轮可拖动、弹窗可交互、右上角可切中英文。','2026-11-15 proposal, not implemented. Baseline ProfileReplayer v1.6. Narrow left control column (curve button / temp·weight big-number dials / address button), charts fill the height on the right. Temperature linearly mapped 88–96°C to 0–10; flow chart overlays trend-vector arrows (command sign picks the semicircle, control angle sets direction, command delta sets length). Dials drag, modals interact, top-right switches 中文/EN.'],
+'cap1':['① HyperEx 曲线 · HEC 调流中','① HyperEx curve · HEC trimming'],
+'tag1':['主画面 · 可交互','Main · interactive'],
+'cap2':['② 非 HyperEx 曲线 · 只读实时','② Non-HyperEx curve · read-only live'],
+'cap2sub':['无相位分段 · 无趋势角','no phase bands · no trend angle'],
+'tag2':['对照','Reference'],
+'cap3':['③ 插件接管态','③ Plugin takeover'],
+'cap3sub':['心跳断流 4 s · 本杯锁存 · APK 只读','heartbeat lost 4 s · latched · APK read-only'],
+'tag3':['保险','Insurance'],
+'控制':['控制','Control'],'回放':['回放','Replay'],
+'modeSub1':['选曲线 · 调温重量 · 实时调流','curve · temp/weight · live trim'],
+'modeSub2':['ProfileReplayer 原页','ProfileReplayer page'],
+'萃取中':['萃取中','Extracting'],'握手':['握手','Handshake'],
+'预算':['预算','Budget'],'拒绝':['拒绝','Rejects'],
+'曲线':['曲线','Curve'],'曲线选择':['曲线选择','Curve select'],'萃取温度':['萃取温度','Brew temp'],'萃取液重':['萃取液重','Beverage weight'],'温度':['温度','Temp'],'萃取重量':['萃取重量','Yield'],
+'应用':['应用','Apply'],'Decaid 地址':['Decaid 地址','Decaid address'],
+'本杯锁定':['本杯锁定','shot locked'],'插件':['插件','Plugin'],'逻辑帧':['逻辑帧','Frame'],
+'基值/当前':['基值/当前','Base/now'],'目标杯流':['目标杯流','Target'],'限压':['限压','Limiter'],
+'时刻':['时刻','Time'],'相位':['相位','Phase'],'秤重':['秤重','Weight'],'杯流':['杯流','Flow'],
+'压力':['压力','Pressure'],'趋势角':['趋势角','Trend°'],
+'杯流 (g/s)':['杯流 (g/s)','Flow (g/s)'],
+'压力温度图题':['压力 (bar) · 流量 (ml/s) · 温度 (0–10)','Pressure (bar) · Flow (ml/s) · Temp (0–10)'],
+'调流·写入':['调流·写入','Trim·write'],'检测':['检测','Check'],
+'ev2':['[S3] raw 1.49 g/s · 角 12° · 上行','[S3] raw 1.49 g/s · 12° · up'],
+'ev4':['S1 → S2 · 帧 1 确认','S1 → S2 · frame 1 ack'],
+'未握手 · 只读':['未握手 · 只读','No handshake · read-only'],
+'recorder 在录':['recorder 在录','recorder recording'],
+'咖啡机休眠':['咖啡机休眠','Machine sleep'],'唤醒':['唤醒','Wake'],'已休眠':['已休眠','Asleep'],
+'休眠标题':['让咖啡机休眠','Put machine to sleep'],
+'休眠说明':['将中断当前萃取，DE1 进入待机降温，锅炉停止加热，可随时唤醒。','This aborts the current shot and puts the DE1 into standby (boiler cools, heating stops). Wake anytime.'],
+'非 HyperEx · 只读':['非 HyperEx · 只读','Non-HyperEx · read-only'],
+'机器流量':['机器流量','Machine flow'],
+'插件已接管本杯':['插件已接管本杯','Plugin took over'],
+'只读 · 下一杯恢复':['只读 · 下一杯恢复','read-only · resumes next shot'],
+'HyperEx · 插件接管':['HyperEx · 插件接管','HyperEx · takeover'],
+'接管原因':['接管原因','Reason'],'接管时刻':['接管时刻','At'],'当前指令':['当前指令','Command'],
+'3.75（插件）':['3.75（插件）','3.75 (plugin)'],'1.25（插件）':['1.25（插件）','1.25 (plugin)'],
+'接管横幅':['插件已接管本杯 · 指令已收回基值，曲线继续','Plugin took over · command returned to base, chart continues'],
+'notesSec':['示意说明（不在真实 UI 里）','Notes (not in the real UI)'],
+'notesBody':['左侧窄控制列、上下留白把空间让给曲线；曲线按钮弹窗选择，温度/重量大数字拨轮（Orbitron 科技字体）上下拖动或点 ▲▼，地址按钮颜色=连接状态。温度按 88–96°C 线性映射到右轴 0–10（粉色），实际 °C 单独成卡。杯流图叠加趋势矢量箭头：指令增→上半圆、指令减→下半圆，控制角决定半圆内的实际角度（0°贴目标、90°平行偏离、>90°背离），长度=指令差。右上角中文/EN 切换整页语言。真实 UI 萃取中拨轮与应用锁定。','Narrow left column with vertical whitespace yields space to charts; curve button opens a picker, temp/weight big-number dials (Orbitron tech font) drag or use ▲▼, address button color = connection state. Temperature linearly mapped 88–96°C to the right axis 0–10 (pink); actual °C in its own card. Flow chart overlays trend-vector arrows: command up → upper semicircle, down → lower; control angle sets direction within it (0° on target, 90° parallel offset, >90° diverging); length = command delta. Top-right 中文/EN switches the whole page. Real UI locks dials and Apply during extraction.'],
+'选择曲线':['选择曲线','Select curve'],'取消':['取消','Cancel'],'连接':['连接','Connect'],
+'连接失败':['连接失败','Connect failed'],'HyperEx':['HyperEx','HyperEx'],'非HyperEx':['非HyperEx','Non-HyperEx'],
+'lg_decaid':['decaid 杯流','decaid flow'],'lg_raw':['RAW dW/dt','RAW dW/dt'],'lg_target':['目标杯流','Target flow'],
+'lg_press':['压力','Pressure'],'lg_mflow':['机器流量','Machine flow'],'lg_tcmd':['目标指令','Target cmd'],
+'lg_apkcmd':['APK 指令','APK cmd'],'lg_temp':['温度','Temp'],'lg_vec':['矢量·增','Vector up'],'lg_vecdn':['矢量·减','Vector down']
+};
+function t(k){const e=I18N[k];return e?(LANG==='zh'?e[0]:e[1]):k;}
+function applyLang(){document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n);});document.documentElement.lang=LANG==='zh'?'zh-CN':'en';buildLegends();drawAll();}
+function legend(id,items){const el=document.getElementById(id);if(el)el.innerHTML=items.map(it=>'<span class="lg'+(it.dash?' dash':'')+(it.arrow?' arrow':'')+'" style="color:'+it.c+'"><i style="background:'+it.c+'"></i><span style="color:#aab2bf">'+it.l+'</span></span>').join('');}
+function buildLegends(){
+legend('lg1',[{l:t('lg_decaid'),c:C.decaid},{l:t('lg_raw'),c:C.raw},{l:t('lg_target'),c:C.target,dash:1},{l:t('lg_vec'),c:C.vec,arrow:1},{l:t('lg_vecdn'),c:'#e9c276',arrow:1}]);
+legend('lg2',[{l:t('lg_press'),c:C.press},{l:t('lg_mflow'),c:C.mflow},{l:t('lg_tcmd'),c:C.target,dash:1},{l:t('lg_apkcmd'),c:C.cmd},{l:t('lg_temp'),c:C.temp}]);
+legend('lg4',[{l:t('lg_decaid'),c:C.decaid},{l:t('lg_raw'),c:C.raw}]);
+legend('lg5',[{l:t('lg_press'),c:C.press},{l:t('lg_mflow'),c:C.mflow},{l:t('lg_temp'),c:C.temp}]);
+legend('lg7',[{l:t('lg_decaid'),c:C.decaid},{l:t('lg_raw'),c:C.raw},{l:t('lg_target'),c:C.target,dash:1},{l:t('lg_vec'),c:C.vec,arrow:1},{l:t('lg_vecdn'),c:'#e9c276',arrow:1}]);
+}
+function setup(id){const cv=document.getElementById(id);const box=cv.parentElement;const dpr=Math.min(2,window.devicePixelRatio||1);const w=box.clientWidth,h=box.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);return{ctx,w,h};}
+const pad={l:34,r:12,t:10,b:18};
+function axes(ctx,w,h,p,yMin,yMax,fmt){ctx.strokeStyle=C.grid;ctx.fillStyle=C.axis;ctx.font='10px ui-monospace,monospace';ctx.lineWidth=1;for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4;ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText(fmt(yMax-(yMax-yMin)*i/4),4,y+3);}}
+function line(ctx,pts,p,w,h,xMax,yMin,yMax,color,width,dash){if(!pts.length)return;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash||[]);ctx.beginPath();let st=false;for(const q of pts){if(q[1]==null||!isFinite(q[1])){st=false;continue;}const x=p.l+(w-p.l-p.r)*q[0]/xMax,y=p.t+(h-p.t-p.b)*(1-(q[1]-yMin)/(yMax-yMin));if(!st){ctx.moveTo(x,y);st=true;}else ctx.lineTo(x,y);}ctx.stroke();ctx.setLineDash([]);}
+function stepLine(ctx,pts,p,w,h,xMax,yMin,yMax,color,width){if(!pts.length)return;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();let px=null,py=null;for(const q of pts){const x=p.l+(w-p.l-p.r)*q[0]/xMax,y=p.t+(h-p.t-p.b)*(1-(q[1]-yMin)/(yMax-yMin));if(px==null)ctx.moveTo(x,y);else{ctx.lineTo(x,py);ctx.lineTo(x,y);}px=x;py=y;}ctx.stroke();}
+function bands(ctx,w,h,p,xMax,list){for(const b of list){const x0=p.l+(w-p.l-p.r)*b[0]/xMax,x1=p.l+(w-p.l-p.r)*Math.min(b[1],xMax)/xMax;ctx.fillStyle=b[2];ctx.fillRect(x0,p.t,x1-x0,h-p.t-p.b);ctx.fillStyle='rgba(232,234,238,.4)';ctx.font='10px ui-monospace,monospace';ctx.fillText(b[3],x0+4,p.t+11);}}
+function nowLine(ctx,w,h,p,xMax,tt){const x=p.l+(w-p.l-p.r)*tt/xMax;ctx.strokeStyle='rgba(232,234,238,.35)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x,p.t);ctx.lineTo(x,h-p.b);ctx.stroke();ctx.setLineDash([]);}
+// 趋势矢量箭头：指令差符号定上下半圆，控制角定半圆内角度，长度=|指令差|
+function vecArrows(ctx,checks,p,w,h,xMax,yMin,yMax){const K=220;
+checks.forEach((ck,i)=>{const tt=ck[0],gs=ck[1],ang=ck[2],dc=ck[3];
+  const x0=p.l+(w-p.l-p.r)*tt/xMax, y0=p.t+(h-p.t-p.b)*(1-(gs-yMin)/(yMax-yMin));
+  const up=dc>=0; const a=Math.max(0,Math.min(180,ang))*Math.PI/180;
+  const dx=Math.cos(a), dy=up?-Math.sin(a):Math.sin(a);
+  const len=Math.max(14,Math.abs(dc)*K);
+  const x1=x0+dx*len, y1=y0+dy*len;
+  const col=up?C.vec:'#e9c276';
+  ctx.strokeStyle=col;ctx.lineWidth=1;ctx.globalAlpha=.3;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x0+len,y0);ctx.stroke();ctx.setLineDash([]);
+  ctx.globalAlpha=.15;ctx.beginPath();ctx.arc(x0,y0,len,up?Math.PI:0,up?2*Math.PI:Math.PI,false);ctx.stroke();
+  ctx.globalAlpha=1;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+  const hl=6, ha=Math.atan2(y1-y0,x1-x0);
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  ctx.lineTo(x1-hl*Math.cos(ha-0.45),y1-hl*Math.sin(ha-0.45));
+  ctx.lineTo(x1-hl*Math.cos(ha+0.45),y1-hl*Math.sin(ha+0.45));
+  ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.arc(x0,y0,2.4,0,7);ctx.fill();
+  const ly=y1+(up?-4-(i%2)*11:11+(i%2)*11);
+  ctx.font='10px ui-monospace,monospace';ctx.lineWidth=3;ctx.strokeStyle='#171a1f';ctx.strokeText(ang+'\u00b0',x1+4,ly);ctx.fillText(ang+'\u00b0',x1+4,ly);
+});}
+function hxData(tEnd){const raw=[],dec=[],tgt=[],cmd=[],pr=[],mf=[],tf=[],tmp=[];let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647-.5;for(let tt=0;tt<=tEnd;tt+=.1){const v=tt<4?0.4+1.5*Math.min(1,tt/3):tt<8?0.15:tt<10.5?0.05:tt<22?5*(1-Math.exp(-(tt-10.5)/0.9)):1.5+0.08*Math.sin(tt*1.3);raw.push([tt,v>0.3?v+rnd()*(tt<22?.4:.18):null]);dec.push([tt,v>0.3?v+rnd()*.15:null]);tgt.push([tt,tt<4?2:tt<10.5?null:tt<22?5:1.5]);pr.push([tt,tt<4?1.1+rnd()*.2:tt<8?0.2:tt<10.5?0.1:tt<22?1.35+rnd()*.15:2.85+rnd()*.15]);mf.push([tt,tt<4?2.2:tt<8?0.1:tt<10.5?0:tt<22?3.9+rnd()*.2:1.3+rnd()*.12]);tf.push([tt,tt<4?2.2:tt<10.5?null:tt<22?3.75:1.25]);tmp.push([tt,(tt<4?91.2:tt<10.5?91.0:91.6)+rnd()*.2]);}cmd.push([0,2.19],[4,2.19],[10.5,3.75],[11.0,4.0],[13.5,3.82],[16.0,3.95],[19.0,4.08],[22,1.25],[24.0,1.31],[26.0,1.21]);return{raw,dec,tgt,cmd,pr,mf,tf,tmp};}
+let rawOn=true;
+function drawHxFlow(id,tEnd){const{ctx,w,h}=setup(id);const d=hxData(tEnd);const xMax=34,yMin=0,yMax=8;bands(ctx,w,h,pad,xMax,BANDS);axes(ctx,w,h,pad,yMin,yMax,v=>v.toFixed(0));line(ctx,d.tgt,pad,w,h,xMax,yMin,yMax,C.target,1.2,[5,4]);line(ctx,d.dec,pad,w,h,xMax,yMin,yMax,C.decaid,1.4);if(rawOn)line(ctx,d.raw,pad,w,h,xMax,yMin,yMax,C.raw,1.8);vecArrows(ctx,CHECKS.filter(c=>c[0]<=tEnd),pad,w,h,xMax,yMin,yMax);nowLine(ctx,w,h,pad,xMax,tEnd);}
+function drawHxPress(id,tEnd){const{ctx,w,h}=setup(id);const d=hxData(tEnd);const xMax=34,yMin=0,yMax=10;const p2={l:pad.l,r:32,t:pad.t,b:pad.b};bands(ctx,w,h,pad,xMax,BANDS);axes(ctx,w,h,pad,yMin,yMax,v=>v.toFixed(0));ctx.fillStyle=C.temp;ctx.font='10px ui-monospace,monospace';for(let i=0;i<=4;i++){const y=p2.t+(h-p2.t-p2.b)*i/4;ctx.fillText((10-2.5*i).toFixed(0),w-26,y+3);}line(ctx,d.tf,pad,w,h,xMax,yMin,yMax,C.target,1.2,[5,4]);line(ctx,d.mf,pad,w,h,xMax,yMin,yMax,C.mflow,1.2);line(ctx,d.pr,pad,w,h,xMax,yMin,yMax,C.press,1.6);stepLine(ctx,d.cmd,pad,w,h,xMax,yMin,yMax,C.cmd,1.8);line(ctx,d.tmp.map(q=>[q[0],tempNorm(q[1])]),p2,w,h,xMax,0,10,C.temp,1.6);nowLine(ctx,w,h,pad,xMax,tEnd);}
+function plainData(tEnd){const raw=[],dec=[],pr=[],mf=[],tmp=[];let s=13;const rnd=()=>(s=(s*16807)%2147483647)/2147483647-.5;for(let tt=0;tt<=tEnd;tt+=.1){const v=tt<6?0.8+0.4*Math.sin(tt):tt<10?2.6:2.3+(tt-10)*0.02;raw.push([tt,v+rnd()*.4]);dec.push([tt,v+rnd()*.15]);pr.push([tt,tt<6?3+tt*.8:tt<10?8.8:8.8-(tt-10)*.28+rnd()*.2]);mf.push([tt,tt<6?1.2:2.05+rnd()*.15]);tmp.push([tt,88.1+rnd()*.2]);}return{raw,dec,pr,mf,tmp};}
+function drawPlainFlow(id,tEnd){const{ctx,w,h}=setup(id);const d=plainData(tEnd);const xMax=30,yMin=0,yMax=6;axes(ctx,w,h,pad,yMin,yMax,v=>v.toFixed(0));line(ctx,d.dec,pad,w,h,xMax,yMin,yMax,C.decaid,1.4);if(rawOn)line(ctx,d.raw,pad,w,h,xMax,yMin,yMax,C.raw,1.8);nowLine(ctx,w,h,pad,xMax,tEnd);}
+function drawPlainPress(id,tEnd){const{ctx,w,h}=setup(id);const d=plainData(tEnd);const xMax=30,yMin=0,yMax=12;const p2={l:pad.l,r:32,t:pad.t,b:pad.b};axes(ctx,w,h,pad,yMin,yMax,v=>v.toFixed(0));ctx.fillStyle=C.temp;ctx.font='10px ui-monospace,monospace';for(let i=0;i<=4;i++){const y=p2.t+(h-p2.t-p2.b)*i/4;ctx.fillText((10-2.5*i).toFixed(0),w-26,y+3);}line(ctx,d.mf,pad,w,h,xMax,yMin,yMax,C.mflow,1.2);line(ctx,d.pr,pad,w,h,xMax,yMin,yMax,C.press,1.6);line(ctx,d.tmp.map(q=>[q[0],tempNorm(q[1])]),p2,w,h,xMax,0,10,C.temp,1.6);nowLine(ctx,w,h,pad,xMax,tEnd);}
+function drawAll(){drawHxFlow('c1',26.5);drawHxPress('c2',26.5);drawPlainFlow('c4',18.7);drawPlainPress('c5',18.7);drawHxFlow('c7',28.4);}
+window.addEventListener('resize',drawAll);
+window.addEventListener('load',()=>{requestAnimationFrame(drawAll);});
+
+// ---- 拨轮 ----
+const dialState={temp:{v:92,min:70,max:100,step:.5},weight:{v:36,min:10,max:120,step:.5},temp2:{v:88,min:70,max:100,step:.5},weight2:{v:40,min:10,max:120,step:.5}};
+function renderDial(key){const el=document.querySelector('[data-dial="'+key+'"] .dv');if(!el)return;el.textContent=dialState[key].v.toFixed(1);el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');}
+function bump(key,dir){const s=dialState[key];s.v=Math.min(s.max,Math.max(s.min,Math.round((s.v+dir*s.step)*10)/10));renderDial(key);}
+document.querySelectorAll('.dial-tri button[data-step]').forEach(b=>{b.addEventListener('click',()=>{const key=b.closest('.dial').querySelector('[data-dial]').dataset.dial;bump(key,Number(b.dataset.step));});});
+document.querySelectorAll('[data-dial]').forEach(num=>{const key=num.dataset.dial;let sy=0,sv=0,drag=false;
+  num.addEventListener('pointerdown',e=>{drag=true;sy=e.clientY;sv=dialState[key].v;num.setPointerCapture(e.pointerId);});
+  num.addEventListener('pointermove',e=>{if(!drag)return;const s=dialState[key];const d=(sy-e.clientY)/7;s.v=Math.min(s.max,Math.max(s.min,Math.round((sv+d*s.step)*10)/10));renderDial(key);});
+  num.addEventListener('pointerup',()=>{drag=false;});
+  num.addEventListener('pointercancel',()=>{drag=false;});
+});
+
+// ---- 弹窗 ----
+const dim=document.getElementById('dim');
+function openModal(inner){dim.innerHTML='<div class="modal">'+inner+'</div>';dim.hidden=false;}
+function closeModal(){dim.hidden=true;dim.innerHTML='';}
+dim.addEventListener('click',e=>{if(e.target===dim)closeModal();});
+const CURVES=[{t:'HyperEx · 低压纸日晒 (auto)',hx:1},{t:'HyperEx · 高压纸水洗 (auto)',hx:1},{t:'John Weiss 拉杆程序',hx:0},{t:'Decent 默认意式',hx:0}];
+document.getElementById('curveBtn').addEventListener('click',()=>{
+  openModal('<h3>'+t('曲线选择')+'</h3><div class="mlist">'+CURVES.map((c,i)=>'<div class="mitem'+(i===0?' sel':'')+'" data-ci="'+i+'"><span>'+c.t+'</span><span class="mtag'+(c.hx?'':' plain')+'">'+(c.hx?t('HyperEx'):t('非HyperEx'))+'</span></div>').join('')+'</div>');
+  dim.querySelectorAll('[data-ci]').forEach(it=>it.addEventListener('click',()=>{const c=CURVES[Number(it.dataset.ci)];document.getElementById('curveLb').textContent=c.t;const tag=document.getElementById('curveTag');tag.textContent=c.hx?'HyperEx · HEC':t('非 HyperEx · 只读');tag.className='curvetag'+(c.hx?'':' plain');closeModal();}));
+});
+const connBtn=document.getElementById('connBtn');
+connBtn.addEventListener('click',()=>{
+  openModal('<h3>'+t('Decaid 地址')+'</h3><input type="text" id="addrIn" value="http://127.0.0.1:8080"><div class="modal-actions"><button class="ghost" id="addrCancel">'+t('取消')+'</button><button class="primary" id="addrOk">'+t('连接')+'</button></div>');
+  document.getElementById('addrCancel').addEventListener('click',closeModal);
+  document.getElementById('addrOk').addEventListener('click',()=>{const v=document.getElementById('addrIn').value.trim();const ok=/^https?:\/\/.+/.test(v);connBtn.className='connbtn '+(ok?'ok':'bad');connBtn.querySelector('.lb').textContent=ok?v.replace(/^https?:\/\//,''):t('连接失败');closeModal();});
+});
+// ---- 模式下拉 ----
+const modeBtn=document.getElementById('modeBtn'),modePanel=document.getElementById('modePanel');
+modeBtn.addEventListener('click',e=>{e.stopPropagation();modePanel.hidden=!modePanel.hidden;});
+document.addEventListener('click',()=>{modePanel.hidden=true;});
+modePanel.querySelectorAll('[data-mode]').forEach(it=>it.addEventListener('click',()=>{modePanel.querySelectorAll('.modedrop-item').forEach(x=>x.classList.remove('sel'));it.classList.add('sel');document.getElementById('modeLb').textContent=t(it.dataset.mode);modePanel.hidden=true;}));
+// ---- RAW 开关 ----
+document.getElementById('rawTgl').addEventListener('click',function(){rawOn=!rawOn;this.classList.toggle('on',rawOn);drawHxFlow('c1',26.5);});
+// ---- 语言 ----
+document.getElementById('langSel').addEventListener('change',function(){LANG=this.value;applyLang();});
+// ---- 咖啡机休眠 ----
+const MOON='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+let machineAsleep=false;
+const sleepBtn=document.getElementById('sleepBtn');
+function renderSleepState(){
+  document.getElementById('sleepIc').innerHTML=machineAsleep?SUN:MOON;
+  const lb=document.getElementById('sleepLb');const k=machineAsleep?'唤醒':'咖啡机休眠';lb.dataset.i18n=k;lb.textContent=t(k);
+  sleepBtn.classList.toggle('wake',machineAsleep);
+  const pill=document.getElementById('de1Pill2'),st=document.getElementById('de1State2');
+  pill.classList.toggle('sleep',machineAsleep);const sk=machineAsleep?'已休眠':'萃取中';st.dataset.i18n=sk;st.textContent=t(sk);
+  document.getElementById('recPill2').style.display=machineAsleep?'none':'';
+}
+sleepBtn.addEventListener('click',()=>{
+  if(machineAsleep){machineAsleep=false;renderSleepState();return;}
+  openModal('<h3>'+t('休眠标题')+'</h3><p class="modal-note">'+t('休眠说明')+'</p><div class="modal-actions"><button class="ghost" id="sleepCancel">'+t('取消')+'</button><button class="primary" id="sleepOk">'+t('咖啡机休眠')+'</button></div>');
+  document.getElementById('sleepCancel').addEventListener('click',closeModal);
+  document.getElementById('sleepOk').addEventListener('click',()=>{machineAsleep=true;renderSleepState();closeModal();});
+});
+buildLegends();
+</script>
+</body>
+</html>

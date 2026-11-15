@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121418">
+<title>HyperExController</title>
+<style>
+:root{color-scheme:dark;--tech:'Orbitron','Segoe UI',ui-monospace,monospace}
+@font-face{font-family:'Orbitron';font-style:normal;font-weight:500 800;font-display:swap;src:url(orbitron.woff2) format('woff2')}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+/* 顶栏胶囊/按钮统一高度 */
+header .modedrop-btn,header .de1pill,header .hb,header .sleepbtn,header .fetchbtn{height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;line-height:1}
+header #lang{height:34px;padding:0 8px}
+html,body{margin:0;height:100%}
+body{background:#121418;color:#e8eaee;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #262a31;background:#171a1f;flex:none;min-width:0}
+h1{font-size:17px;margin:0;letter-spacing:.02em}
+.appver{font-size:12px;font-weight:400;color:#8b93a1;margin-left:6px;letter-spacing:0}
+header .status{margin-left:auto;font-size:12px;color:#9fd4a8;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header .status.busy{color:#e9c276}
+.fetchbtn{flex:none;display:inline-flex;align-items:center;gap:7px;background:#e8833a;color:#1a1208;border:0;border-radius:9px;padding:7px 13px;font-size:13px;line-height:1.5;font-weight:700;cursor:pointer;transition:filter .12s,transform .08s;white-space:nowrap}
+.fetchbtn:hover{filter:brightness(1.08)}
+.fetchbtn:active{transform:scale(.96)}
+.fetchbtn .fetch-count{font:11px ui-monospace,monospace;font-weight:600;background:rgba(26,18,8,.18);border-radius:6px;padding:1px 6px;min-width:34px;text-align:center}
+.fetchbtn.busy{filter:saturate(.7) brightness(.92);cursor:default}
+.fetchbtn.busy .fetch-ico{display:inline-block;animation:fetchspin 1s linear infinite}
+@keyframes fetchspin{to{transform:rotate(360deg)}}
+.de1pill{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;line-height:1.5;font-weight:700;border-radius:999px;padding:7px 11px;background:#2a2f37;color:#cfd5de;white-space:nowrap}
+.de1pill .dot{width:7px;height:7px;border-radius:50%;background:#8b93a1;flex:none}
+.de1pill.sleeping{background:#20304d;color:#9cc0ff}
+.de1pill.sleeping .dot{background:#6ea8fe}
+.de1pill.idle{background:#173a2a;color:#8fe0b0}
+.de1pill.idle .dot{background:#7ed492}
+.de1pill.espresso{background:#3d2c17;color:#f5c078}
+.de1pill.espresso .dot{background:#e8833a;animation:de1pulse 1.2s ease-in-out infinite}
+.de1pill.off{background:#2a2f37;color:#8b93a1}
+@keyframes de1pulse{50%{opacity:.35}}
+@media (max-width:600px){header{gap:8px;padding:10px 12px}h1{font-size:15px}.fetchbtn{padding:6px 10px;font-size:12px}.fetchbtn .fetch-count{min-width:30px}.de1pill{font-size:12px;padding:6px 10px}}
+@media (max-width:480px){header h1{display:none}header .status{font-size:11px}.fetchbtn{padding:6px 9px;font-size:12px;gap:5px}.de1pill{padding:6px 9px}}
+main{flex:1;display:flex;min-height:0}
+aside{width:340px;flex:none;border-right:1px solid #262a31;padding:14px;overflow-y:auto;overflow-x:hidden}
+section.view{flex:1;min-width:0;padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column}
+fieldset{border:1px solid #2b3038;border-radius:10px;margin:0 0 12px;padding:10px 12px;min-width:0}
+legend{font-size:11px;letter-spacing:.08em;color:#8b93a1;padding:0 4px}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;font-size:13px;color:#c6ccd6}
+input[type=text],input[type=url]{width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:9px 10px;font:13px ui-monospace,monospace}
+select{background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:8px;font:13px ui-monospace,monospace;width:100%}
+button{border:0;border-radius:10px;padding:11px 14px;font-size:14px;font-weight:700;cursor:pointer;background:#2a2f37;color:#cfd5de;transition:filter .12s,transform .08s}
+button:not(:disabled):hover{filter:brightness(1.15)}
+button:not(:disabled):active{transform:scale(.97)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:#e8833a;color:#1a1208;width:100%;margin-top:6px}
+button.ghost{width:100%;margin-top:8px}
+.cupdrop{position:relative}
+.cupdrop-btn{display:flex;align-items:center;gap:8px;width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:9px 10px;font:13px ui-monospace,monospace;text-align:left;cursor:pointer}
+.cupdrop-btn .cupdrop-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cupdrop-btn .cupdrop-arrow{flex:none;color:#8b93a1;font-size:11px;transition:transform .15s}
+.cupdrop.open .cupdrop-btn{border-color:#e8833a}
+.cupdrop.open .cupdrop-arrow{transform:rotate(180deg)}
+.cupdrop-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#14171c;border:1px solid #333a44;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);max-height:300px;overflow-y:auto;overscroll-behavior:contain;padding:4px}
+.cupdrop-panel::-webkit-scrollbar{width:10px}
+.cupdrop-panel::-webkit-scrollbar-track{background:#0e1116;border-radius:5px}
+.cupdrop-panel::-webkit-scrollbar-thumb{background:#3a4150;border-radius:5px;border:2px solid #0e1116}
+.cupdrop-panel::-webkit-scrollbar-thumb:hover{background:#4a5264}
+.cupdrop-panel{scrollbar-width:thin;scrollbar-color:#3a4150 #0e1116}
+.cupdrop-item{padding:8px 10px;border-radius:7px;font:12px ui-monospace,monospace;color:#c6ccd6;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cupdrop-item:hover{background:#222732}
+.cupdrop-item.sel{background:#2c3442;color:#e8eaee;box-shadow:inset 3px 0 0 #e8833a}
+.cupdrop-item.sel{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word}
+.cupdrop-item.bad{background:#2a1518;color:#e09aa2}
+.cupdrop-item.bad:hover{background:#33191d}
+.cupdrop-item.bad.sel{background:#33191d;color:#f2b8be;box-shadow:inset 3px 0 0 #c96470}
+.cupdrop.compact{flex:none}
+.cupdrop.compact .cupdrop-btn{width:auto;padding:8px 10px;font-size:13px}
+.cupdrop.compact .cupdrop-panel{left:auto;right:0;min-width:110px;max-height:260px}
+.cupdrop.compact .cupdrop-item{text-align:right}
+.cupdrop.compact .cupdrop-item.sel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note{font-size:12px;color:#8b93a1;margin:8px 0 0}
+.cards{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,1.5fr);gap:8px;margin-bottom:12px;flex:none;container-type:inline-size}
+.card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:8px 10px;min-width:0}
+/* 标题与主数值同一字号（以整行为容器基准，七卡一致）；辅助小字单独缩小 */
+.card .k{font-size:16px;font-size:clamp(9px,1.6cqw,16px);color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .v{font-size:16px;font-size:clamp(9px,1.6cqw,16px);font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.card .v .vs{font-size:11px;font-size:clamp(7px,1.1cqw,11px);font-weight:400;color:#8b93a1;margin-left:5px}
+.card .v.vflow{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.card .v .phasepill{font-size:16px;font-size:clamp(9px,1.6cqw,16px)}
+.card .s{font-size:10px;font-size:clamp(7px,1.1cqw,10px);color:#8b93a1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phasepill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.good{color:#7ed492}.warn{color:#e9c276}.bad{color:#f2909a}
+.chartbox{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px 4px;margin-bottom:10px;flex:none}
+.chartbox h3{margin:2px 0 4px;font-size:12px;color:#aab2bf;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.charthandle{flex:none;cursor:grab;color:#5b6472;padding:2px 8px;margin:-2px 0 -2px -6px;border-radius:6px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-size:13px;letter-spacing:1px}
+.charthandle:hover{color:#9aa3b2;background:#222732}
+.chartbox.dragging{opacity:.35}
+.chartbox.drop-target{border-color:#e8833a;box-shadow:0 0 0 1px rgba(232,131,58,.4)}
+.chartghost{position:fixed;left:0;top:0;z-index:99;margin:0;pointer-events:none;opacity:.92;border-color:#e8833a;box-shadow:0 10px 30px rgba(0,0,0,.55);will-change:transform}
+body.chart-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
+canvas{width:100%;height:150px;display:block;touch-action:pan-y}
+.events{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px;font:12px ui-monospace,monospace;color:#aeb6c2;max-height:220px;overflow:auto;flex:none}
+.events .row{display:flex;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.events .row:hover{background:#222732}
+.events .row.now{background:#2c3442;color:#e8eaee}
+.events .row .t{color:#7d8592;flex:none;width:64px;text-align:right}
+.events .row .tag{flex:none;width:150px;overflow:hidden;text-overflow:ellipsis}
+.events .row.trace .tag{color:#d5a8f5}
+.events .row:not(.trace) .tag{color:#9cc0ff}
+.events .row .d{overflow:hidden;text-overflow:ellipsis}
+.transport{position:sticky;top:-14px;z-index:5;background:#171a1f;border:1px solid #2a2f38;border-radius:12px;padding:10px 12px;margin-bottom:12px;flex:none}
+.tbar{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0}
+.tbar button{padding:10px 12px;font-size:15px;min-width:44px}
+.tbar button.play{background:#e8833a;color:#1a1208;min-width:86px}
+.tbar button.play.active{box-shadow:0 0 0 2px rgba(232,131,58,.35)}
+.tbar select{width:auto;padding:8px}
+.tbar label{margin:0;font-size:13px}
+.tbar .pos{margin-left:auto;font:13px ui-monospace,monospace;color:#c6ccd6;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:6px 0 0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:#2b3038}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#e8833a;margin-top:-7px;border:0}
+input[type=range]:disabled{opacity:.4;cursor:default}
+.phasepill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#2a2f37;color:#cfd5de}
+.evdata{margin:4px 0 0;font:12px ui-monospace,monospace;color:#c6ccd6;white-space:pre-wrap;max-height:220px;overflow:auto}
+.rawtoggle{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:11px;color:#8b93a1;cursor:pointer;font-weight:400;flex:none}
+.rawtoggle input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.rawtoggle .sw{flex:none;width:30px;height:17px;border-radius:999px;background:#2b3038;border:1px solid #3a4150;position:relative;transition:background .15s,border-color .15s}
+.rawtoggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#8b93a1;transition:transform .15s,background .15s}
+.rawtoggle input:checked + .sw{background:#e8833a;border-color:#e8833a}
+.rawtoggle input:checked + .sw::after{transform:translateX(13px);background:#1a1208}
+.chartlegend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;min-width:0;flex:1;margin-left:8px;font-size:11px;font-weight:400;color:#aab2bf}
+.charttitle{flex:none;margin-left:10px}
+.chartlegend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.chartlegend .lg i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+.chartlegend .lg.dash i{background:transparent !important;border-top:2px dashed currentColor;height:0;border-radius:0}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#2b3038;border-radius:4px}
+*{scrollbar-width:thin;scrollbar-color:#2b3038 transparent}
+.modal-dim{position:fixed;inset:0;z-index:50;background:rgba(6,8,10,.74);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal{width:100%;max-width:340px;background:#191d23;border:1px solid #333a44;border-radius:14px;padding:16px 16px 14px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.modal h3{margin:0 0 3px;font-size:16px;font-weight:700}
+.modal .why{margin:0 0 12px;font-size:12px;color:#8b93a1}
+.plug{display:flex;align-items:flex-start;gap:10px;background:#14171c;border:1px solid #2a2f38;border-radius:10px;padding:10px 11px;margin-bottom:8px}
+.plug .ico{flex:none;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;margin-top:1px}
+.plug.hx .ico{background:#3d2c17;color:#f5c078}
+.plug.rc .ico{background:#20304d;color:#9cc0ff}
+.plug .nm{font-size:13.5px;font-weight:700}
+.plug .ver{font-size:11px;color:#8b93a1;font-variant-numeric:tabular-nums}
+.plug .desc{font-size:11px;color:#8b93a1;margin-top:2px}
+.plug .badge{flex:none;margin-left:auto;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.plug .badge.ok{background:#173a2a;color:#8fe0b0}
+.plug .badge.no{background:#3d1d22;color:#f2a0aa}
+.ghbtn{display:block;width:100%;margin-top:2px;background:#2a2f37;color:#cfd5de;border:0;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:700;text-align:left;cursor:pointer}
+.ghbtn small{display:block;font-weight:400;font-size:11px;color:#8b93a1;font-family:ui-monospace,monospace;margin-top:1px}
+.modal-actions{display:flex;gap:8px;margin-top:13px}
+.modal-actions button{flex:1;border:0;border-radius:10px;padding:11px 10px;font-size:14px;font-weight:700;cursor:pointer}
+.modal-actions .primary{background:#e8833a;color:#1a1208}
+.modal-actions .ghost{background:#2a2f37;color:#cfd5de}
+.modal-foot{margin-top:10px;font-size:11px;color:#6b7380;text-align:center}
+@media (max-width:900px){main{flex-direction:column;overflow-y:auto}aside{width:100%;border-right:0;border-bottom:1px solid #262a31;overflow:visible}section.view{overflow:visible}}
+@media (max-width:600px){.cards{gap:4px}.card{padding:5px 4px;border-radius:7px}}
+@media (max-width:340px){.cards{gap:3px}.card{padding:4px 3px}}
+@media (max-width:560px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:400px){.cards .card:nth-child(2){grid-column:span 2}}
+/* ---- 控制页（HEC）---- */
+.modedrop{position:relative;flex:none}
+.modedrop-btn{display:inline-flex;align-items:center;gap:6px;background:#20304d;color:#9cc0ff;border:1px solid #33507e;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer}
+.modedrop-btn .arr{font-size:10px;color:#6f87ad}
+.modedrop-panel{position:absolute;left:0;top:calc(100% + 6px);z-index:40;background:#14171c;border:1px solid #333a44;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55);padding:4px;min-width:210px}
+.modedrop-item{padding:9px 12px;border-radius:7px;font-size:13px;color:#c6ccd6;white-space:nowrap;display:flex;align-items:center;gap:8px;cursor:pointer}
+.modedrop-item .sub{font-size:11px;color:#8b93a1}
+.modedrop-item.sel{background:#2c3442;color:#e8eaee;box-shadow:inset 3px 0 0 #6ea8fe}
+.hb{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:6px 11px;white-space:nowrap}
+.hb.ok{background:#173a2a;color:#8fe0b0}
+.hb.bad{background:#3d1d22;color:#f2a0aa}
+.hb.off{background:#2a2f37;color:#8b93a1}
+.hb.rec{background:#20304d;color:#9cc0ff}
+.hb .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.hb.rec .dot{animation:recpulse 1.2s ease-in-out infinite}
+@keyframes recpulse{50%{opacity:.35}}
+.hstat{margin-left:auto;font-size:12px;color:#9fd4a8;text-align:right;white-space:nowrap}
+.sleepbtn{flex:none;margin-left:10px;display:inline-flex;align-items:center;gap:6px;background:linear-gradient(180deg,#1c2333,#161c2a);color:#9fb4e8;border:1px solid #35426a;border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:border-color .15s,box-shadow .15s,filter .12s,transform .08s}
+#hstat[hidden] ~ .sleepbtn{margin-left:auto}
+.sleepbtn:hover{border-color:#4a5c92;box-shadow:0 0 12px rgba(110,140,254,.28);filter:brightness(1.18)}
+.sleepbtn:active{transform:scale(.95)}
+.sleepbtn .ic{display:inline-flex}
+.sleepbtn .ic svg{width:13px;height:13px;display:block}
+.sleepbtn.wake{background:linear-gradient(180deg,#2a2417,#201c12);color:#f5c078;border-color:#6b5a2e}
+.sleepbtn.wake:hover{border-color:#8a7440;box-shadow:0 0 12px rgba(245,192,120,.25)}
+.de1pill.sleep{background:#20263a;color:#9fb4e8}
+.de1pill.sleep .dot{background:#7d8db8}
+body.hec-mode main{overflow:hidden}
+body.hec-mode aside{width:216px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
+.side-k{font-size:10.5px;letter-spacing:.08em;color:#8b93a1;margin:0 0 5px}
+.dial{background:linear-gradient(180deg,#1b2027,#161a20);border:1px solid #2a2f38;border-radius:11px;padding:8px 10px 9px;user-select:none;position:relative;overflow:hidden;flex:none}
+.dial::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#6ea8fe,rgba(110,168,254,.05))}
+.dial .dial-k{font-size:11px;color:#8b93a1;margin-bottom:2px;letter-spacing:.04em}
+.dial-body{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.dial-num{flex:1;text-align:left;cursor:ns-resize;touch-action:none;padding:2px 0 2px 5px;border-radius:8px;transition:background .12s}
+.dial-num:active{background:#222732}
+.dial-num .dv{display:inline-block;font-family:var(--tech);font-weight:700;font-size:27px;line-height:1.15;color:#dceaff;font-variant-numeric:tabular-nums;letter-spacing:.03em;text-shadow:0 0 12px rgba(110,168,254,.35)}
+.dial-num .dv.bump{animation:dvbump .18s ease-out}
+@keyframes dvbump{0%{transform:scale(1.07);color:#ffffff;text-shadow:0 0 18px rgba(110,168,254,.7)}100%{transform:scale(1)}}
+.dial-num small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:3px;font-family:-apple-system,"Segoe UI",sans-serif}
+.dial-tri{display:flex;flex-direction:row;gap:4px;flex:none;align-self:flex-end;margin-bottom:7.5px}
+.dial-tri button{border:1px solid #33507e;border-radius:4px;background:linear-gradient(180deg,#232c3a,#1a212c);color:#9cc0ff;line-height:1;padding:0 11px;height:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:inset 0 1px 0 rgba(156,192,255,.12),0 0 8px rgba(110,168,254,.10);transition:filter .12s,transform .08s,box-shadow .12s;width:auto;margin:0}
+.dial-tri button svg{width:6px;height:4px;display:block;fill:currentColor}
+.dial-tri button[data-step="1"] svg{transform:translateY(-1px)}
+.dial-tri button[data-step="-1"] svg{transform:translateY(1px)}
+.dial-tri button:hover{filter:brightness(1.25);box-shadow:inset 0 1px 0 rgba(156,192,255,.2),0 0 12px rgba(110,168,254,.28)}
+.dial-tri button:active{transform:scale(.9);background:#2c3a52;box-shadow:0 0 16px rgba(110,168,254,.45)}
+.dial.locked .dial-num{cursor:default;opacity:.6}
+.dial.locked .dial-tri button{opacity:.4;cursor:default}
+.curvebtn{display:flex;align-items:flex-start;gap:8px;width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:8px 9px;font:12.5px/1.45 ui-monospace,monospace;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;margin:0}
+.curvebtn:hover{border-color:#3a4a63;box-shadow:0 0 0 1px rgba(110,168,254,.15)}
+.curvebtn .lb{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.curvebtn .arr{color:#6f87ad;font-size:11px;flex:none;margin-top:2px}
+.curvetag{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#3d2c17;color:#f5c078}
+.curvetag.plain{background:#2a2f37;color:#cfd5de}
+.applybtn{width:100%;border:0;border-radius:10px;padding:10px 14px;font-size:13.5px;font-weight:700;background:#e8833a;color:#1a1208;cursor:pointer;flex:none;margin:0}
+.applybtn:disabled{opacity:.45;cursor:default}
+.connbtn{display:flex;align-items:center;gap:7px;width:100%;border:1px solid #333a44;border-radius:9px;padding:9px 10px;font:12px ui-monospace,monospace;cursor:pointer;background:#0e1116;color:#cfd5de;margin:0}
+.connbtn .dot{width:8px;height:8px;border-radius:50%;flex:none;background:#8b93a1}
+.connbtn .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.connbtn .arr{color:#6f87ad;font-size:11px;flex:none}
+.connbtn.ok{border-color:#2c5a3c;color:#8fe0b0}
+.connbtn.ok .dot{background:#7ed492}
+.connbtn.bad{border-color:#6b2a33;color:#f2a0aa}
+.connbtn.bad .dot{background:#f2909a}
+.hecbox{background:#14171c;border:1px solid #2a2f38;border-radius:11px;padding:9px 10px;flex:none}
+.hecchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;background:#20304d;color:#9cc0ff;margin-bottom:6px}
+.hecchip .dot{width:6px;height:6px;border-radius:50%;background:#6ea8fe}
+.kv{display:flex;justify-content:space-between;gap:6px;font:11px ui-monospace,monospace;color:#aeb6c2;padding:2.5px 0}
+.kv b{color:#e8eaee;font-weight:600;text-align:right}
+.side-spacer{flex:1}
+.hec-cards{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:10px;flex:none}
+.hec-cards.plain{grid-template-columns:repeat(6,minmax(0,1fr))}
+.hec-cards .card{background:#191d23;border:1px solid #2a2f38;border-radius:10px;padding:7px 10px;min-width:0}
+.hec-cards .card .k{font-size:11.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hec-cards .card .v{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hec-cards .card .v small{font-size:11px;font-weight:400;color:#8b93a1;margin-left:2px}
+.hec-cards .card .v sup.deg{font-size:9px;font-weight:400;color:#8b93a1;margin-left:1px;vertical-align:super;line-height:0}
+.hec-chartbox{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px 6px;margin-bottom:10px;flex:1;display:flex;flex-direction:column;min-height:140px}
+.hec-chartbox h3{margin:2px 0 4px;font-size:12px;color:#aab2bf;font-weight:600;display:flex;justify-content:space-between;align-items:center;flex:none}
+.hec-chartbox .chartlegend{margin-left:0;gap:13px}
+.hec-chartbox .chartwrap{flex:1;min-height:0;position:relative}
+.hec-chartbox canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hec-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;background:#20304d;color:#cfe1ff;border:1px solid #33507e;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
+.hec-toast.show{opacity:1}
+.takeover{display:flex;align-items:center;gap:8px;background:#3d1d22;border:1px solid #6b2a33;color:#f2a0aa;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;margin-bottom:10px;flex:none}
+.modal-note{font-size:12.5px;color:#aab2bf;line-height:1.6;margin:0 0 14px}
+.mitem{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;background:#14171c;border:1px solid #2a2f38;font:12.5px ui-monospace,monospace;color:#c6ccd6;cursor:pointer}
+.mitem:hover{background:#222732}
+.mitem.sel{border-color:#6ea8fe;color:#e8eaee}
+.mitem .mtag{margin-left:auto;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#3d2c17;color:#f5c078;flex:none}
+.mitem .mtag.plain{background:#2a2f37;color:#cfd5de}
+.modal input[type=text]{width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:10px;font:13px ui-monospace,monospace;margin-bottom:12px}
+.mlist{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+@media (max-width:900px){body.hec-mode main{flex-direction:column;overflow-y:auto}body.hec-mode aside{width:100%;border-right:0;border-bottom:1px solid #262a31;overflow:visible}body.hec-mode section.view{overflow:visible}.hec-chartbox{min-height:220px}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span data-i18n="HyperExController">HyperExController</span><span class="appver" id="appVer"></span></h1>
+  <div class="modedrop" id="modeDrop">
+    <button type="button" class="modedrop-btn" id="modeBtn"><span id="modeLb" data-i18n="控制">控制</span> <span class="arr">▾</span></button>
+    <div class="modedrop-panel" id="modePanel" hidden>
+      <div class="modedrop-item sel" data-mode="control"><span data-i18n="控制">控制</span> <span class="sub" data-i18n="modeSub1">选曲线 · 调温重量 · 实时调流</span></div>
+      <div class="modedrop-item" data-mode="replay"><span data-i18n="回放">回放</span> <span class="sub" data-i18n="modeSub2">ProfileReplayer 原页</span></div>
+    </div>
+  </div>
+  <span class="de1pill off" id="de1Pill"><span class="dot"></span><span id="de1PillTxt">—</span></span>
+  <span class="hb off" id="hbPill" hidden><span class="dot"></span><span id="hbPillTxt"></span></span>
+  <span class="hb rec" id="recPill" hidden><span class="dot"></span><span data-i18n="recorder 在录">recorder 在录</span></span>
+  <span class="hstat" id="hstat" hidden></span>
+  <button type="button" class="sleepbtn" id="sleepBtn" hidden><span class="ic" id="sleepIc"></span><span id="sleepLb" data-i18n="咖啡机休眠">咖啡机休眠</span></button>
+  <button type="button" class="fetchbtn" id="manualFetch" hidden><span class="fetch-ico">⟳</span><span class="fetch-txt" data-i18n="抓取">抓取</span><span class="fetch-count" id="fetchCount">—</span></button>
+  <select id="lang" style="width:auto"><option value="zh">中文</option><option value="en">EN</option></select>
+  <span class="status" id="status" hidden>载入中…</span>
+</header>
+<main>
+<aside id="replayAside">
+  <fieldset><legend data-i18n="选择杯">选择杯</legend>
+    <select id="cup" style="display:none"><option>—</option></select>
+    <div class="cupdrop" id="cupDrop">
+      <button type="button" class="cupdrop-btn" id="cupDropBtn" aria-haspopup="listbox" aria-expanded="false"><span class="cupdrop-label" id="cupDropLabel">—</span><span class="cupdrop-arrow">▾</span></button>
+      <div class="cupdrop-panel" id="cupDropPanel" role="listbox" hidden></div>
+    </div>
+    <div class="note" id="cupInfo"></div>
+  </fieldset>
+  <fieldset><legend data-i18n="数据源 · Decaid 地址">数据源 · Decaid 地址</legend>
+    <input type="url" id="srcUrl" data-i18n-ph="http://平板IP:端口/api/v1/plugins/decenthyperexplugin.reaplugin/history-export" placeholder="http://平板IP:端口/api/v1/plugins/decenthyperexplugin.reaplugin/history-export">
+    <button class="primary" id="fetchNow" data-i18n="抓取并合并">抓取并合并</button>
+    <label style="margin-top:10px"><span data-i18n="自动抓取">自动抓取</span><input type="checkbox" id="autoOn" style="width:20px;height:20px"></label>
+    <label><span data-i18n="间隔">间隔</span><select id="autoSec" style="width:110px"><option value="30" data-i18n="30 秒">30 秒</option><option value="60" data-i18n="1 分钟">1 分钟</option><option value="120" selected data-i18n="2 分钟">2 分钟</option><option value="300" data-i18n="5 分钟">5 分钟</option><option value="600" data-i18n="10 分钟">10 分钟</option></select></label>
+    <p class="note" id="autoNote" data-i18n="默认 2 分钟抓一次，赶在插件裁剪全点（最新 4 杯）之前补全；装 APK 后后台也照抓。">默认 2 分钟抓一次，赶在插件裁剪全点（最新 4 杯）之前补全；装 APK 后后台也照抓。</p>
+  </fieldset>
+  <fieldset><legend data-i18n="本地导入">本地导入</legend>
+    <button class="ghost" id="pickFile" data-i18n="选择已下载的 JSON">选择已下载的 JSON</button>
+    <input type="file" id="fileInput" accept=".json,application/json" style="display:none">
+    <p class="note" data-i18n="兼容浏览器下载到 Download 的 hyperex-history.json，也兼容归档文件。">兼容浏览器下载到 Download 的 hyperex-history.json，也兼容归档文件。</p>
+  </fieldset>
+  <fieldset><legend data-i18n="归档">归档</legend>
+    <div class="note" id="archiveInfo">—</div>
+    <button class="ghost" id="exportArchive" data-i18n="导出归档 JSON">导出归档 JSON</button>
+    <button class="ghost" id="clearArchive" style="color:#f2909a" data-i18n="清空归档">清空归档</button>
+  </fieldset>
+</aside>
+<aside id="controlAside" hidden>
+  <div class="dial curve-card">
+    <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
+    <button type="button" class="curvebtn" id="curveBtn"><span class="lb" id="curveLb">—</span><span class="arr">▾</span></button>
+    <span class="curvetag" id="curveTag">—</span>
+  </div>
+  <div class="dial" id="dialTemp">
+    <div class="dial-k" data-i18n="萃取温度">萃取温度</div>
+    <div class="dial-body">
+      <div class="dial-num" data-dial="temp"><span class="dv">92.0</span><small>°C</small></div>
+      <div class="dial-tri"><button type="button" data-step="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-step="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></div>
+    </div>
+  </div>
+  <div class="dial" id="dialWeight">
+    <div class="dial-k" data-i18n="萃取液重">萃取液重</div>
+    <div class="dial-body">
+      <div class="dial-num" data-dial="weight"><span class="dv">36.0</span><small>g</small></div>
+      <div class="dial-tri"><button type="button" data-step="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-step="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></div>
+    </div>
+  </div>
+  <button type="button" class="applybtn" id="applyBtn" disabled data-i18n="应用">应用</button>
+  <div>
+    <div class="side-k" data-i18n="Decaid 地址">Decaid 地址</div>
+    <button type="button" class="connbtn" id="connBtn"><span class="dot"></span><span class="lb" id="connLb">—</span><span class="arr">▾</span></button>
+  </div>
+  <div class="hecbox" id="takeoverBox" hidden>
+    <div class="kv"><span data-i18n="接管原因">接管原因</span><b id="kvTakeReason">—</b></div>
+    <div class="kv"><span data-i18n="接管时刻">接管时刻</span><b id="kvTakeAt">—</b></div>
+    <div class="kv"><span data-i18n="当前指令">当前指令</span><b id="kvTakeCmd">—</b></div>
+  </div>
+  <div class="hecbox" id="hecBox">
+    <span class="hecchip"><span class="dot"></span>HEC · <span data-i18n="本杯锁定">本杯锁定</span></span>
+    <div class="kv"><span data-i18n="插件">插件</span><b id="kvVer">—</b></div>
+    <div class="kv"><span data-i18n="逻辑帧">逻辑帧</span><b id="kvFrame">—</b></div>
+    <div class="kv"><span data-i18n="基值/当前">基值/当前</span><b id="kvCmd">—</b></div>
+    <div class="kv"><span data-i18n="目标杯流">目标杯流</span><b id="kvTarget">—</b></div>
+    <div class="kv"><span data-i18n="限压">限压</span><b id="kvLimiter">—</b></div>
+    <div class="kv"><span data-i18n="预算">预算</span><b id="kvBudget">—</b></div>
+    <div class="kv"><span data-i18n="拒绝">拒绝</span><b id="kvRejects">—</b></div>
+  </div>
+  <div class="side-spacer"></div>
+</aside>
+<section class="view" id="replayView">
+  <div class="transport">
+    <div class="tbar">
+      <button id="btnStart" title="开头">⏮︎</button>
+      <button id="btnPrevEv" title="上一个事件">⏪︎</button>
+      <button id="btnRev" class="play">◀ 倒放</button>
+      <button id="btnPlay" class="play">顺放 ▶</button>
+      <button id="btnNextEv" title="下一个事件">⏩︎</button>
+      <button id="btnEnd" title="结尾">⏭︎</button>
+      <select id="speed" style="display:none"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="10">10×</option></select>
+      <div class="cupdrop compact" id="speedDrop">
+        <button type="button" class="cupdrop-btn" id="speedDropBtn" aria-haspopup="listbox" aria-expanded="false"><span class="cupdrop-label" id="speedDropLabel">1×</span><span class="cupdrop-arrow">▾</span></button>
+        <div class="cupdrop-panel" id="speedDropPanel" role="listbox" hidden></div>
+      </div>
+      <label><input type="checkbox" id="loop"> <span data-i18n="循环">循环</span></label>
+      <span class="pos" id="pos">— / —</span>
+    </div>
+    <input type="range" id="scrub" min="0" max="0" value="0" step="1" disabled>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="chartbox" data-chart="cFlow"><h3><span class="charthandle" title="长按拖动排序">⠿</span><span class="chartlegend" id="legend-cFlow"></span><label class="rawtoggle"><input type="checkbox" id="rawToggle"><span class="sw"></span>RAW dW/dt</label><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><canvas id="cFlow"></canvas></div>
+  <div class="chartbox" data-chart="cWeight"><h3><span class="charthandle" title="长按拖动排序">⠿</span><span class="chartlegend" id="legend-cWeight"></span><span class="charttitle" data-i18n="秤重 (g)">秤重 (g)</span></h3><canvas id="cWeight"></canvas></div>
+  <div class="chartbox" data-chart="cPress"><h3><span class="charthandle" title="长按拖动排序">⠿</span><span class="chartlegend" id="legend-cPress"></span><span class="charttitle" data-i18n="压力 (bar) · 流量 (ml/s)">压力 (bar) · 流量 (ml/s)</span></h3><canvas id="cPress"></canvas></div>
+  <div class="events" id="log"></div>
+</section>
+<section class="view" id="controlView" hidden>
+  <div class="takeover" id="takeoverBanner" hidden data-i18n="接管横幅">插件已接管本杯 · 指令已收回基值，曲线继续</div>
+  <div class="hec-cards" id="hecCards"></div>
+  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
+  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgPress"></span><span class="charttitle" data-i18n="温度">温度</span></h3><div class="chartwrap"><canvas id="hcPress"></canvas></div></div>
+</section>
+</main>
+<div class="modal-dim" id="hecDim" hidden></div>
+<script src="archive-core.js"></script>
+<script src="app.js"></script>
+<script src="control.js"></script>
+</body>
+</html>
+
