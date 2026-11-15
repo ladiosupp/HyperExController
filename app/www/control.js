@@ -204,7 +204,7 @@
       run.phases.push({ t: 0, phase: ph });
       run.lastPhase = ph;
     }
-    if (!extracting && run && (st === 'idle' || st === 'ready' || st === 'sleeping')) { run = null; }
+    if (!extracting && run && (st === 'idle' || st === 'ready' || st === 'sleeping')) { run = null; if (window.HxShadow) window.HxShadow.onCupEnd(); }
     renderHeaderState();
     drawCharts();
   }
@@ -233,10 +233,23 @@
     scale = { weight, weightFlow: Number.isFinite(wf) ? wf : null, raw, tare, at: now };
     if (run) {
       run.lastWeight = weight; if (stamp != null) run.lastStamp = stamp;
-      const s = { t: runT(), weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix };
+      const s = { t: runT(), stamp, weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix };
       run.samples.push(s);
       if (run.samples.length > 4000) run.samples.shift();
       maybeCheck(s);
+      // 影子推理钩子：只记录不发送（shadow.js），特征/回归在模块内自算
+      if (window.HxShadow) {
+        window.HxShadow.onSample({
+          run, runId: ext && ext.runId, sample: s,
+          phase: (ext && ext.phase) || run.lastPhase, extracting: !!(ext && ext.extracting),
+          takeover: !!(ext && ext.takeover), targetGS: ext && ext.targetGS,
+          commandMlS: ext && ext.lastCommandMlS, baseCommandMlS: ext && ext.baseCommandMlS,
+          frame: ext && ext.logicalFrame, pressureBar: machine && machine.pressure,
+          machineFlowMlS: machine && machine.flow, cumulativeWeightG: weight,
+          limiterBar: ext && ext.limiterBar,
+          trendAngleDeg: lastCheck ? lastCheck.ang : null, predictedGS: null, rescue: false,
+        });
+      }
     }
     renderCards();
     drawCharts();
@@ -805,6 +818,7 @@
       try { baseUrl = (await dbGet('hecBaseUrl')) || ''; } catch (_) { baseUrl = ''; }
       const savedMode = await dbGet('hecMode').catch(() => null);
       initDials();
+      if (window.HxShadow) window.HxShadow.load();
       $('curveBtn').addEventListener('click', openCurveModal);
       $('connBtn').addEventListener('click', openAddrModal);
       $('applyBtn').addEventListener('click', applyDials);
@@ -839,7 +853,7 @@
     _injectScale: onScaleSnapshot,
     // 联调/回归用：注入检测点并重画（验证超长示意标注）
     _injectChecks: function (cks) { checks = cks.slice(); lastCheck = checks[checks.length - 1] || null; drawCharts(); },
-    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0 }; },
+    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
   };
 })();
 

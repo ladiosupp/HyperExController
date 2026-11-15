@@ -40,6 +40,23 @@ public class HxBridge {
         }
     }
 
+    // 读 assets 文件为 base64（影子推理的模型/wasm；file:// 页面 fetch 会被 WebView 拦）。
+    // 同步返回：调用方在子线程/异步流程里用，最大的是 wasm ~15MB。
+    @JavascriptInterface
+    public String readAssetBase64(String path) {
+        try {
+            java.io.InputStream is = ctx.getAssets().open(path);
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = is.read(buf)) > 0) bos.write(buf, 0, n);
+            is.close();
+            return Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     // 插件安装检测：WebView 直接 fetch Decaid 会被 CORS 拦（接口无 CORS 头），
     // 走原生 HTTP 子线程读 /api/v1/plugins，完成后 evaluateJavascript 回调网页。
     // 只取 id/version/loaded 三项，不把整份插件列表塞进网页。
