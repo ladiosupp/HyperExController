@@ -11,8 +11,19 @@
   const RECORDER_ID = 'profilerecorder.reaplugin';
   const MIN_PLUGIN = [2, 2, 48];
   const TARE_RESET_THRESHOLD_G = 2.0;
-  const TEMP_LO = 88, TEMP_HI = 96;
-  const tempNorm = (c) => Math.max(0, Math.min(10, (c - TEMP_LO) / (TEMP_HI - TEMP_LO) * 10));
+  // 温度纵轴自适应量程：按本杯实测 min/max ±15% 边距（≥1°C）向外取整，最小跨度 6°C，
+  // 目标温度纳入量程；无数据回退 88–96。每次重绘按当前样本重算（只随数据增长而扩，不缩）。
+  function tempRange(samples, target) {
+    const vals = [];
+    for (const s of samples) if (s && s.temp != null && Number.isFinite(s.temp)) vals.push(s.temp);
+    if (target != null && Number.isFinite(target)) vals.push(target);
+    if (!vals.length) return { lo: 88, hi: 96 };
+    let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    const pad = Math.max(1, (hi - lo) * 0.15);
+    lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
+    if (hi - lo < 6) { const c = (hi + lo) / 2; lo = Math.floor(c - 3); hi = Math.ceil(c + 3); }
+    return { lo, hi };
+  }
   const C = { raw: '#63d89b', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
   const PHASE_LABEL = { stage1: 'S1', stage2: 'S2', stage3: 'S3', dumping: '泄压', soak: '浸泡', restart_wait: '等 GHC', finishing: '收尾', idle: 'IDLE', aborted: '中止' };
   const PHASE_PILL = { stage1: ['#20304d', '#9cc0ff'], stage2: ['#3d2c17', '#f5c078'], stage3: ['#173a2a', '#8fe0b0'], dumping: ['#3d1d22', '#f2a0aa'], soak: ['#322040', '#d5a8f5'], idle: ['#2a2f37', '#cfd5de'] };
@@ -168,7 +179,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.5'; } catch (_) { return '0.5'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.6'; } catch (_) { return '0.6'; } }
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
@@ -803,17 +814,18 @@
       const { ctx, w, h } = b;
       const yMin = 0, yMax = 10;
       const p2 = { l: pad.l, r: 32, t: pad.t, b: pad.b };
+      const tr = tempRange(samples, dial.temp.v);
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
       axes(ctx, w, h, pad, yMin, yMax);
       ctx.fillStyle = C.temp; ctx.font = '10px ui-monospace,monospace';
-      for (let i = 0; i <= 4; i++) { const y = p2.t + (h - p2.t - p2.b) * i / 4; ctx.fillText((10 - 2.5 * i).toFixed(0), w - 26, y + 3); }
+      for (let i = 0; i <= 4; i++) { const y = p2.t + (h - p2.t - p2.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
       if (hx) {
         line(ctx, samples.map((s) => [s.t, s.tcmd]), pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
         stepLine(ctx, run ? run.cmd : [], pad, w, h, xMax, yMin, yMax, C.cmd, 1.8);
       }
       line(ctx, samples.map((s) => [s.t, s.mflow]), pad, w, h, xMax, yMin, yMax, C.mflow, 1.2);
       line(ctx, samples.map((s) => [s.t, s.pressure]), pad, w, h, xMax, yMin, yMax, C.press, 1.6);
-      line(ctx, samples.map((s) => [s.t, s.temp != null ? tempNorm(s.temp) : null]), p2, w, h, xMax, 0, 10, C.temp, 1.6);
+      line(ctx, samples.map((s) => [s.t, s.temp]), p2, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
       if (run) nowLine(ctx, w, h, pad, xMax, runT());
     }
     renderLegends(hx);
