@@ -585,7 +585,12 @@
     if (!c || !baseUrl) return;
     if (ext && ext.extracting) { toast(t('本杯进行中')); return; }
     // 切曲线随带拨轮当前液重（用户 2026-11-16 拍板）：Decaid 深合并不重置 context，不带就沿用旧目标（0 = 不停杯）。
-    const r = await httpJson('PUT', '/api/v1/workflow', { profile: c.profile, context: { targetYield: dial.weight.v } });
+    // HX 曲线例外（2026-11-17 修）：停杯由插件在 finalWeight 写 Idle，SAW 目标必须跟曲线自己的 target_weight
+    // （通常 0 = 禁用 SAW），不能注入拨轮残留液重，否则 Decaid 按残留值提前停杯
+    // （11-17 真机两杯 HX auto 在 S2 中途被拉杆残留的 26g 停掉）。与 Streamline profileManager 同口径。
+    const hxTw = Number(c.profile && c.profile.target_weight);
+    const yieldV = c.hx ? (Number.isFinite(hxTw) ? hxTw : 0) : dial.weight.v;
+    const r = await httpJson('PUT', '/api/v1/workflow', { profile: c.profile, context: { targetYield: yieldV } });
     if (!r.ok) { toast(t('切换失败') + ': HTTP ' + r.status); return; }
     selectedCurve = c; savedProfile = c.profile;
     await loadWorkflow();
