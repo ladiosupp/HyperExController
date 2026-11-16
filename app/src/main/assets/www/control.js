@@ -128,6 +128,8 @@
   let machineSubstate = '';        // 机器子状态（加热判定兜底）
   let helloBusy = false;           // 主动握手进行中
   let tareBusy = false;            // 去皮请求进行中
+  // 杯流卡显示层稳定化（用户 2026-11-17 定）：weightFlow 优先 RAW 兜底 + EMA0.5 + 0.5s 刷新 + 杯内断档保持；不碰样本/曲线/影子
+  let flowDisp = null, flowAt = 0, flowRunRef = null;
   let takeLast = null;
   let stageWeights = null;         // 阶段目标重量 {stage2, final}：calibration-status curveEditor.stageWeights
                                    // （external-status 不带此字段；影子救急 remainingS 需要）
@@ -285,6 +287,7 @@
       if (Number.isFinite(pf) && pf !== run.lastStep) { run.steps.push({ t: runT(), step: pf }); run.lastStep = pf; }
     }
     renderHeaderState();
+    renderCards();
     drawCharts();
   }
   // ---- 杯末直写回放归档（用户 2026-11-15 定）：全点含 mix 温度，不经插件导出 ----
@@ -719,7 +722,14 @@
     html += card(t('时刻'), mm + ':' + (ss < 10 ? '0' : '') + ss);
     if (hx) html += card(t('相位'), '<span class="phasepill' + (phase === 'idle' ? ' idle' : '') + '" style="background:' + pill[0] + ';color:' + pill[1] + '">' + esc(phaseName(phase)) + '</span>');
     html += '<div class="card tareable" id="tareCard" title="' + esc(t('去皮')) + '"><div class="k">' + t('秤重') + '</div><div class="v">' + f1(s.weight) + '<small>g</small></div></div>';
-    html += card(t('杯流'), f2(s.decaid != null ? s.decaid : s.raw) + '<small>g/s</small>');
+    if (run !== flowRunRef) { flowRunRef = run; flowDisp = null; flowAt = 0; }
+    if (!run || runEnded) flowDisp = null;
+    else {
+      const cand = Number.isFinite(s.weightFlow) ? s.weightFlow : (Number.isFinite(s.raw) ? s.raw : null);
+      const nowMs = Date.now();
+      if (cand != null && nowMs - flowAt >= 500) { flowDisp = flowDisp == null ? cand : flowDisp + (cand - flowDisp) * 0.5; flowAt = nowMs; }
+    }
+    html += card(t('杯流'), f2(flowDisp) + '<small>g/s</small>');
     html += card(t('压力'), f2(m.pressure) + '<small>bar</small>');
     html += card(t('温度'), f1(m.mix) + '<small>°C</small>');
     if (hx) html += card(t('趋势角'), (lastCheck ? lastCheck.ang : '—') + '<sup class="deg">°</sup>');
