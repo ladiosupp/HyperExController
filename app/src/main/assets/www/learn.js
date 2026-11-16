@@ -80,7 +80,7 @@
     liveState = 'loading'; renderHead();
     const r = await window.HxControl.httpJson('GET', '/api/v1/plugins/decenthyperexplugin.reaplugin/calibration-status');
     if (r && r.ok && r.body) { liveCal = r.body; liveState = 'ok'; } else { liveState = 'err'; }
-    if (open) { renderHead(); renderBody(); }
+    if (open) { renderHead(); if (section === 'learn') renderBody(); }
   }
 
   // ---- 算法学习页 ----
@@ -351,7 +351,7 @@
     dim.addEventListener('click', (e) => { if (e.target === dim) closeModal(); });
     document.querySelectorAll('.lrn-tab').forEach((el) => el.addEventListener('click', () => { tab = el.dataset.tab; renderTabs(); renderBody(); }));
     document.querySelectorAll('.ftab').forEach((el) => el.addEventListener('click', () => { section = el.dataset.sec; renderSection(); }));
-    renderSection(); renderHead(); renderTabs(); renderBody();
+    renderSection(); renderHead();
     fetchLive();
   }
   function closeModal() { open = false; $('lrnDim').hidden = true; $('lrnDim').innerHTML = ''; }
