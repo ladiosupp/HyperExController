@@ -956,7 +956,7 @@
       pagesHtml += '<div class="crv-page">' + chunk.map((c) => {
         const gi = curves.indexOf(c);
         const fs = favSlot(c.title);
-        return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span><span class="cmeta">' + curveMeta(c) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + (c.hx ? '<span class="favb">' + t('支持HEC') + '</span>' : '') + '</div>';
+        return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span>' + (c.hx ? '<span class="favb">' + t('支持HEC') + '</span>' : '') + '<span class="cmeta">' + curveMeta(c) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + '</div>';
       }).join('') + '</div>';
     }
     $('crvScroll').innerHTML = pagesHtml;
