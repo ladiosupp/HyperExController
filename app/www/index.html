@@ -336,13 +336,7 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .sleep-stat .k{font-size:12.5px;color:#8b93a1}
 .sleep-ask{font-size:14px;color:#e8eaee;margin:0}
 .sleep-note{font-size:12.5px;color:#aab2bf;line-height:1.6;margin:0}
-.mitem{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;background:#14171c;border:1px solid #2a2f38;font:12.5px ui-monospace,monospace;color:#c6ccd6;cursor:pointer}
-.mitem:hover{background:#222732}
-.mitem.sel{border-color:#6ea8fe;color:#e8eaee}
-.mitem .mtag{margin-left:auto;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#3d2c17;color:#f5c078;flex:none}
-.mitem .mtag.plain{background:#2a2f37;color:#cfd5de}
 .modal input[type=text]{width:100%;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:10px;font:13px ui-monospace,monospace;margin-bottom:12px}
-.mlist{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:4px}
 @media (max-width:900px){body.hec-mode main{flex-direction:column;overflow-y:auto}body.hec-mode aside{width:100%;border-right:0;border-bottom:1px solid #262a31;overflow:visible}body.hec-mode section.view{overflow:visible}.hec-chartbox{min-height:220px}}
 
 /* ---- v0.11 UI 五项（示意稿 hec-ui5 定稿 2026-11-16）---- */
@@ -381,6 +375,7 @@ body.side-collapsed .side-toggle{left:-8px}
 .crv-it.sel{border-color:#6ea8fe;color:#e8eaee;box-shadow:inset 3px 0 0 #6ea8fe}
 .crv-it .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .crv-it .favb{font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#3d2c17;color:#f5c078;flex:none}
+.crv-it .cmeta{flex:none;font-size:11px;color:#8b93a1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .crv-dots{display:flex;gap:6px;justify-content:center;padding:6px 0 12px;flex:none}
 .crv-dots i{width:7px;height:7px;border-radius:50%;background:#2b3038}
 .crv-dots i.on{background:#e8833a;width:18px;border-radius:4px}

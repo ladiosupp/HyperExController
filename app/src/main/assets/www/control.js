@@ -60,6 +60,7 @@
     '已去皮': 'Scale tared', '去皮失败': 'Tare failed', '萃取中不可去皮': 'Cannot tare while extracting', '去皮': 'Tare',
     '滤波': 'Filter', '关': 'Off', 'RAW 滤波': 'RAW filtered', '原始': 'Raw',
     '常用': 'Fav ', '空位': 'Empty', '条曲线': 'curves', '页': 'pages', '加入到常用': 'Add to fav ', '替换': 'Replace ', '移除': 'Remove', '已加入常用': 'Added to fav ', '已替换常用': 'Replaced fav ', '已移除常用': 'Removed from fav',
+    '支持HEC': 'HEC ready',
   };
   // 控制页键优先，其次复用回放页 EN（插件/逻辑帧等共用词；顶层 const 不挂 window，走全局 t）
   function t(k) {
@@ -936,6 +937,13 @@
     $('crvScroll').scrollLeft = 0;
     $('crvClose').addEventListener('click', closeModal);
   }
+  function curveMeta(c) {
+    const p = c.profile || {};
+    const st = Array.isArray(p.steps) && p.steps[0] ? p.steps[0] : null;
+    const tv = st && Number.isFinite(Number(st.temperature)) ? Number(st.temperature) : null;
+    const wv = Number.isFinite(Number(p.target_weight)) ? Number(p.target_weight) : null;
+    return (tv != null ? tv + '°C' : '—') + ' · ' + (wv != null ? wv + 'g' : '—');
+  }
   function renderCurveModal() {
     const cur = (liveProfile && liveProfile.title) || (selectedCurve && selectedCurve.title) || '';
     const pages = Math.max(1, Math.ceil(curves.length / 12));
@@ -947,7 +955,7 @@
       pagesHtml += '<div class="crv-page">' + chunk.map((c) => {
         const gi = curves.indexOf(c);
         const fs = favSlot(c.title);
-        return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + '<span class="mtag' + (c.hx ? '' : ' plain') + '">' + (c.hx ? t('HyperEx') : t('非HyperEx')) + '</span></div>';
+        return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + (c.hx ? '<span class="favb">' + t('支持HEC') + '</span>' : '') + '<span class="cmeta">' + curveMeta(c) + '</span></div>';
       }).join('') + '</div>';
     }
     $('crvScroll').innerHTML = pagesHtml;
