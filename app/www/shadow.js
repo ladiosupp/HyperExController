@@ -41,6 +41,8 @@
   }
 
   async function load() {
+    // 学习仲裁模型独立加载（fire-and-forget；未就绪时仲裁优雅回落规则 v0）
+    if (window.HxArbiter && window.HxArbiter.loadLearned) window.HxArbiter.loadLearned();
     if (loadState === 'ready' || loadState === 'loading') return;
     loadState = 'loading';
     try {
@@ -117,7 +119,7 @@
 
   function newCup(runId) {
     return { runId: runId || ('live-' + Date.now()), startedAt: Date.now(), samples: [], decisions: [], writes: [], lastDecisionAt: 0, lastCmd: null, lastCmdFrame: null, rescueStreak: 0, modelWrites: 0, lastPluginWriteCmd: null,
-      modeAtStart: null, fixLevel: 'r1-r5', live: null, pendingRealized: [], pendingResponse: [], s2FirstStamp: null };
+      modeAtStart: null, fixLevel: 'r1-r5', live: null, pendingRealized: [], pendingResponse: [], s2FirstStamp: null, pluginWriteCount: 0 };
   }
 
   // ---- R1：插件同口径预测 / 救急状态机（只读计算，不触发任何写入）----
@@ -365,6 +367,7 @@
       cup.writes.push({ tMs: Math.round(s.t * 1000), from: cup.lastCmd, to: cmd, source: 'plugin', frame, kind });
       if (kind === 'write') {
         cup.lastPluginWriteCmd = cmd;
+        cup.pluginWriteCount++; // 学习仲裁特征 plugin_writes_so_far（插件真实写入计数，与节拍无关）
         // R3：同帧真实写入 → 回记等待中的决策点
         for (const d of cup.pendingRealized) {
           if (d.frame === frame && d.realizedCommandMlS == null) {
@@ -426,14 +429,17 @@
       let arb = null;
       if (window.HxArbiter) {
         const algoCmd = cup.lastPluginWriteCmd;
-        arb = window.HxArbiter.arbitrate(
-          { commandMlS: algoCmd },
-          { commandMlS: candidate, writeProb, quanta },
-          { phase: ctx.phase, targetGS: target, currentMlS: cur, pressureBar: ctx.pressureBar,
-            limiterBar: ctx.limiterBar, rescue,
-            modelWritesSoFar: cup.modelWrites, budgetSoftCap: ARB_SOFT_CAP },
-          { preference: arbPreference }
-        );
+        // 学习仲裁优先（替换第 2/3 层，第 1 层硬包线共用）；未就绪回落规则 v0。
+        // quanta 传原始浮点（与离线训练特征同口径）；obs 快照供 20 维特征。
+        const arbCtx = { phase: ctx.phase, targetGS: target, currentMlS: cur, pressureBar: ctx.pressureBar,
+          limiterBar: ctx.limiterBar, rescue, modelWritesSoFar: cup.modelWrites, budgetSoftCap: ARB_SOFT_CAP,
+          pluginWritesSoFar: cup.pluginWriteCount, rawGS: obs.rawGS, predictedGS: obs.predictedGS,
+          trendAngleDeg: obs.trendAngleDeg, machineFlowMlS: ctx.machineFlowMlS,
+          cumulativeWeightG: ctx.cumulativeWeightG, regR2: obs.regR2 };
+        const arbModel = { commandMlS: candidate, writeProb, quanta: quantaRaw };
+        arb = window.HxArbiter.learnedReady()
+          ? window.HxArbiter.arbitrateLearned({ commandMlS: algoCmd }, arbModel, arbCtx, { preference: arbPreference })
+          : window.HxArbiter.arbitrate({ commandMlS: algoCmd }, arbModel, arbCtx, { preference: arbPreference });
         if (arb.pick === 'model') cup.modelWrites++;
         cup.lastPluginWriteCmd = null; // 已消费本决策点的算法写入
       }
@@ -442,7 +448,9 @@
         obs, writeProb: Math.round(writeProb * 1000) / 1000, quantaRaw: Math.round(quantaRaw * 100) / 100,
         quanta, action, candidateMlS: candidate, pluginCommandMlS: cmd,
         predictedAvailable: lv.predictedAvailable,
-        arbiter: arb ? { pick: arb.pick, commandMlS: arb.commandMlS, reason: arb.reason, clipped: arb.clipped, preference: arbPreference } : null,
+        arbiter: arb ? { pick: arb.pick, commandMlS: arb.commandMlS, reason: arb.reason, clipped: arb.clipped, preference: arbPreference,
+          kind: arb.kind || 'rule', pModelBetter: arb.pModelBetter != null ? Math.round(arb.pModelBetter * 10000) / 10000 : null,
+          threshold: arb.threshold != null ? arb.threshold : null } : null,
         realizedCommandMlS: null, realizedAtMs: null, realizedFrame: null, matched: false,
         responseGS: null, responseR2: null, responseWindow: null, responseIncomplete: false,
         sent: false,
@@ -489,7 +497,7 @@
     load,
     onSample,
     onCupEnd,
-    status: function () { return { loadState, loadError, model: 'bc_v0', cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length }; },
+    status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length }; },
     exportJSON: async function () {
       const d = db();
       let all = [];
