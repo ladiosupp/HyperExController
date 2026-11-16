@@ -1,4 +1,4 @@
-# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ 模拟器回归 17/17，待用户确认装平板
+# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ v0.15 已发版装平板（供统筹）
 
 > 前序：HANDOFF_2026-11-16-hec-yield-fix.md（液重停杯修复，非 HX 口径）。
 > 技能：android-tablet-apk-dev（通用坑）、decentplugin §22（控制口径）。规矩照 AGENTS.md（7/15/16/19/20）。
@@ -8,7 +8,7 @@
 用户报：full 档用 HEC 做两杯 HyperEx Pulse Filter auto，都在 S2 中途 idle；回 Decaid/Streamline 正常、目标液重显示 0。
 根因钉死：**HEC selectCurve 对 HX 曲线也注入拨轮残留液重到 context.targetYield**，Decaid SAW 按残留值（26g，拉杆配方带来）提前停杯。
 已修（v0.15，versionCode 15）：HX 曲线改发曲线自己的 target_weight（真机 HX auto=0 → SAW 禁用、停杯交插件），非 HX 维持 11-16 拨轮口径。
-模拟器回归 17/17 过。**装平板要先问用户（用户已明确：装前告知等确认）；发版另问。**
+模拟器回归 17/17 过。**用户确认后已装平板并完整发版**（push / GitHub Release / 夸克，回执见 §6）。
 
 ## 1. 根因与真机证据（2026-11-17 上午，插件 2.2.48，full 档）
 
@@ -43,12 +43,12 @@
 - 收尾已做：stayon false、reverse/forward 已删、4798 桩已停（按端口定位，4795–4797 没碰）。
 - 回归一个认知修正：HX 锁定下拨轮步进被 initDials 主动拒绝（control.js:1239），不是只锁应用按钮——断言按此口径。
 
-## 4. 待办（每步先问用户）
+## 4. 待办
 
-1. **装平板**：用户确认后 adb -s <tablet> install -r .tools/HyperExController_v0.15.apk（-r 保数据；平板 mDNS 见 coordinator 交接 §7）。
-2. 真机验收：HEC 切 HX auto → Streamline 液重块应显示 0 → full 档出杯应完整跑到 ~100g 由插件写 Idle 收尾（stopReason=apiStop）；
-   切拉杆仍跟拨轮液重到重停（11-16 口径不变）。验收杯建议用测试豆/用户自己的安排，别动真实仓数据口径无关。
-3. 发版（push 走 VPN、Release、夸克）另问用户；主仓子模块指针更新随发版流程。
+1. ~~装平板~~ 已装（2026-11-17 07:40:04，versionCode 15，-r 保数据）。
+2. **真机验收（用户出杯）**：HEC 切 HX auto → Streamline 液重块应显示 0 → full 档出杯应完整跑到 ~100g 由插件写 Idle 收尾（stopReason=apiStop）；
+   切拉杆仍跟拨轮液重到重停（11-16 口径不变）。
+3. ~~发版~~ 已完成（§6）。父仓指针只在本地，推不推问用户。
 4. 已知边界（未改，超出本次授权）：Flow Calibration 曲线在 HEC 里 hx=false，切它仍发拨轮值——校准杯由插件主动停，
    理论上同样可能被 SAW 提前停；用户没报过，留待拍板是否同口径处理。
 
@@ -60,3 +60,26 @@
   本次提交用部分 staging（git apply --cached）只含 selectCurve hunk， theirs 原样留工作区；
   已构建的 v0.15 APK 含两者（回归 17/17 是在含两者的包上跑的），装平板前用户可决定是否等那边收尾。
 - 温度链路、影子/仲裁、HX 液重锁本身。
+
+## 6. 发版回执（2026-11-17，用户授权「你先装平板和发版」）
+
+- 构建：gradle assembleDebug 过（.tools/__hx-yield-build2.log）；APK **6,701,612 字节**，副本 .tools/HyperExController_v0.15.apk。
+  内容 = 81f901d（本修）+ cfff2aa（UI 去皮光条）+ UI 对话未提交的杯流卡显示稳定化（用户知情同意随包）。
+- 平板：adb mDNS install -r；dumpsys 实测 **versionCode=15 / versionName=0.15 / lastUpdateTime=2026-11-17 07:40:04**；am start 拉前台。
+- push：origin main **66bb463..81f901d**（http.proxy=127.0.0.1:57890）；本交接提交随后再推。
+- GitHub Release：**v0.15**，id **447756775**，https://github.com/ladiosupp/HyperExController/releases/tag/v0.15 ；
+  附件 HyperExController_v0.15.apk（asset id 756885496，6,701,612 字节）。REST 建 + uploads 直传（gh 带附件挂死坑），token 走 git credential fill，均走 VPN 代理。
+- 夸克：**夸克网盘/来自：Codex**，fileId **5ae0a3c8576a452b99f99370111c1521**，6,701,612 字节（CLI 1.0.25）。
+- 父仓指针：D:/vscode 本地提交（见 git log），**未推**（惯例：推不推问用户）。
+
+## 7. 给统筹的话（用户转交）
+
+- **定性**：APK 写 workflow 的边界 bug，不是插件控制律问题，也不是 full/hec 档差异。插件 2.2.48 与皮肤零改动；
+  影子/仲裁（阶段 B/C）不受影响，离线结论不变。hec 档当时能跑完是因为那时 context.targetYield=0，不是档位差异。
+- **真杯取证对话**：今早两杯失败根因已钉死，证据在 D:/vscode/.tools/__hec-shots.json / __hec-hx-history.json / __hec-wf.json / __hec-diag.json / __hec-ext.json，
+  可直接补 HANDOFF_2026-11-17-hec-live-cups.md §2/§3。v0.15 后 HEC 切 HX 不再注入残留液重，full 档取证可继续。
+- **UI 对话**：杯流卡显示稳定化（flowDisp/EMA）仍未提交，已随 v0.15 包发出（用户知情）；请尽快提交固化，避免下次构建漂移。
+  cfff2aa（去皮光条）已随本次 push 上远端。
+- **待拍板**：① Flow Calibration 曲线是否同口径处理（§4.4）；② 父仓指针推不推；③ 夸克 v0.6 历史欠传。
+- **口径澄清**：HX 杯停杯 = 插件 FinalWeight（≈100g）写 Idle；拨轮/SAW 不是 HX 的液重入口，改 HX 液重改插件设置。
+  Streamline 显示目标液重 0 对 HX 是正常态（皮肤按曲线 target_weight=0 下发）。
