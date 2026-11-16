@@ -59,6 +59,7 @@
     '接管': 'Takeover', '心跳断': 'Heartbeat lost',
     '已去皮': 'Scale tared', '去皮失败': 'Tare failed', '萃取中不可去皮': 'Cannot tare while extracting', '去皮': 'Tare',
     '滤波': 'Filter', '关': 'Off', 'RAW 滤波': 'RAW filtered', '原始': 'Raw',
+    '常用': 'Fav ', '空位': 'Empty', '条曲线': 'curves', '页': 'pages', '加入到常用': 'Add to fav ', '替换': 'Replace ', '移除': 'Remove', '已加入常用': 'Added to fav ', '已替换常用': 'Replaced fav ', '已移除常用': 'Removed from fav',
   };
   // 控制页键优先，其次复用回放页 EN（插件/逻辑帧等共用词；顶层 const 不挂 window，走全局 t）
   function t(k) {
@@ -91,6 +92,8 @@
   let checks = [];                 // 趋势角检测点
   let lastCheck = null;
   let toastTimer = 0;
+  let favs = [null, null, null, null, null, null];   // 常用曲线位（存本机 hecFavCurves，按标题）
+  let sideCollapsed = false;
   let curves = [];                 // {id,title,hx,profile}
   let selectedCurve = null;
   let liveProfile = null;          // GET /workflow 的 profile
@@ -184,7 +187,7 @@
     noteExternal(ext);
     renderAll();
   }
-  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.10'; } catch (_) { return '0.10'; } }
+  function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.11'; } catch (_) { return '0.11'; } }
   // 阶段目标重量（只读）：开杯前拉一次；影子救急判据 remainingS 用。
   async function loadStageWeights() {
     const r = await httpJson('GET', pluginPath('calibration-status'));
@@ -918,11 +921,91 @@
     openModal('<h3>' + t('插件版本过低') + '</h3><p class="modal-note">' + t('升级提示') + ' (' + (pluginVersion || '?') + ')</p><div class="modal-actions"><button class="ghost" id="upClose">' + t('取消') + '</button></div>');
     $('upClose').addEventListener('click', closeModal);
   }
+  // ---- 曲线选择弹窗（v0.11：80% 页宽 · 顶部 6 常用位 · 两列左右滑动 · 长按加常用）----
+  const CHEV_L = '<svg width="6" height="9" viewBox="0 0 7 10"><path d="M6 1 2 5l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const CHEV_R = '<svg width="6" height="9" viewBox="0 0 7 10"><path d="M2 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function saveFavs() { try { dbSet('hecFavCurves', favs); } catch (_) {} }
+  function favSlot(title) { return favs.indexOf(title); }
+  function closeLp() { const m = document.querySelector('.lp-menu'); if (m) m.remove(); }
   function openCurveModal() {
     if (!curves.length) { toast(t('无曲线')); return; }
-    const cur = (liveProfile && liveProfile.title) || '';
-    openModal('<h3>' + t('选择曲线') + '</h3><div class="mlist">' + curves.map((c, i) => '<div class="mitem' + (c.title === cur ? ' sel' : '') + '" data-ci="' + i + '"><span>' + esc(c.title) + '</span><span class="mtag' + (c.hx ? '' : ' plain') + '">' + (c.hx ? t('HyperEx') : t('非HyperEx')) + '</span></div>').join('') + '</div>');
-    $('hecDim').querySelectorAll('[data-ci]').forEach((it) => it.addEventListener('click', () => selectCurve(curves[Number(it.dataset.ci)])));
+    const d = $('hecDim');
+    d.innerHTML = '<div class="modal crv-modal"><div class="crv-head"><h3>' + t('选择曲线') + '</h3><span class="src" id="crvSrc"></span><button class="lrn-x" id="crvClose">✕</button></div><div class="favrow" id="favRow"></div><div class="crv-scroll" id="crvScroll"></div><div class="crv-dots" id="crvDots"></div></div>';
+    d.hidden = false;
+    renderCurveModal();
+    $('crvClose').addEventListener('click', closeModal);
+  }
+  function renderCurveModal() {
+    const cur = (liveProfile && liveProfile.title) || (selectedCurve && selectedCurve.title) || '';
+    const pages = Math.max(1, Math.ceil(curves.length / 12));
+    $('crvSrc').textContent = curves.length + ' ' + t('条曲线') + ' · ' + pages + ' ' + t('页');
+    $('favRow').innerHTML = favs.map((f, i) => '<button type="button" class="fav ' + (f ? 'filled' : 'empty') + '" data-fav="' + i + '"><span class="fk">' + t('常用') + (i + 1) + '</span><span class="fn">' + esc(f || t('空位')) + '</span></button>').join('');
+    let pagesHtml = '';
+    for (let p = 0; p < pages; p++) {
+      const chunk = curves.slice(p * 12, p * 12 + 12);
+      const cols = [chunk.slice(0, 6), chunk.slice(6, 12)];
+      pagesHtml += '<div class="crv-page">' + cols.map((col) => '<div class="crv-col">' + col.map((c) => {
+        const gi = curves.indexOf(c);
+        const fs = favSlot(c.title);
+        return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + '<span class="mtag' + (c.hx ? '' : ' plain') + '">' + (c.hx ? t('HyperEx') : t('非HyperEx')) + '</span></div>';
+      }).join('') + '</div>').join('') + '</div>';
+    }
+    $('crvScroll').innerHTML = pagesHtml;
+    $('crvDots').innerHTML = Array.from({ length: pages }, (_, i) => '<i' + (i === 0 ? ' class="on"' : '') + '></i>').join('');
+    wireCurveModal();
+  }
+  function wireCurveModal() {
+    const scroll = $('crvScroll'), dots = $('crvDots');
+    scroll.addEventListener('scroll', () => {
+      const p = Math.round(scroll.scrollLeft / Math.max(1, scroll.clientWidth));
+      dots.querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i === p));
+    });
+    $('favRow').querySelectorAll('[data-fav]').forEach((b) => b.addEventListener('click', () => {
+      const title = favs[Number(b.dataset.fav)];
+      if (!title) return;
+      const c = curves.find((x) => x.title === title);
+      if (c) { closeLp(); selectCurve(c); }
+    }));
+    scroll.querySelectorAll('[data-ci]').forEach((it) => wireCurveItem(it));
+  }
+  function wireCurveItem(it) {
+    const c = curves[Number(it.dataset.ci)];
+    let lpTimer = 0, sx = 0, sy = 0, fired = false;
+    it.addEventListener('pointerdown', (e) => {
+      fired = false; sx = e.clientX; sy = e.clientY;
+      lpTimer = setTimeout(() => { fired = true; openFavMenu(c, e.clientX, e.clientY); }, 500);
+    });
+    it.addEventListener('pointermove', (e) => { if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 10) clearTimeout(lpTimer); });
+    it.addEventListener('pointerup', () => clearTimeout(lpTimer));
+    it.addEventListener('pointercancel', () => clearTimeout(lpTimer));
+    it.addEventListener('click', () => { if (fired) { fired = false; return; } closeLp(); selectCurve(c); });
+    it.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  function openFavMenu(c, x, y) {
+    closeLp();
+    const m = document.createElement('div');
+    m.className = 'lp-menu';
+    const slot = favSlot(c.title);
+    let html = '<div class="lp-t">' + esc(c.title) + '</div>';
+    for (let i = 0; i < 6; i++) {
+      const f = favs[i];
+      if (i === slot) html += '<div class="lp-it hot" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('移除') + '</div>';
+      else if (f) html += '<div class="lp-it" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('替换') + esc(f) + '</div>';
+      else html += '<div class="lp-it" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('加入到常用') + (i + 1) + '</div>';
+    }
+    m.innerHTML = html;
+    document.body.appendChild(m);
+    const mw = m.offsetWidth, mh = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(x - 24, window.innerWidth - mw - 8)) + 'px';
+    m.style.top = Math.max(8, Math.min(y + 10, window.innerHeight - mh - 8)) + 'px';
+    m.querySelectorAll('[data-slot]').forEach((el) => el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const i = Number(el.dataset.slot);
+      if (i === favSlot(c.title)) { favs[i] = null; toast(t('已移除常用')); }
+      else { const had = !!favs[i]; favs[i] = c.title; toast((had ? t('已替换常用') : t('已加入常用')) + (i + 1)); }
+      saveFavs(); closeLp(); renderCurveModal();
+    }));
+    setTimeout(() => document.addEventListener('pointerdown', closeLp, { once: true }), 0);
   }
   function openAddrModal() {
     openModal('<h3>' + t('Decaid 地址') + '</h3><input type="text" id="addrIn" value="' + esc(baseUrl || 'http://127.0.0.1:8080') + '"><div class="modal-actions"><button class="ghost" id="addrCancel">' + t('取消') + '</button><button class="primary" id="addrOk">' + t('连接') + '</button></div>');
@@ -985,6 +1068,7 @@
     $('replayAside').hidden = control;
     $('replayView').hidden = control;
     $('controlAside').hidden = !control;
+    $('sideToggle').hidden = !control;
     $('controlView').hidden = !control;
     $('manualFetch').hidden = control;
     $('status').hidden = control;
@@ -1005,6 +1089,19 @@
       if (typeof layoutCards === 'function') layoutCards();
     }
     try { dbSet('hecMode', m); } catch (_) {}
+  }
+
+  // ---- 侧栏收合（v0.11：窄胶囊把手 · 平时半透明 · 分隔线断开上下两条）----
+  function applySide() {
+    document.body.classList.toggle('side-collapsed', sideCollapsed);
+    const b = $('sideToggle');
+    if (b) { b.innerHTML = sideCollapsed ? CHEV_R : CHEV_L; b.setAttribute('aria-label', sideCollapsed ? '展开侧栏' : '收起侧栏'); }
+  }
+  function toggleSide() {
+    sideCollapsed = !sideCollapsed;
+    applySide();
+    try { dbSet('hecSideCollapsed', sideCollapsed ? 1 : 0); } catch (_) {}
+    setTimeout(() => { if (mode === 'control') drawCharts(); }, 260);
   }
 
   // ---- 拨轮交互 ----
@@ -1046,8 +1143,13 @@
     init: async function () {
       try { baseUrl = (await dbGet('hecBaseUrl')) || ''; } catch (_) { baseUrl = ''; }
       const savedMode = await dbGet('hecMode').catch(() => null);
+      try { const sf = await dbGet('hecFavCurves'); if (Array.isArray(sf)) favs = sf.slice(0, 6).concat([null, null, null, null, null, null]).slice(0, 6); } catch (_) {}
+      try { sideCollapsed = (await dbGet('hecSideCollapsed')) === 1; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
+      $('sideToggle').addEventListener('click', toggleSide);
+      applySide();
+      $('sideToggle').hidden = mode !== 'control';
       $('curveBtn').addEventListener('click', openCurveModal);
       $('connBtn').addEventListener('click', openAddrModal);
       $('applyBtn').addEventListener('click', applyDials);

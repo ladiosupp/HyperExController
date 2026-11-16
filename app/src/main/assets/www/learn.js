@@ -5,7 +5,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const EN = {
-    '学习中心': 'Learning', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter',
+    '学习中心': 'Learning', '控制中心': 'Control center', '内容待定': 'Content coming soon', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter',
     '插件杯间学习成果': 'plugin shot-to-shot learning', '影子推理 bc_v0': 'shadow inference bc_v0', '规则仲裁 v0': 'rule arbitration v0',
     '下一杯指令': 'Next-shot commands', '增益记忆': 'Gain memory', '最近一杯判定': 'Last-shot verdict', '历史概览': 'History overview',
     '阶段': 'Stage', '目标 g/s': 'Target g/s', 'LUT 基础': 'LUT base', '学习后': 'Adapted', '来源': 'Origin',
@@ -38,6 +38,7 @@
   function when(iso) { const d = new Date(iso); return Number.isFinite(d.getTime()) ? (d.getMonth() + 1) + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '—'; }
 
   let tab = 'learn';
+  let section = 'learn';   // 一级标签：control | learn（文件夹）
   let liveCal = null, liveState = 'idle';   // idle | loading | ok | err
   let open = false;
 
@@ -284,6 +285,19 @@
     else if (tab === 'model') { body.innerHTML = renderModel(); fillDecisions(); }
     else { body.innerHTML = renderArbiter(); fillArbiter(); wirePref(); }
   }
+  function renderSection() {
+    document.querySelectorAll('.ftab').forEach((el) => el.classList.toggle('sel', el.dataset.sec === section));
+    const tabs = $('lrnTabs'), foot = $('lrnFoot'), body = $('lrnBody');
+    if (section === 'control') {
+      if (tabs) tabs.hidden = true;
+      if (foot) foot.hidden = true;
+      body.innerHTML = '<div class="lrn-empty">' + t('控制中心') + ' · ' + t('内容待定') + '</div>';
+    } else {
+      if (tabs) tabs.hidden = false;
+      if (foot) foot.hidden = false;
+      renderTabs(); renderBody();
+    }
+  }
   function wirePref() {
     const sl = $('lrnPref');
     if (!sl) return;
@@ -301,20 +315,24 @@
     open = true;
     const dim = $('lrnDim');
     dim.innerHTML = '<div class="modal lrn-modal">' +
-      '<div class="lrn-head"><h3>' + t('学习中心') + '</h3><span class="src" id="lrnSrc"></span><button class="lrn-x" id="lrnClose">✕</button></div>' +
-      '<div class="lrn-tabs">' +
+      '<div class="lrn-top"><div class="ftabs">' +
+      '<button type="button" class="ftab" data-sec="control">' + t('控制中心') + '</button>' +
+      '<button type="button" class="ftab" data-sec="learn">' + t('学习中心') + '</button>' +
+      '</div><span class="src" id="lrnSrc"></span><button class="lrn-x" id="lrnClose">✕</button></div>' +
+      '<div class="lrn-tabs" id="lrnTabs">' +
       '<button class="lrn-tab" data-tab="learn">' + t('算法学习') + '<span class="sub">' + t('插件杯间学习成果') + '</span></button>' +
       '<button class="lrn-tab" data-tab="model">' + t('决策模型') + '<span class="sub">' + t('影子推理 bc_v0') + '</span></button>' +
       '<button class="lrn-tab" data-tab="arbiter">' + t('仲裁模型') + '<span class="sub">' + t('规则仲裁 v0') + '</span></button>' +
       '</div>' +
       '<div class="lrn-body" id="lrnBody"></div>' +
-      '<div class="modal-foot" style="padding:0 16px 12px;margin:0">' + t('只读展示 · 不发送指令') + '</div>' +
+      '<div class="modal-foot" id="lrnFoot" style="padding:0 16px 12px;margin:0">' + t('只读展示 · 不发送指令') + '</div>' +
       '</div>';
     dim.hidden = false;
     $('lrnClose').addEventListener('click', closeModal);
     dim.addEventListener('click', (e) => { if (e.target === dim) closeModal(); });
     document.querySelectorAll('.lrn-tab').forEach((el) => el.addEventListener('click', () => { tab = el.dataset.tab; renderTabs(); renderBody(); }));
-    renderTabs(); renderHead(); renderBody();
+    document.querySelectorAll('.ftab').forEach((el) => el.addEventListener('click', () => { section = el.dataset.sec; renderSection(); }));
+    renderSection(); renderHead(); renderTabs(); renderBody();
     fetchLive();
   }
   function closeModal() { open = false; $('lrnDim').hidden = true; $('lrnDim').innerHTML = ''; }
@@ -328,7 +346,7 @@
 
   window.HxLearn = {
     open: openModal,
-    onLang: function () { if (open) { renderHead(); renderTabs(); renderBody(); } },
+    onLang: function () { if (open) { renderHead(); renderSection(); } },
     _state: function () { return { open, tab, liveState, hasLive: !!liveCal }; },
   };
 })();
