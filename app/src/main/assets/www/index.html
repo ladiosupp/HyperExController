@@ -43,7 +43,7 @@ header .status.busy{color:#e9c276}
 @keyframes de1pulse{50%{opacity:.35}}
 @media (max-width:600px){header{gap:8px;padding:10px 12px}h1{font-size:15px}.fetchbtn{padding:6px 10px;font-size:12px}.fetchbtn .fetch-count{min-width:30px}.de1pill{font-size:12px;padding:6px 10px}}
 @media (max-width:480px){header h1{display:none}header .status{font-size:11px}.fetchbtn{padding:6px 9px;font-size:12px;gap:5px}.de1pill{padding:6px 9px}}
-main{flex:1;display:flex;min-height:0}
+main{flex:1;display:flex;min-height:0;position:relative}
 aside{width:340px;flex:none;border-right:1px solid #262a31;padding:14px;overflow-y:auto;overflow-x:hidden}
 section.view{flex:1;min-width:0;padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column}
 fieldset{border:1px solid #2b3038;border-radius:10px;margin:0 0 12px;padding:10px 12px;min-width:0}
@@ -259,7 +259,7 @@ h1{cursor:pointer}
 .waterpill.low{border-color:#6b2a33;color:#f2a0aa}
 .waterpill.low .wfill{background:rgba(242,144,154,.38)}
 body.hec-mode main{overflow:hidden}
-body.hec-mode aside{width:219px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+body.hec-mode aside{width:219px;padding:12px 12px 16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;border-right:0}
 body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .side-k{font-size:10.5px;letter-spacing:.08em;color:#8b93a1;margin:0 0 5px}
 .dial{background:linear-gradient(180deg,#1b2027,#161a20);border:1px solid #2a2f38;border-radius:11px;padding:8px 10px 9px;user-select:none;position:relative;overflow:hidden;flex:none}
@@ -354,6 +354,7 @@ body.hec-mode aside::after{content:"";position:absolute;right:-1px;top:0;bottom:
 body.hec-mode.side-collapsed #controlAside{margin-left:-219px}
 .side-toggle{position:absolute;z-index:40;left:211px;top:50%;transform:translateY(-50%);width:16px;height:52px;border-radius:999px;background:linear-gradient(180deg,#1c2333,#161c2a);border:1px solid #35426a;color:#9fb4e8;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(110,140,254,.22),inset 0 1px 0 rgba(156,192,255,.12);opacity:.45;transition:left .24s ease,opacity .15s;cursor:pointer;padding:0;margin:0}
 .side-toggle:hover,.side-toggle:active{opacity:1}
+button.side-toggle:active{transform:translateY(-50%)}
 body.side-collapsed .side-toggle{left:-8px}
 .crv-modal{width:80%;max-width:none;max-height:min(86vh,860px);padding:0;display:flex;flex-direction:column;overflow:hidden}
 .crv-head{display:flex;align-items:center;gap:10px;padding:13px 16px 11px;border-bottom:1px solid #262a31;flex:none}
@@ -506,8 +507,8 @@ body.side-collapsed .side-toggle{left:-8px}
   <div class="hec-chartbox"><h3><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="rawwin" id="rawWin"><span id="rawWinK">滤波</span><span class="rw-v" id="rawWinV">1.0s</span><button type="button" data-rw="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-rw="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
   <div class="hec-chartbox"><h3><span class="chartlegend" id="lgPress"></span><span class="charttitle" data-i18n="温度">温度</span></h3><div class="chartwrap"><canvas id="hcPress"></canvas></div></div>
 </section>
-</main>
 <button type="button" class="side-toggle" id="sideToggle" aria-label="收起侧栏"><svg width="6" height="9" viewBox="0 0 7 10"><path d="M6 1 2 5l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+</main>
 
 <div class="modal-dim" id="hecDim" hidden></div>
 <div class="modal-dim" id="lrnDim" hidden></div>
