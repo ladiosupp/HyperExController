@@ -317,6 +317,12 @@ body.hec-mode section.view{padding:12px 16px 16px;overflow:hidden}
 .hec-chartbox{background:#171a1f;border:1px solid #262a31;border-radius:10px;padding:8px 10px 6px;margin-bottom:10px;flex:1;display:flex;flex-direction:column;min-height:140px}
 .hec-chartbox h3{margin:2px 0 4px;font-size:12px;color:#aab2bf;font-weight:600;display:flex;justify-content:space-between;align-items:center;flex:none}
 .hec-chartbox .chartlegend{margin-left:0;gap:13px}
+.hec-chartbox[hidden]{display:none}
+#lgMerge .lg{cursor:pointer}
+.chartlegend .lg.off{color:#565d68}
+.chartlegend .lg.off i{background:#565d68 !important}
+.chartlegend .lg.off.dash i{background:transparent !important;border-top-color:#565d68}
+.chartlegend .lg.off span{color:#565d68}
 /* RAW 滤波窗宽小拨轮（0=关，0.5–2.0s 步长 0.1） */
 .rawwin{display:inline-flex;align-items:center;gap:5px;flex:none;font-size:11px;color:#8b93a1;font-weight:400}
 .rawwin .rw-v{font:700 11px ui-monospace,monospace;color:#dceaff;min-width:30px;text-align:center;font-variant-numeric:tabular-nums}
@@ -505,8 +511,9 @@ body.side-collapsed .side-toggle{left:-8px}
 <section class="view" id="controlView" hidden>
   <div class="takeover" id="takeoverBanner" hidden data-i18n="接管横幅">插件已接管本杯 · 指令已收回基值，曲线继续</div>
   <div class="hec-cards" id="hecCards"></div>
-  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="rawwin" id="rawWin"><span id="rawWinK">滤波</span><span class="rw-v" id="rawWinV">1.0s</span><button type="button" data-rw="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-rw="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
-  <div class="hec-chartbox"><h3><span class="chartlegend" id="lgPress"></span><span class="charttitle" data-i18n="温度">温度</span></h3><div class="chartwrap"><canvas id="hcPress"></canvas></div></div>
+  <div class="hec-chartbox" id="boxFlow"><h3 id="flowHead"><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="rawwin" id="rawWin"><span id="rawWinK">滤波</span><span class="rw-v" id="rawWinV">1.0s</span><button type="button" data-rw="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-rw="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
+  <div class="hec-chartbox" id="boxPress"><h3><span class="chartlegend" id="lgPress"></span><span class="charttitle" data-i18n="温度">温度</span></h3><div class="chartwrap"><canvas id="hcPress"></canvas></div></div>
+  <div class="hec-chartbox" id="boxMerge" hidden><h3 id="mergeHead"><span class="chartlegend" id="lgMerge"></span></h3><div class="chartwrap"><canvas id="hcMerge"></canvas></div></div>
 </section>
 <button type="button" class="side-toggle" id="sideToggle" aria-label="收起侧栏"><svg width="6" height="9" viewBox="0 0 7 10"><path d="M6 1 2 5l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </main>

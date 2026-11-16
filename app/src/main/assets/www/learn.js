@@ -5,7 +5,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const EN = {
-    'UI 设置': 'UI Settings', '功能设置': 'Function Settings', '其他': 'Other', '侧栏自动隐藏': 'Auto-hide sidebar',
+    'UI 设置': 'UI Settings', '功能设置': 'Function Settings', '其他': 'Other', '侧栏自动隐藏': 'Auto-hide sidebar', '实时曲线样式 2': 'Chart style 2',
     '学习中心': 'Learning', '控制中心': 'Control center', '内容待定': 'Content coming soon', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter',
     '插件杯间学习成果': 'plugin shot-to-shot learning', '影子推理 bc_v0': 'shadow inference bc_v0', '规则仲裁 v0': 'rule arbitration v0',
     '下一杯指令': 'Next-shot commands', '增益记忆': 'Gain memory', '最近一杯判定': 'Last-shot verdict', '历史概览': 'History overview',
@@ -293,7 +293,10 @@
       if (tabs) tabs.hidden = true;
       if (foot) foot.hidden = true;
       body.innerHTML = '<div class="lrn-sec"><h4>' + t('UI 设置') + '</h4>' +
-        '<label class="rawtoggle" style="margin:2px 0 0 2px"><input type="checkbox" id="sideAutoHide"><span class="sw"></span>' + t('侧栏自动隐藏') + '</label></div>' +
+        '<div style="display:flex;align-items:center;gap:18px;margin:2px 0 0 2px">' +
+        '<label class="rawtoggle"><input type="checkbox" id="sideAutoHide"><span class="sw"></span>' + t('侧栏自动隐藏') + '</label>' +
+        '<label class="rawtoggle"><input type="checkbox" id="chartStyle2"><span class="sw"></span>' + t('实时曲线样式 2') + '</label>' +
+        '</div></div>' +
         '<div class="lrn-sec"><h4>' + t('功能设置') + '</h4></div>' +
         '<div class="lrn-sec"><h4>' + t('其他') + '</h4></div>';
       dbGet('hecSideAutoHide').then((v) => { const el = $('sideAutoHide'); if (el) el.checked = v !== 0; }).catch(() => {});
@@ -301,6 +304,12 @@
         const v = this.checked;
         try { dbSet('hecSideAutoHide', v ? 1 : 0); } catch (_) {}
         if (window.HxControl && window.HxControl.setSideAutoHide) window.HxControl.setSideAutoHide(v);
+      });
+      dbGet('hecChartStyle').then((v) => { const el = $('chartStyle2'); if (el) el.checked = v === 2; }).catch(() => {});
+      $('chartStyle2').addEventListener('change', function () {
+        const v = this.checked;
+        try { dbSet('hecChartStyle', v ? 2 : 1); } catch (_) {}
+        if (window.HxControl && window.HxControl.setChartStyle) window.HxControl.setChartStyle(v ? 2 : 1);
       });
     } else {
       if (tabs) tabs.hidden = false;
@@ -326,8 +335,8 @@
     const dim = $('lrnDim');
     dim.innerHTML = '<div class="modal lrn-modal">' +
       '<div class="lrn-top"><div class="ftabs">' +
-      '<button type="button" class="ftab" data-sec="control">' + t('控制中心') + '</button>' +
       '<button type="button" class="ftab" data-sec="learn">' + t('学习中心') + '</button>' +
+      '<button type="button" class="ftab" data-sec="control">' + t('控制中心') + '</button>' +
       '</div><span class="src" id="lrnSrc"></span><button class="lrn-x" id="lrnClose">✕</button></div>' +
       '<div class="lrn-tabs" id="lrnTabs">' +
       '<button class="lrn-tab" data-tab="learn">' + t('算法学习') + '<span class="sub">' + t('插件杯间学习成果') + '</span></button>' +

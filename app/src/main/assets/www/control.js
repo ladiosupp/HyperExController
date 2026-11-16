@@ -36,7 +36,7 @@
     if (!has) return { lo: 0, hi: 8 };
     return { lo: 0, hi: Math.max(3, Math.ceil(hi * 1.15)) };
   }
-  const C = { raw: '#63d89b', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
+  const C = { raw: '#63d89b', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', press2: '#4dd0e1', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
   const PHASE_LABEL = { stage1: 'S1', stage2: 'S2', stage3: 'S3', dumping: '泄压', soak: '浸泡', restart_wait: '等 GHC', finishing: '收尾', idle: 'IDLE', aborted: '中止' };
   const PHASE_PILL = { stage1: ['#20304d', '#9cc0ff'], stage2: ['#3d2c17', '#f5c078'], stage3: ['#173a2a', '#8fe0b0'], dumping: ['#3d1d22', '#f2a0aa'], soak: ['#322040', '#d5a8f5'], idle: ['#2a2f37', '#cfd5de'] };
   const STAGE_BAND = { stage1: 'rgba(110,168,254,.10)', dumping: 'rgba(242,144,154,.08)', soak: 'rgba(199,125,255,.08)', stage2: 'rgba(245,164,66,.10)', stage3: 'rgba(99,216,155,.10)' };
@@ -109,6 +109,8 @@
   let favs = [null, null, null, null, null, null];   // 常用曲线位（存本机 hecFavCurves，按标题）
   let sideCollapsed = false;
   let sideAutoHide = true;      // 侧栏自动隐藏（控制中心·UI 设置，默认开）
+  let chartStyle = 1;           // 实时曲线样式（控制中心·UI 设置，默认 1；2=合并图）
+  const seriesOff = new Set();  // 样式 2 图例点击隐藏的曲线（仅内存，不存盘）
   let autoExpandTimer = 0;
   let curves = [];                 // {id,title,hx,profile}
   let selectedCurve = null;
@@ -648,7 +650,7 @@
       if (d.classList.contains('curve-card')) return;
       const isWeight = !!d.querySelector('[data-dial="weight"]');
       d.classList.toggle('locked', locked || (isWeight && hxWeightLock));
-      d.classList.toggle('hxlock', isWeight && hxWeightLock);
+      d.classList.toggle('hxlock', locked || (isWeight && hxWeightLock));
     });
   }
   function renderHeaderState() {
@@ -776,9 +778,10 @@
     return { ctx, w, h };
   }
   const pad = { l: 34, r: 12, t: 10, b: 18 };
-  function axes(ctx, w, h, p, yMin, yMax, dec) {
+  function axes(ctx, w, h, p, yMin, yMax, dec, n) {
     ctx.strokeStyle = C.grid; ctx.fillStyle = C.axis; ctx.font = '10px ui-monospace,monospace'; ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) { const y = p.t + (h - p.t - p.b) * i / 4; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(w - p.r, y); ctx.stroke(); ctx.fillText((yMax - (yMax - yMin) * i / 4).toFixed(dec || 0), 4, y + 3); }
+    const N = n || 4;
+    for (let i = 0; i <= N; i++) { const y = p.t + (h - p.t - p.b) * i / N; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(w - p.r, y); ctx.stroke(); ctx.fillText((yMax - (yMax - yMin) * i / N).toFixed(dec || 0), 4, y + 3); }
   }
   function line(ctx, pts, p, w, h, xMax, yMin, yMax, color, width, dash) {
     if (!pts.length) return;
@@ -888,6 +891,7 @@
     const samples = run ? run.samples : [];
     const tEnd = run ? Math.max(runT(), 10) : 30;
     const xMax = Math.max(30, Math.ceil(tEnd / 10) * 10);
+    if (chartStyle === 2) { drawMerge(hx, samples, xMax); renderLegends(hx); return; }
     // 杯流图
     const a = setup('hcFlow');
     if (a) {
@@ -934,6 +938,47 @@
     }
     renderLegends(hx);
   }
+  // 样式 2：两卡合一。左轴固定 0–10（6 格），右轴温度自适应（无标题）；图例点击隐藏/显示。
+  function drawMerge(hx, samples, xMax) {
+    const a = setup('hcMerge'); if (!a) return;
+    const { ctx, w, h } = a;
+    const pL = { l: pad.l, r: 32, t: pad.t, b: pad.b };
+    const tr = tempRange(samples, dial.temp.v);
+    if (hx && run) bands(ctx, w, h, pL, xMax, run.phases);
+    else if (run && run.steps.length) stepBands(ctx, w, h, pL, xMax, run.steps);
+    axes(ctx, w, h, pL, 0, 10, 0, 5);
+    ctx.fillStyle = C.temp; ctx.font = '10px ui-monospace,monospace';
+    for (let i = 0; i <= 4; i++) { const y = pL.t + (h - pL.t - pL.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
+    const on = (k) => !seriesOff.has(k);
+    const L = (pts, color, width, dash) => line(ctx, pts, pL, w, h, xMax, 0, 10, color, width, dash);
+    if (hx && on('target')) L(samples.map((s) => [s.t, run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : s.tgt]), C.target, 1.2, [5, 4]);
+    if (on('decaid')) L(samples.map((s) => [s.t, s.decaid]), C.decaid, 1.4);
+    if (rawOn) {
+      const rp = rawSeries(samples);
+      if (rawWin > 0) {
+        if (on('rawdot')) scatterRaw(ctx, rp, pL, w, h, xMax, 0, 10, C.raw);
+        if (on('raw')) L(filterRaw(rp, rawWin), C.raw, 1.8);
+      } else if (on('raw')) L(rp, C.raw, 1.8);
+    }
+    if (hx) {
+      if (on('targetcmd')) L(samples.map((s) => [s.t, s.tcmd]), C.cmd, 1.2, [5, 4]);
+      if (on('cmd')) stepLine(ctx, run ? run.cmd : [], pL, w, h, xMax, 0, 10, C.cmd, 1.8);
+    }
+    if (on('mflow')) L(samples.map((s) => [s.t, s.mflow]), C.mflow, 1.2);
+    if (on('press')) L(samples.map((s) => [s.t, s.pressure]), C.press2, 1.6);
+    if (on('temp')) line(ctx, samples.map((s) => [s.t, s.temp]), pL, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
+    if (hx) vecArrows(ctx, checks.filter((ck) => (ck.dc >= 0 ? on('vec') : on('vecdn'))), pL, w, h, xMax, 0, 10);
+    if (run) nowLine(ctx, w, h, pL, xMax, runT());
+  }
+  function applyChartStyle() {
+    const merge = chartStyle === 2;
+    $('boxFlow').hidden = merge;
+    $('boxPress').hidden = merge;
+    $('boxMerge').hidden = !merge;
+    const raw = $('hecRawToggle').closest('label'), rw = $('rawWin');
+    if (merge) { const hd = $('mergeHead'); hd.appendChild(raw); hd.appendChild(rw); }
+    else { const hd = $('flowHead'), ti = hd.querySelector('.charttitle'); hd.insertBefore(raw, ti); hd.insertBefore(rw, ti); }
+  }
   function renderLegends(hx) {
     const lg = (id, items) => { const el = $(id); if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + (it.dot ? ' dot' : '') + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span style="color:#aab2bf">' + it.l + '</span></span>').join(''); };
     const flow = [{ l: t('decaid 杯流'), c: C.decaid }, { l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
@@ -944,6 +989,15 @@
     if (hx) press.push({ l: t('目标指令'), c: C.target, dash: 1 }, { l: t('APK 指令'), c: C.cmd });
     press.push({ l: t('温度'), c: C.temp });
     lg('lgPress', press);
+    if (chartStyle === 2) {
+      const items = [{ k: 'decaid', l: t('decaid 杯流'), c: C.decaid }, { k: 'raw', l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
+      if (rawOn && rawWin > 0) items.push({ k: 'rawdot', l: t('原始'), c: C.raw, dot: 1 });
+      items.push({ k: 'press', l: t('压力'), c: C.press2 }, { k: 'mflow', l: t('机器流量'), c: C.mflow });
+      if (hx) items.push({ k: 'target', l: t('目标杯流'), c: C.target, dash: 1 }, { k: 'vec', l: t('矢量·增'), c: C.vec, arrow: 1 }, { k: 'vecdn', l: t('矢量·减'), c: C.vecdn, arrow: 1 }, { k: 'targetcmd', l: t('目标指令'), c: C.cmd, dash: 1 }, { k: 'cmd', l: t('APK 指令'), c: C.cmd });
+      items.push({ k: 'temp', l: t('温度'), c: C.temp });
+      const el = $('lgMerge');
+      if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + (it.dot ? ' dot' : '') + (seriesOff.has(it.k) ? ' off' : '') + '" data-key="' + it.k + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span>' + it.l + '</span></span>').join('');
+    }
   }
 
   // ---- 弹窗 ----
@@ -1198,6 +1252,7 @@
       try { const sf = await dbGet('hecFavCurves'); if (Array.isArray(sf)) favs = sf.slice(0, 6).concat([null, null, null, null, null, null]).slice(0, 6); } catch (_) {}
       try { sideCollapsed = (await dbGet('hecSideCollapsed')) === 1; } catch (_) {}
       try { sideAutoHide = (await dbGet('hecSideAutoHide')) !== 0; } catch (_) {}
+      try { chartStyle = (await dbGet('hecChartStyle')) === 2 ? 2 : 1; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
       $('sideToggle').addEventListener('click', toggleSide);
@@ -1211,7 +1266,14 @@
       $('hecDim').addEventListener('click', (e) => { if (e.target === $('hecDim')) closeModal(); });
       $('hecRawToggle').addEventListener('change', function () { rawOn = this.checked; drawCharts(); });
       document.querySelectorAll('#rawWin [data-rw]').forEach((b) => b.addEventListener('click', () => rawWinStep(Number(b.dataset.rw))));
+      $('lgMerge').addEventListener('click', (e) => {
+        const lgEl = e.target.closest('.lg'); if (!lgEl || !lgEl.dataset.key) return;
+        const k = lgEl.dataset.key;
+        if (seriesOff.has(k)) seriesOff.delete(k); else seriesOff.add(k);
+        drawCharts();
+      });
       renderRawWin();
+      applyChartStyle();
       $('modeBtn').addEventListener('click', (e) => { e.stopPropagation(); $('modePanel').hidden = !$('modePanel').hidden; });
       document.addEventListener('click', () => { $('modePanel').hidden = true; });
       document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.addEventListener('click', () => { setMode(it.dataset.mode); $('modePanel').hidden = true; }));
@@ -1242,6 +1304,7 @@
       if (st && st.ok && st.state) { machineStateStr = st.state; if (mode === 'control') renderHeaderState(); }
     },
     setSideAutoHide: function (v) { sideAutoHide = !!v; if (!sideAutoHide) { clearTimeout(autoExpandTimer); autoExpandTimer = 0; } },
+    setChartStyle: function (v) { chartStyle = v === 2 ? 2 : 1; applyChartStyle(); drawCharts(); },
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
