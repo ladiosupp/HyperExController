@@ -933,6 +933,7 @@
     d.innerHTML = '<div class="modal crv-modal"><div class="crv-head"><h3>' + t('选择曲线') + '</h3><span class="src" id="crvSrc"></span><button class="lrn-x" id="crvClose">✕</button></div><div class="favrow" id="favRow"></div><div class="crv-scroll" id="crvScroll"></div><div class="crv-dots" id="crvDots"></div></div>';
     d.hidden = false;
     renderCurveModal();
+    $('crvScroll').scrollLeft = 0;
     $('crvClose').addEventListener('click', closeModal);
   }
   function renderCurveModal() {
@@ -943,12 +944,11 @@
     let pagesHtml = '';
     for (let p = 0; p < pages; p++) {
       const chunk = curves.slice(p * 12, p * 12 + 12);
-      const cols = [chunk.slice(0, 6), chunk.slice(6, 12)];
-      pagesHtml += '<div class="crv-page">' + cols.map((col) => '<div class="crv-col">' + col.map((c) => {
+      pagesHtml += '<div class="crv-page">' + chunk.map((c) => {
         const gi = curves.indexOf(c);
         const fs = favSlot(c.title);
         return '<div class="crv-it' + (c.title === cur ? ' sel' : '') + '" data-ci="' + gi + '"><span class="nm">' + esc(c.title) + '</span>' + (fs >= 0 ? '<span class="favb">' + t('常用') + (fs + 1) + '</span>' : '') + '<span class="mtag' + (c.hx ? '' : ' plain') + '">' + (c.hx ? t('HyperEx') : t('非HyperEx')) + '</span></div>';
-      }).join('') + '</div>').join('') + '</div>';
+      }).join('') + '</div>';
     }
     $('crvScroll').innerHTML = pagesHtml;
     $('crvDots').innerHTML = Array.from({ length: pages }, (_, i) => '<i' + (i === 0 ? ' class="on"' : '') + '></i>').join('');
