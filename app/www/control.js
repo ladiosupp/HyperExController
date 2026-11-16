@@ -927,7 +927,8 @@
   const CHEV_R = '<svg width="6" height="9" viewBox="0 0 7 10"><path d="M2 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function saveFavs() { try { dbSet('hecFavCurves', favs); } catch (_) {} }
   function favSlot(title) { return favs.indexOf(title); }
-  function closeLp() { const m = document.querySelector('.lp-menu'); if (m) m.remove(); }
+  function closeLp() { const m = document.querySelector('.lp-menu'); if (m) m.remove(); document.removeEventListener('pointerdown', lpOutside); }
+  function lpOutside(e) { const m = document.querySelector('.lp-menu'); if (m && !m.contains(e.target)) closeLp(); }
   function openCurveModal() {
     if (!curves.length) { toast(t('无曲线')); return; }
     const d = $('hecDim');
@@ -993,11 +994,10 @@
     closeLp();
     const m = document.createElement('div');
     m.className = 'lp-menu';
-    const slot = favSlot(c.title);
     let html = '<div class="lp-t">' + esc(c.title) + '</div>';
     for (let i = 0; i < 6; i++) {
       const f = favs[i];
-      if (i === slot) html += '<div class="lp-it hot" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('移除') + '</div>';
+      if (f === c.title) html += '<div class="lp-it hot" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('移除') + '</div>';
       else if (f) html += '<div class="lp-it" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('替换') + esc(f) + '</div>';
       else html += '<div class="lp-it" data-slot="' + i + '"><span class="n">' + (i + 1) + '</span>' + t('加入到常用') + (i + 1) + '</div>';
     }
@@ -1009,11 +1009,11 @@
     m.querySelectorAll('[data-slot]').forEach((el) => el.addEventListener('click', (e) => {
       e.stopPropagation();
       const i = Number(el.dataset.slot);
-      if (i === favSlot(c.title)) { favs[i] = null; toast(t('已移除常用')); }
+      if (favs[i] === c.title) { favs[i] = null; toast(t('已移除常用')); }
       else { const had = !!favs[i]; favs[i] = c.title; toast((had ? t('已替换常用') : t('已加入常用')) + (i + 1)); }
       saveFavs(); closeLp(); renderCurveModal();
     }));
-    setTimeout(() => document.addEventListener('pointerdown', closeLp, { once: true }), 0);
+    setTimeout(() => document.addEventListener('pointerdown', lpOutside), 0);
   }
   function openAddrModal() {
     openModal('<h3>' + t('Decaid 地址') + '</h3><input type="text" id="addrIn" value="' + esc(baseUrl || 'http://127.0.0.1:8080') + '"><div class="modal-actions"><button class="ghost" id="addrCancel">' + t('取消') + '</button><button class="primary" id="addrOk">' + t('连接') + '</button></div>');
