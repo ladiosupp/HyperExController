@@ -1,4 +1,4 @@
-# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ v0.15 已发版装平板（供统筹）
+# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ v0.15 已发版装平板；v0.16 校准同口径就绪待发版（供统筹）
 
 > 前序：HANDOFF_2026-11-16-hec-yield-fix.md（液重停杯修复，非 HX 口径）。
 > 技能：android-tablet-apk-dev（通用坑）、decentplugin §22（控制口径）。规矩照 AGENTS.md（7/15/16/19/20）。
@@ -9,6 +9,7 @@
 根因钉死：**HEC selectCurve 对 HX 曲线也注入拨轮残留液重到 context.targetYield**，Decaid SAW 按残留值（26g，拉杆配方带来）提前停杯。
 已修（v0.15，versionCode 15）：HX 曲线改发曲线自己的 target_weight（真机 HX auto=0 → SAW 禁用、停杯交插件），非 HX 维持 11-16 拨轮口径。
 模拟器回归 17/17 过。**用户确认后已装平板并完整发版**（push / GitHub Release / 夸克，回执见 §6）。
+用户随后拍板：Flow Calibration 同口径处理 + 父仓指针推。v0.16 已改好并回归 19/19（§8），**发版（装平板/推送/Release/夸克）待用户拍板**。
 
 ## 1. 根因与真机证据（2026-11-17 上午，插件 2.2.48，full 档）
 
@@ -49,8 +50,7 @@
 2. **真机验收（用户出杯）**：HEC 切 HX auto → Streamline 液重块应显示 0 → full 档出杯应完整跑到 ~100g 由插件写 Idle 收尾（stopReason=apiStop）；
    切拉杆仍跟拨轮液重到重停（11-16 口径不变）。
 3. ~~发版~~ 已完成（§6）。父仓指针只在本地，推不推问用户。
-4. 已知边界（未改，超出本次授权）：Flow Calibration 曲线在 HEC 里 hx=false，切它仍发拨轮值——校准杯由插件主动停，
-   理论上同样可能被 SAW 提前停；用户没报过，留待拍板是否同口径处理。
+4. ~~Flow Calibration 边界~~ 用户 11-17 拍板同口径，已在 v0.16 实施（§8）。
 
 ## 5. 别碰
 
@@ -70,7 +70,7 @@
 - GitHub Release：**v0.15**，id **447756775**，https://github.com/ladiosupp/HyperExController/releases/tag/v0.15 ；
   附件 HyperExController_v0.15.apk（asset id 756885496，6,701,612 字节）。REST 建 + uploads 直传（gh 带附件挂死坑），token 走 git credential fill，均走 VPN 代理。
 - 夸克：**夸克网盘/来自：Codex**，fileId **5ae0a3c8576a452b99f99370111c1521**，6,701,612 字节（CLI 1.0.25）。
-- 父仓指针：D:/vscode 本地提交（见 git log），**未推**（惯例：推不推问用户）。
+- 父仓指针：D:/vscode 本地提交 60e51d1；**用户 11-17 拍板推**，回执见 §8。
 
 ## 7. 给统筹的话（用户转交）
 
@@ -80,6 +80,19 @@
   可直接补 HANDOFF_2026-11-17-hec-live-cups.md §2/§3。v0.15 后 HEC 切 HX 不再注入残留液重，full 档取证可继续。
 - **UI 对话**：杯流卡显示稳定化（flowDisp/EMA）仍未提交，已随 v0.15 包发出（用户知情）；请尽快提交固化，避免下次构建漂移。
   cfff2aa（去皮光条）已随本次 push 上远端。
-- **待拍板**：① Flow Calibration 曲线是否同口径处理（§4.4）；② 父仓指针推不推；③ 夸克 v0.6 历史欠传。
+- **待拍板**：① ~~Flow Calibration 同口径~~ 已实施（v0.16，§8）；② ~~父仓指针推不推~~ 已推（§8）；③ 夸克 v0.6 历史欠传；④ v0.16 发版（装平板/推送/Release/夸克）。
 - **口径澄清**：HX 杯停杯 = 插件 FinalWeight（≈100g）写 Idle；拨轮/SAW 不是 HX 的液重入口，改 HX 液重改插件设置。
   Streamline 显示目标液重 0 对 HX 是正常态（皮肤按曲线 target_weight=0 下发）。
+
+## 8. v0.16 批次：Flow Calibration 同口径（2026-11-17，用户拍板「Flow Calibration 曲线同口径处理；父仓指针推」）
+
+- 改：selectCurve 的例外判定从 c.hx 改为标题正则 /^HyperEx/i（pluginStop），**覆盖 HX 各曲线 + Flow Calibration**：
+  切这类曲线 context.targetYield 一律发曲线自己的 target_weight（校准曲线也是 0 → SAW 禁用，校准由插件主动停在 hardStopG）。
+  拨轮/应用锁（isHxSelected）未动——校准曲线拨轮仍可手动编辑，显式应用液重是用户主动动作，不在本次静默注入修复范围。
+- 版本：build.gradle 16/0.16；assets 同步哈希一致；node --check 过。
+- 回归：模拟器装 v0.16 + 4798 桩 + CDP **19/19**（.tools/__cal-regress.log；新增「校准曲线切曲线 context=0」两项）。
+  APK 副本 .tools/HyperExController_v0.16.apk。收尾已做（stayon false、reverse/forward 删、4798 桩停）。
+- 构建内容提示：含 c417157（UI 对话杯流卡同源+稳定化，已提交未推）+ 图标对话未提交 WIP（manifest icon→mipmap、
+  index.html 卡片对齐、res/mipmap 与 values 新目录）——发版时用户知情决定要不要等图标对话收尾。
+- 父仓指针推送回执：D:/vscode origin main（ladiosupp/coffee-bean-manager），60e51d1 随待推指针提交链一起上远端，走 VPN 代理 57890。
+- **v0.16 发版待用户拍板**（装平板/推送/Release/夸克）；本批提交只在本地。
