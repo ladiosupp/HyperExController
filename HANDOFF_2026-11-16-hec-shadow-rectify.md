@@ -129,3 +129,48 @@ r 优先当杯局部增益估计（updateLiveGain 同口径：静默一个回归
 - R2–R5 桩验证：node .tools/__rectify-r2345-test.cjs → __rectify-r2345-report.json（27 PASS / 0 FAIL）
 - 依赖：D:/vscode/.tools/hx-train/pipeline/{plugin-metrics,reconstruct}.js、hx-data/hyperex-history-all.json（只读）
 
+
+---
+
+## 12. 真机自查（2026-11-16 08:13 取证，统筹放行 §4.2 第一步；只读，未改代码未发送未装机）
+
+### 取证通道
+
+adb mDNS `adb-haf6uwvcqcdujzin-trqoCZ._adb-tls-connect._tcp`（tablet.json 里的 192.168.31.15:46113 已失效，mDNS 名直连可用）→
+pidof com.ladios.hxcontroller=17309 → forward tcp:9224 → CDP 同步求值 `HxShadow.exportJSON()`（异步 promise 先 kick 后读，避开坑 8）。
+取证前置按技能坑 11：平板当时锁屏+通知栏遮罩（mCurrentFocus=NotificationShade），BACK+上滑无效，`wm dismiss-keyguard` 解锁后 am start 拉前台恢复。
+全文导出落地 `.tools/__rectify-tablet-shadow-export.json`（199,752 字符，不入库），核对脚本 `.tools/__rectify-tablet-check.cjs`。
+
+### 平板现场（v0.10，插件 2.2.48，链路正常）
+
+- appVer=0.10，HxShadow loadState=ready（bc_v0 ONNX 就绪），conn=ok，心跳 ok=true / ageMs=0 / client=HyperExController 0.10。
+- ext.mode=**full**，phase=idle。导出 kind=HecShadowLog **schema=2 rectify=2026-11-16** ✓（R5 导出标记真机生效）。
+
+### 导出 4 杯逐条核对（实测数字）
+
+| runId | modeAtStart | fixLevel | samples | decisions | writes（write/frame-change/legacy） | 判定 |
+|---|---|---|---|---|---|---|
+| 1794727769993-1 | (absent) | (absent) | 683 | 34 | 0/0/4 | pre-fix 旧杯 → 排除训练 ✓ |
+| 1794731835503-2 | (absent) | (absent) | 699 | 35 | 0/0/4 | pre-fix 旧杯 → 排除训练 ✓ |
+| live-1794782815357 | (absent) | (absent) | 270 | 0 | 0/0/3 | v0.9 时期残杯 → 排除训练 ✓ |
+| live-1794786975824 | **full** | **r1-r5** | 374 | **0** | **0/3/0** | v0.10 新杯，但无有效相位（见下） |
+
+- **并档规则真机验证 ✓**：训练候选=modeAtStart=full 且 fixLevel=r1-r5，只有 live-1794786975824 一杯入选；
+  两杯 pre-fix（1794727769993-1 / 1794731835503-2）与 v0.9 残杯全部排除。旧杯 34/35 个决策 predictedGS 全 null、rescue 全 false（写死缺省时代的记录），正是本单要修的对象，不进训练。
+- **R2 帧标记真机已生效**：v0.10 新杯 3 条 writes 全部 kind=frame-change（frame 0→1→2，指令 0.5625→3.3125→3.8125→0.5625 的帧基值跳变），
+  write=0、算法候选零混入 ✓。旧杯 writes 无 kind/frame 字段（legacy），与 pre-fix 判定一致。
+- **零发送 ✓**：4 杯全部决策 sent=true 计 0。
+- **R1/R3/R4 真机数值尚未取证**：唯一 v0.10 杯 374 个样本**相位全程 idle**（ext.phase 未跟上，runId 也是 live- 兜底而非插件 runId），
+  影子决策门（phase∈{stage2,stage3}）正确地一个决策都没出——这不是缺陷，是这杯没被识别为萃取中。
+  该杯 writes 能记到帧跳变说明 ext 有值但 phase 停在 idle，疑似出杯时控制页未连接/刚启动（hello 晚于萃取），插件 runId/phase 未同步进 ext。
+  另一杯 live-1794782815357（v0.9）同样全 idle，同模式。
+- **结论：平板暂无「full 档 + 相位正常」的新杯。需要在控制页已连接（心跳 ok）的状态下、full 档出 1–2 杯再导出**，
+  才能对 predictedGS 非全 null、rescue 真实判定、matched 子集、responseGS/responseWindow、杯尾 responseIncomplete 取到真机数字。
+  离线验收（§1：98.78%/99.36%）与桩验证（27/27）不受影响。
+
+### 待用户配合（先问再做）
+
+1. **full 档出杯**：确认控制页「已连接」胶囊亮着（当前已满足），正常出 1–2 杯 HyperEx；出完我再拉导出核对 R1/R3/R4 数字。
+2. **hec 档 §8 链路清单**（切 hec → hello → 心跳 ok；不 hello 出杯 → hec-no-handshake；停轮询 4s → hec-heartbeat-lost+基值收回）：
+   需要切档与多次出杯，与用户另行约时间。
+
