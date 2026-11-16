@@ -94,6 +94,7 @@
   let curves = [];                 // {id,title,hx,profile}
   let selectedCurve = null;
   let liveProfile = null;          // GET /workflow 的 profile
+  let liveContext = null;          // GET /workflow 的 context（targetYield 才是 Decaid 的停杯目标）
   let savedProfile = null;         // 选中曲线的存储记录（温度平移的形状基准）
   let dial = { temp: { v: 92, min: 70, max: 100, step: .5 }, weight: { v: 36, min: 10, max: 300, step: .5 } };
   let dialDirty = { temp: false, weight: false };
@@ -487,6 +488,7 @@
     const r = await httpJson('GET', '/api/v1/workflow');
     if (r.ok && r.body && r.body.profile) {
       liveProfile = r.body.profile;
+      liveContext = r.body.context || null;
       const title = String(liveProfile.title || '');
       selectedCurve = curves.find((c) => c.title === title) || null;
       savedProfile = selectedCurve ? selectedCurve.profile : null;
@@ -498,7 +500,8 @@
     if (!liveProfile) return;
     const steps = Array.isArray(liveProfile.steps) ? liveProfile.steps : [];
     if (steps.length && Number.isFinite(Number(steps[0].temperature))) { dial.temp.v = clampDial('temp', Number(steps[0].temperature)); dialDirty.temp = false; }
-    const tw = Number(liveProfile.target_weight);
+    const cy = Number(liveContext && liveContext.targetYield);
+    const tw = Number.isFinite(cy) && cy > 0 ? cy : Number(liveProfile.target_weight);
     if (Number.isFinite(tw) && tw > 0) { dial.weight.v = clampDial('weight', tw); dialDirty.weight = false; }
     renderDial('temp'); renderDial('weight');
   }
@@ -533,7 +536,8 @@
       if (dialDirty.weight) {
         if (isHxSelected()) { toast(t('液重由插件控制')); }
         else {
-          const r = await httpJson('PUT', '/api/v1/workflow', { profile: { target_weight: dial.weight.v } });
+          // Decaid 停杯读 context.targetYield（shot_sequencer），target_weight 只是曲线字段——两个一起发，Streamline 首页同款。
+          const r = await httpJson('PUT', '/api/v1/workflow', { profile: { target_weight: dial.weight.v }, context: { targetYield: dial.weight.v } });
           if (!r.ok) throw new Error('HTTP ' + r.status);
           dialDirty.weight = false;
           toast(t('液重已应用') + ' ' + dial.weight.v.toFixed(1) + ' g');
@@ -550,7 +554,8 @@
   async function selectCurve(c) {
     if (!c || !baseUrl) return;
     if (ext && ext.extracting) { toast(t('本杯进行中')); return; }
-    const r = await httpJson('PUT', '/api/v1/workflow', { profile: c.profile });
+    // 切曲线随带拨轮当前液重（用户 2026-11-16 拍板）：Decaid 深合并不重置 context，不带就沿用旧目标（0 = 不停杯）。
+    const r = await httpJson('PUT', '/api/v1/workflow', { profile: c.profile, context: { targetYield: dial.weight.v } });
     if (!r.ok) { toast(t('切换失败') + ': HTTP ' + r.status); return; }
     selectedCurve = c; savedProfile = c.profile;
     await loadWorkflow();
