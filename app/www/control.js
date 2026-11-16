@@ -24,6 +24,18 @@
     if (hi - lo < 6) { const c = (hi + lo) / 2; lo = Math.floor(c - 3); hi = Math.ceil(c + 3); }
     return { lo, hi };
   }
+  // 杯流纵轴自适应量程（用户 2026-11-16 定）：只看 decaid 杯流+目标杯流，上限=max×1.15 向上取整，
+  // 最小跨度 3 g/s，下限固定 0，无数据回退 0–8；RAW 尖峰不带动轴；杯内突破再撑开、不缩。
+  function flowRange(samples, tgt, hx) {
+    let hi = 0, has = false;
+    for (const s of samples) {
+      if (s && s.decaid != null && Number.isFinite(s.decaid)) { hi = Math.max(hi, s.decaid); has = true; }
+      if (hx && s && s.tgt != null && Number.isFinite(s.tgt)) { hi = Math.max(hi, s.tgt); has = true; }
+    }
+    if (tgt != null && Number.isFinite(tgt)) { hi = Math.max(hi, tgt); has = true; }
+    if (!has) return { lo: 0, hi: 8 };
+    return { lo: 0, hi: Math.max(3, Math.ceil(hi * 1.15)) };
+  }
   const C = { raw: '#63d89b', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
   const PHASE_LABEL = { stage1: 'S1', stage2: 'S2', stage3: 'S3', dumping: '泄压', soak: '浸泡', restart_wait: '等 GHC', finishing: '收尾', idle: 'IDLE', aborted: '中止' };
   const PHASE_PILL = { stage1: ['#20304d', '#9cc0ff'], stage2: ['#3d2c17', '#f5c078'], stage3: ['#173a2a', '#8fe0b0'], dumping: ['#3d1d22', '#f2a0aa'], soak: ['#322040', '#d5a8f5'], idle: ['#2a2f37', '#cfd5de'] };
@@ -31,6 +43,7 @@
 
   // ---- 中英文（控制页自己的键；回放页键在 app.js 的 EN）----
   const EN = {
+    '步': 'Step',
     '控制': 'Control', '回放': 'Replay', '选曲线 · 调温重量 · 实时调流': 'curve · temp/weight · live trim', 'ProfileReplayer 原页': 'ProfileReplayer page',
     '曲线选择': 'Curve select', '萃取温度': 'Brew temp', '萃取液重': 'Beverage weight', '应用': 'Apply',
     'Decaid 地址': 'Decaid address', '本杯锁定': 'shot locked', '插件': 'Plugin', '逻辑帧': 'Frame',
@@ -95,6 +108,8 @@
   let toastTimer = 0;
   let favs = [null, null, null, null, null, null];   // 常用曲线位（存本机 hecFavCurves，按标题）
   let sideCollapsed = false;
+  let sideAutoHide = true;      // 侧栏自动隐藏（控制中心·UI 设置，默认开）
+  let autoExpandTimer = 0;
   let curves = [];                 // {id,title,hx,profile}
   let selectedCurve = null;
   let liveProfile = null;          // GET /workflow 的 profile
@@ -200,7 +215,7 @@
 
   // ---- 实时杯缓冲（WS 驱动）----
   function newRun() {
-    return { startedAt: Date.now(), samples: [], phases: [], lastPhase: null, lastWeight: null, lastStamp: null, lastRaw: null, cmd: [], lastCmd: null };
+    return { startedAt: Date.now(), samples: [], phases: [], steps: [], lastStep: null, lastPhase: null, lastWeight: null, lastStamp: null, lastRaw: null, cmd: [], lastCmd: null };
   }
   function runT() { return run ? ((runEnded ? runEndedAt : Date.now()) - run.startedAt) / 1000 : 0; }
   function noteExternal(x) {
@@ -251,12 +266,21 @@
       const ph = (ext && ext.phase) || 'stage1';
       run.phases.push({ t: 0, phase: ph });
       run.lastPhase = ph;
+      if (sideAutoHide && mode === 'control' && !sideCollapsed) setSide(true);
     }
     if (!extracting && run && !runEnded && (st === 'idle' || st === 'ready' || st === 'sleeping')) {
       // 杯结束：冻结计时并保留完整曲线，下一次开杯才清空
       runEnded = true; runEndedAt = Date.now();
       archiveRun().catch(() => {});
       if (window.HxShadow) window.HxShadow.onCupEnd();
+      if (sideAutoHide && mode === 'control' && sideCollapsed) {
+        clearTimeout(autoExpandTimer);
+        autoExpandTimer = setTimeout(() => { autoExpandTimer = 0; if (sideCollapsed) setSide(false); }, 3000);
+      }
+    }
+    if (extracting && run && !runEnded && !isHxSelected()) {
+      const pf = Number(machine.profileFrame);
+      if (Number.isFinite(pf) && pf !== run.lastStep) { run.steps.push({ t: runT(), step: pf }); run.lastStep = pf; }
     }
     renderHeaderState();
     drawCharts();
@@ -752,9 +776,9 @@
     return { ctx, w, h };
   }
   const pad = { l: 34, r: 12, t: 10, b: 18 };
-  function axes(ctx, w, h, p, yMin, yMax) {
+  function axes(ctx, w, h, p, yMin, yMax, dec) {
     ctx.strokeStyle = C.grid; ctx.fillStyle = C.axis; ctx.font = '10px ui-monospace,monospace'; ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) { const y = p.t + (h - p.t - p.b) * i / 4; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(w - p.r, y); ctx.stroke(); ctx.fillText((yMax - (yMax - yMin) * i / 4).toFixed(0), 4, y + 3); }
+    for (let i = 0; i <= 4; i++) { const y = p.t + (h - p.t - p.b) * i / 4; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(w - p.r, y); ctx.stroke(); ctx.fillText((yMax - (yMax - yMin) * i / 4).toFixed(dec || 0), 4, y + 3); }
   }
   function line(ctx, pts, p, w, h, xMax, yMin, yMax, color, width, dash) {
     if (!pts.length) return;
@@ -786,6 +810,18 @@
       ctx.fillStyle = col; ctx.fillRect(x0, p.t, x1 - x0, h - p.t - p.b);
       ctx.fillStyle = 'rgba(232,234,238,.4)'; ctx.font = '10px ui-monospace,monospace';
       ctx.fillText(phaseName(a.phase), x0 + 4, p.t + 11);
+    }
+  }
+  function stepBands(ctx, w, h, p, xMax, steps) {
+    const prof = (selectedCurve && selectedCurve.profile && Array.isArray(selectedCurve.profile.steps)) ? selectedCurve.profile.steps : [];
+    for (let i = 0; i < steps.length; i++) {
+      const a = steps[i], b = steps[i + 1];
+      const x0 = p.l + (w - p.l - p.r) * a.t / xMax, x1 = p.l + (w - p.l - p.r) * Math.min(b ? b.t : xMax, xMax) / xMax;
+      ctx.fillStyle = i % 2 ? 'rgba(232,234,238,.05)' : 'rgba(110,168,254,.07)';
+      ctx.fillRect(x0, p.t, x1 - x0, h - p.t - p.b);
+      const nm = prof[a.step] && prof[a.step].name ? String(prof[a.step].name) : t('步') + (a.step + 1);
+      ctx.fillStyle = 'rgba(232,234,238,.4)'; ctx.font = '10px ui-monospace,monospace';
+      ctx.fillText(nm, x0 + 4, p.t + 11);
     }
   }
   function nowLine(ctx, w, h, p, xMax, tt) {
@@ -856,9 +892,12 @@
     const a = setup('hcFlow');
     if (a) {
       const { ctx, w, h } = a;
-      const yMin = 0, yMax = 8;
+      const fr = flowRange(samples, hx && run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : null, hx);
+      const yMin = fr.lo, yMax = fr.hi;
+      const fdec = Number.isInteger((yMax - yMin) / 4) ? 0 : 1;
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
-      axes(ctx, w, h, pad, yMin, yMax);
+      else if (run && run.steps.length) stepBands(ctx, w, h, pad, xMax, run.steps);
+      axes(ctx, w, h, pad, yMin, yMax, fdec);
       const tgt = samples.map((s) => [s.t, hx ? (run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : s.tgt) : null]);
       if (hx) line(ctx, tgt, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
       line(ctx, samples.map((s) => [s.t, s.decaid]), pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
@@ -880,6 +919,7 @@
       const p2 = { l: pad.l, r: 32, t: pad.t, b: pad.b };
       const tr = tempRange(samples, dial.temp.v);
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
+      else if (run && run.steps.length) stepBands(ctx, w, h, pad, xMax, run.steps);
       axes(ctx, w, h, pad, yMin, yMax);
       ctx.fillStyle = C.temp; ctx.font = '10px ui-monospace,monospace';
       for (let i = 0; i <= 4; i++) { const y = p2.t + (h - p2.t - p2.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
@@ -1105,11 +1145,15 @@
     const b = $('sideToggle');
     if (b) { b.innerHTML = sideCollapsed ? CHEV_R : CHEV_L; b.setAttribute('aria-label', sideCollapsed ? '展开侧栏' : '收起侧栏'); }
   }
-  function toggleSide() {
-    sideCollapsed = !sideCollapsed;
+  function setSide(v) {
+    sideCollapsed = v;
     applySide();
-    try { dbSet('hecSideCollapsed', sideCollapsed ? 1 : 0); } catch (_) {}
     setTimeout(() => { if (mode === 'control') drawCharts(); }, 260);
+  }
+  function toggleSide() {
+    clearTimeout(autoExpandTimer); autoExpandTimer = 0;
+    setSide(!sideCollapsed);
+    try { dbSet('hecSideCollapsed', sideCollapsed ? 1 : 0); } catch (_) {}
   }
 
   // ---- 拨轮交互 ----
@@ -1153,6 +1197,7 @@
       const savedMode = await dbGet('hecMode').catch(() => null);
       try { const sf = await dbGet('hecFavCurves'); if (Array.isArray(sf)) favs = sf.slice(0, 6).concat([null, null, null, null, null, null]).slice(0, 6); } catch (_) {}
       try { sideCollapsed = (await dbGet('hecSideCollapsed')) === 1; } catch (_) {}
+      try { sideAutoHide = (await dbGet('hecSideAutoHide')) !== 0; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
       $('sideToggle').addEventListener('click', toggleSide);
@@ -1196,13 +1241,15 @@
       // 回放页的 10s 轮询也喂控制页状态（WS 之外的兜底）
       if (st && st.ok && st.state) { machineStateStr = st.state; if (mode === 'control') renderHeaderState(); }
     },
+    setSideAutoHide: function (v) { sideAutoHide = !!v; if (!sideAutoHide) { clearTimeout(autoExpandTimer); autoExpandTimer = 0; } },
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
+    _samples: function () { return run ? run.samples.slice(-6) : []; },
     _injectWater: onWaterSnapshot,
     // 联调/回归用：注入检测点并重画（验证超长示意标注）
     _injectChecks: function (cks) { checks = cks.slice(); lastCheck = checks[checks.length - 1] || null; drawCharts(); },
-    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, runEnded, water, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
+    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, steps: run ? run.steps.length : 0, runEnded, water, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
   };
 })();
 

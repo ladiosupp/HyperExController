@@ -5,6 +5,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const EN = {
+    'UI 设置': 'UI Settings', '功能设置': 'Function Settings', '其他': 'Other', '侧栏自动隐藏': 'Auto-hide sidebar',
     '学习中心': 'Learning', '控制中心': 'Control center', '内容待定': 'Content coming soon', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter',
     '插件杯间学习成果': 'plugin shot-to-shot learning', '影子推理 bc_v0': 'shadow inference bc_v0', '规则仲裁 v0': 'rule arbitration v0',
     '下一杯指令': 'Next-shot commands', '增益记忆': 'Gain memory', '最近一杯判定': 'Last-shot verdict', '历史概览': 'History overview',
@@ -291,7 +292,16 @@
     if (section === 'control') {
       if (tabs) tabs.hidden = true;
       if (foot) foot.hidden = true;
-      body.innerHTML = '<div class="lrn-empty">' + t('控制中心') + ' · ' + t('内容待定') + '</div>';
+      body.innerHTML = '<div class="lrn-sec"><h4>' + t('UI 设置') + '</h4>' +
+        '<label class="rawtoggle" style="margin:2px 0 0 2px"><input type="checkbox" id="sideAutoHide"><span class="sw"></span>' + t('侧栏自动隐藏') + '</label></div>' +
+        '<div class="lrn-sec"><h4>' + t('功能设置') + '</h4></div>' +
+        '<div class="lrn-sec"><h4>' + t('其他') + '</h4></div>';
+      dbGet('hecSideAutoHide').then((v) => { const el = $('sideAutoHide'); if (el) el.checked = v !== 0; }).catch(() => {});
+      $('sideAutoHide').addEventListener('change', function () {
+        const v = this.checked;
+        try { dbSet('hecSideAutoHide', v ? 1 : 0); } catch (_) {}
+        if (window.HxControl && window.HxControl.setSideAutoHide) window.HxControl.setSideAutoHide(v);
+      });
     } else {
       if (tabs) tabs.hidden = false;
       if (foot) foot.hidden = false;
