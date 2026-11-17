@@ -80,7 +80,7 @@
 
 ## 5. HEC app 业务口径
 
-1. 三档模式：full = 插件调流（现状）；hec = APK 调流 + 插件监护学习 + 保险；off = 只检测。POST /control-mode 仅空闲 200、运行中 409；模式开杯锁存，萃取中不切档，下一杯生效；APK「启用 HEC」先切档成功再进控制界面，409 提示「本杯进行中，下一杯生效」。（协议 §0/§1/§7）
+1. 三档模式：full = 插件调流（现状）；hec = APK 调流 + 插件监护学习 + 保险；off = 只检测。POST /control-mode 仅空闲 200、运行中 409；模式开杯锁存，萃取中不切档，下一杯生效；APK「启用 HEC」先切档成功再进控制界面，409 提示「本杯进行中，下一杯生效」。「启用 HEC」切档（POST /control-mode）与 external-flow 发送面属阶段 D，当前有意未实现（用户 11-17 确认，审计 i2 关闭）；现状 full 档影子只记录不发送，hec 档由外部切（Decaid UI/桩）。（协议 §0/§1/§7）
 2. 单一写者：APK 不碰 BLE / ws/v1/machine/raw；调流指令只经 POST external-flow 发进插件，插件校验后代写 A010；ACK / 超时 / 预算 / 看门狗全在插件侧。「不并联」约束的是对机器的写入面，不是 APK 内部候选生成（§22.10a HEC 架构例外：内部并联候选 + 仲裁选一条，输出经插件代写）。（协议 §0；§22.10；模型设计 §1）
 3. 版本核对：GET /status 的 calibration.pluginVersion（或 GET /external-status 顶层 pluginVersion；GET /control-mode 返回没有 pluginVersion）；HEC 需 ≥2.2.48，旧插件提示升级而不是硬调。（协议 §1；UI示意 §3.3）
 4. 连接流程：status 核版本 → control-mode 核档位 → GET /profiles?includeHidden=true → GET /workflow → POST external-hello → 700ms 轮询 GET external-status（兼心跳兼决策上下文，协议建议 500–1000ms）；external-flow 也刷心跳。（实现 §2.1；协议 §2）
@@ -95,7 +95,7 @@
 13. HX 杯停杯 = 插件 FinalWeight（≈100g）写 Idle，stopReason=apiStop；改 HX 液重改插件设置，拨轮 / SAW 不是 HX 的液重入口；Streamline 显示目标液重 0 对 HX 是正常态（皮肤按曲线 target_weight=0 下发），不是 bug。（HX液重 §7）
 14. 萃取锁定：萃取中拨轮 + 应用按钮锁定；去皮拒绝（ext.extracting || machine.state=espresso，toast 不发请求）；休眠 / 唤醒 PUT /api/v1/machine/state/sleeping|idle，状态以机器确认为准（轮询 / WS 回来再变胶囊），不做乐观切换；休眠弹窗先 GET state（idle/ready → 确认同一行；非待机 → 「不在待机状态」；失败 → 「无法获取机器状态」），sleepSeq 代数防护丢弃迟到响应；已休眠按钮本就是「唤醒」，直接唤醒不弹窗。（实现 §2.1；v05 §1；v03 §1）
 15. 状态映射（真机实测，别猜）：休眠 = sleeping/idle；加热期 = idle/preparingForShot（group 爬温，没有 heating 字符串）；热好 = idle/idle；萃取 = espresso。胶囊：已休眠蓝 / 萃取中 / 加热中琥珀呼吸点（含子状态 preparingforshot）/ 待机绿 / 其他原词 / 空未连接。（v03 §1/§2）
-16. 去皮：点秤重卡 → PUT /api/v1/scale/tare，失败回退 POST（NSX 皮肤同款端点）；成功 toast「已去皮」，tareBusy 防重入，成功后清 run.lastWeight/lastStamp 防跳变误判；卡左缘蓝色光条提示可点（拨轮卡同款渐变，点击行为不变），不加说明小字、只有 title 提示。（v05 §1；commit cfff2aa）
+16. 去皮：点秤重卡 → PUT /api/v1/scale/tare，失败回退 POST（NSX 皮肤同款端点）；成功 toast「已去皮」，tareBusy 防重入，成功后清 run.lastWeight/lastStamp 防跳变误判；卡左缘蓝色光条提示可点（拨轮卡同款渐变，点击行为不变），不加说明小字、只有 title 提示。累计重量 cumulativeWeightG 直传秤重已核（11-17，审计 m6 关闭）：DE1/Decaid 工作流每杯启动自动去皮（用户确认 + 插件 initial-tare 基线逻辑 + 验收杯 ~0→101.6g 实证），萃取中禁去皮（§5.14）故无中途偏置，正常流程直传秤重=杯重，非问题不改代码。（v05 §1；commit cfff2aa）
 17. 学习与记录（插件侧，APK 知悉）：hec 杯 observationOnly=false，进杯间学习与自动下一杯；trace write 行带 external:true 区分来源；接管杯同样进学习（run.config.hecTakeover 记 reason）；增益指纹暂不加模式维度（hec/full 共享增益记忆，用户要学习连续）；HEC 未接管时插件补水计划禁用；校准杯强制 full（external-flow 409 hec-mode-required）；非 HyperEx 前缀曲线插件不介入（extracting 可能仍 true 但 mode 非 hec → 不发指令）。（协议 §5/§7）
 18. 回放页隔离：app.js 只 3 处钩子（applyLang 末 HxControl.onLang / renderDe1Pill 末 onMachine / 启动末 init），回放逻辑逐字未动；双视图 body.hec-mode 类切换、互隐；模式 dbSet('hecMode')、地址 dbSet('hecBaseUrl') 持久化；连接按钮颜色 = 状态（绿 ok / 红 bad / 灰 off）。（实现 §2.2）
 19. 杯末直写归档（v0.7 用户口径）：HEC 直控的杯杯末全点直写回放归档（含 mix 温度），不依赖 recorder 插件；runId = 插件 ext.runId（随轮询跟进），拿不到 runId 不直写；startedAt 从 runId 13 位毫秒段推导（正则 /\d{13}/，兼容 stub- 前缀）；直写和插件导出不许重复、互相验证补全 —— applyFull：新 samples 更长但不带温度、已有带温度 → 保留已有；mergeExport：同 runId startedAt Date.parse 相等（ISO 尾零写法差异）不算冲突；saveArchive 串行化（saveChain），杯末直写与后台抓取不交错。（v07 §1）
