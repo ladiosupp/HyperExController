@@ -10,6 +10,8 @@
 已修（v0.15，versionCode 15）：HX 曲线改发曲线自己的 target_weight（真机 HX auto=0 → SAW 禁用、停杯交插件），非 HX 维持 11-16 拨轮口径。
 模拟器回归 17/17 过。**用户确认后已装平板并完整发版**（push / GitHub Release / 夸克，回执见 §6）。
 用户随后拍板：Flow Calibration 同口径处理 + 父仓指针推。v0.16 整合 UI（杯流卡稳定化、状态卡居中）与自定义图标后**已发版装平板**（§9）。
+版本状态速览：平板与模拟器均 v0.16（versionCode 16）；GitHub tag v0.16（Release 447789185）；夸克 /来自：Codex 有 v0.15/v0.16；
+HEC 远端 main 至最新交接提交；父仓指针已同步推送。剩余：真机验收（用户出杯，§4.2）、夸克 v0.6 历史欠传。
 
 ## 1. 根因与真机证据（2026-11-17 上午，插件 2.2.48，full 档）
 
@@ -30,7 +32,7 @@
 
 ## 2. 本轮改了什么（用户 2026-11-17 授权「改吧，装平板前告诉我」）
 
-1. app/www/control.js selectCurve：HX 分支（c.hx）发 Number(c.profile.target_weight)（非有限数回退 0），非 HX 仍发 dial.weight.v。assets 已同步（哈希一致）。
+1. app/www/control.js selectCurve：HX 分支（c.hx）发 Number(c.profile.target_weight)（非有限数回退 0），非 HX 仍发 dial.weight.v。assets 已同步（哈希一致）。（v0.16 把判定改为 pluginStop 标题正则、含校准，见 §8。）
 2. app/build.gradle：versionCode 14→15、versionName 0.14→0.15。
 3. .tools/hec-stub.cjs：PROFILES 追加真机同款 hx-auto0（title "HyperEx Pulse Filter auto"，target_weight=0）。
 4. .tools/__yield-regress.cjs：旧第 5 项把 bug 当预期（HX 照带拨轮值），改为新口径；补 HX auto(tw=0)→ctx 0、HX 锁定应用不发 PUT、切回拉杆跟拨轮当前值；端口参数化（argv[2]，默认 4798）。共 17 断言。
@@ -49,16 +51,15 @@
 1. ~~装平板~~ 已装（2026-11-17 07:40:04，versionCode 15，-r 保数据）。
 2. **真机验收（用户出杯）**：HEC 切 HX auto → Streamline 液重块应显示 0 → full 档出杯应完整跑到 ~100g 由插件写 Idle 收尾（stopReason=apiStop）；
    切拉杆仍跟拨轮液重到重停（11-16 口径不变）。
-3. ~~发版~~ 已完成（§6）。父仓指针只在本地，推不推问用户。
+3. ~~发版~~ 已完成（§6/§9）。父仓指针已按用户拍板推送（§8/§9）。
 4. ~~Flow Calibration 边界~~ 用户 11-17 拍板同口径，已在 v0.16 实施（§8）。
 
 ## 5. 别碰
 
 - 插件仓与皮肤：本修复不涉及，两侧写法只是对照基准。
-- 别人未跟踪文件：HANDOFF_2026-11-17-hec-live-cups.md（真杯取证对话）、review/hec-icon/。
-- 同文件另一对话未提交改动：杯流卡显示层稳定化（flowDisp/EMA0.5/0.5s 刷新，用户 11-17 定）。
-  本次提交用部分 staging（git apply --cached）只含 selectCurve hunk， theirs 原样留工作区；
-  已构建的 v0.15 APK 含两者（回归 17/17 是在含两者的包上跑的），装平板前用户可决定是否等那边收尾。
+- 别人未跟踪文件：HANDOFF_2026-11-17-hec-live-cups.md（真杯取证对话）、review/hec-icon/ 过程卡池（图标对话约定不入库，final/ 已入库）。
+- ~~同文件另一对话未提交改动~~ 已了结：杯流卡稳定化由 UI 对话提交（c417157/fd75aa0），随 v0.16 整合发出。
+  历史：v0.15 时曾用部分 staging（git apply --cached）只提交本批 hunk，对方 WIP 原样保留，未代提交。
 - 温度链路、影子/仲裁、HX 液重锁本身。
 
 ## 6. 发版回执（2026-11-17，用户授权「你先装平板和发版」）
@@ -77,9 +78,10 @@
 - **定性**：APK 写 workflow 的边界 bug，不是插件控制律问题，也不是 full/hec 档差异。插件 2.2.48 与皮肤零改动；
   影子/仲裁（阶段 B/C）不受影响，离线结论不变。hec 档当时能跑完是因为那时 context.targetYield=0，不是档位差异。
 - **真杯取证对话**：今早两杯失败根因已钉死，证据在 D:/vscode/.tools/__hec-shots.json / __hec-hx-history.json / __hec-wf.json / __hec-diag.json / __hec-ext.json，
-  可直接补 HANDOFF_2026-11-17-hec-live-cups.md §2/§3。v0.15 后 HEC 切 HX 不再注入残留液重，full 档取证可继续。
-- **UI 对话**：杯流卡显示稳定化（flowDisp/EMA）仍未提交，已随 v0.15 包发出（用户知情）；请尽快提交固化，避免下次构建漂移。
-  cfff2aa（去皮光条）已随本次 push 上远端。
+  可直接补 HANDOFF_2026-11-17-hec-live-cups.md §2/§3。v0.16 后 HEC 切 HyperEx 前缀曲线（含校准）不再注入残留液重，full 档取证可继续。
+- **UI 对话**：杯流卡同源+稳定化（c417157）、状态卡单行垂直居中（fd75aa0）已提交，随 v0.16 整合发出；去皮光条 cfff2aa 已随 v0.15 push 上远端。无未了结 WIP。
+- **图标对话**：自定义启动器图标（99b40ef，4B 共笔画连字 + 棕底 crema）已提交并随 v0.16 发出，17 条 mipmap 资源核进包。
+  其交接 HANDOFF_2026-11-17-hec-icon.md 里「未提交/未发版」状态行已过时，以本文 §9 为准；设计源在 review/hec-icon/final/（已入库），过程卡池按约定不入库。
 - **待拍板**：① ~~Flow Calibration 同口径~~ 已实施（v0.16，§8）；② ~~父仓指针推不推~~ 已推（§8/§9）；③ 夸克 v0.6 历史欠传；④ ~~v0.16 发版~~ 已完成（§9）。
 - **口径澄清**：HX 杯停杯 = 插件 FinalWeight（≈100g）写 Idle；拨轮/SAW 不是 HX 的液重入口，改 HX 液重改插件设置。
   Streamline 显示目标液重 0 对 HX 是正常态（皮肤按曲线 target_weight=0 下发）。
