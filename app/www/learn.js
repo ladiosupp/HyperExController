@@ -77,10 +77,10 @@
 
   async function fetchLive() {
     if (!window.HxControl || !window.HxControl.httpJson) { liveState = 'err'; return; }
-    liveState = 'loading'; renderHead();
+    liveState = 'loading';
     const r = await window.HxControl.httpJson('GET', '/api/v1/plugins/decenthyperexplugin.reaplugin/calibration-status');
     if (r && r.ok && r.body) { liveCal = r.body; liveState = 'ok'; } else { liveState = 'err'; }
-    if (open) { renderHead(); if (section === 'learn') renderBody(); }
+    if (open && section === 'learn') renderBody();
   }
 
   // ---- 算法学习页 ----
@@ -272,13 +272,6 @@
   }
 
   // ---- 弹窗骨架 ----
-  function renderHead() {
-    const src = $('lrnSrc');
-    if (!src) return;
-    if (liveState === 'ok') src.textContent = t('在线') + ' · calibration-status';
-    else if (liveState === 'loading') src.textContent = t('读取中…');
-    else src.textContent = t('离线归档');
-  }
   function renderBody() {
     const body = $('lrnBody');
     if (!body) return;
@@ -350,7 +343,7 @@
       '<div class="lrn-top"><div class="ftabs">' +
       '<button type="button" class="ftab" data-sec="learn">' + t('学习中心') + '</button>' +
       '<button type="button" class="ftab" data-sec="control">' + t('控制中心') + '</button>' +
-      '</div><span class="src" id="lrnSrc"></span><button class="lrn-x" id="lrnClose">✕</button></div>' +
+      '</div><button class="lrn-x" id="lrnClose">✕</button></div>' +
       '<div class="lrn-tabs" id="lrnTabs">' +
       '<button class="lrn-tab" data-tab="learn">' + t('算法学习') + '<span class="sub">' + t('插件杯间学习成果') + '</span></button>' +
       '<button class="lrn-tab" data-tab="model">' + t('决策模型') + '<span class="sub">' + t('影子推理 bc_v0') + '</span></button>' +
@@ -364,7 +357,7 @@
     dim.addEventListener('click', (e) => { if (e.target === dim) closeModal(); });
     document.querySelectorAll('.lrn-tab').forEach((el) => el.addEventListener('click', () => { tab = el.dataset.tab; renderTabs(); renderBody(); }));
     document.querySelectorAll('.ftab').forEach((el) => el.addEventListener('click', () => { section = el.dataset.sec; renderSection(); }));
-    renderSection(); renderHead();
+    renderSection();
     fetchLive();
   }
   function closeModal() { open = false; $('lrnDim').hidden = true; $('lrnDim').innerHTML = ''; }
@@ -378,7 +371,7 @@
 
   window.HxLearn = {
     open: openModal,
-    onLang: function () { if (open) { renderHead(); renderSection(); } },
+    onLang: function () { if (open) renderSection(); },
     _state: function () { return { open, tab, liveState, hasLive: !!liveCal }; },
   };
 })();
