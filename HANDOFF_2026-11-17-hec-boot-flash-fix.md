@@ -4,7 +4,7 @@
 
 ## 0. 一句话现状
 
-闪屏修复已本地提交 **51056e5**（未 bump 版本号、未推、未装平板），模拟器回归全绿；平板仍 v0.17（**闪屏修复未装机**，装/发版待用户发话）。平板桌面图标经用户授权 force-stop com.miui.home 刷新，dock 已显示棕底 HEC 新图标（取证 v22-tablet-home-icon）。
+闪屏修复**已发版 v0.18**（用户 11-17 晚授权「闪屏修复装平板/发 v0.18，父仓指针建推」）：版本提交 164aee6、tag v0.18、GitHub Release id 448471157（asset 758639172，6,703,446 字节 state=uploaded）、夸克「/来自：Codex」fileId 370500440749423ab456dcf7cc9fbcf0；平板与模拟器均装 v0.18 核过；子模块 main 已推；父仓指针 b99640a 与本批指针一并推（见 §8）。平板桌面图标经用户授权 force-stop com.miui.home 刷新，dock 已显示棕底 HEC 新图标（取证 v22-tablet-home-icon）。
 
 ## 1. 本轮改动
 
@@ -48,3 +48,12 @@ v0.17 交接 §5 全部沿用；另：子模块根 AGENTS.md 统筹 WIP（§11 �
 - 代码提交：51056e5；交接：本文件（随后提交）。
 - 脚本（不入库）：父仓 .tools/__boot-check.cjs、__boot-state.js、__restart-emu.ps1、__eol-check.cjs、__eol-fix.cjs、__m10-bootfix.log、__m6m8-bootfix1/2.log、__flowcard-bootfix*.log、__boot-check.log；子模块 .tools/__apk-asset-check.ps1。
 - 取证：review/hec-ui5/v22-*（gitignore，本地）。
+
+## 8. v0.18 发版回执（2026-11-17 晚，用户授权）
+
+- 流程：bump 164aee6（18/0.18）→ 构建（packageDebug 真跑）→ aapt2 核 versionCode 18 → 模拟器装机回归（ver=v0.18/conn ok、m10 20/20、boot 专项 8/8；m6m8 8+5、flowcard 6/6 为同 www bump 前全绿）→ 平板 install -r（dumpsys versionCode 18、lastUpdateTime 18:31:04；CDP ver=v0.18/conn ok；整屏 t11-v018-tablet）→ push main（3e0e0a4..164aee6，含统筹已提交的 3155db9）+ tag v0.18 → Release REST id 448471157 → 附件直传 → 夸克 CLI upload → 父仓指针提交 + push（含 b99640a）。
+- 附件坑：VPN 上行慢（约 45KB/s），Invoke-RestMethod 大附件 POST 被代理 reset、资产卡 starter；**curl.exe --proxy -H 'Expect:' --data-binary 耐慢传成功**（http=201）。残留 starter 用 DELETE /repos/ladiosupp/HyperExController/releases/assets/<id> 清（**路径不含 release id 段**）。
+- 孤儿进程坑：exec_command 30s yield 返回 session 后 cell 若不轮询就结束，pwsh 子进程成孤儿继续跑——本轮多个孤儿互删附件重传。长任务必须 cell 内 write_stdin 轮询到 exit；收尾按命令行精确 Stop-Process 自己的孤儿。
+- 夸克：session-id 本对话复用（search + upload 同 id）；upload 带 --session-input 用户原话；目录 fid 经 search --keyword "来自：Codex" --search-type dir --stdout-only。最终 result 无 notice.text。
+- 统筹换对话：旧 01a1e44a-d4bb-7b82-ac7f-fe101d439a53 → 新 **01a1e90d-5863-7000-ad55-21e1080d21e9**（hostId local），回叫走新地址。统筹 AGENTS.md 未提交更正（夸克 v0.6 取消 / m6m8 位置 / 基线 v0.17+闪屏批 / S3 口径撤销）随其下一批提交，只 add AGENTS.md，本对话不碰。
+- 收尾：模拟器 stayon false / forward 9224 / reverse 4801 / 桩 4801 已清；平板 forward 9223 已删。
