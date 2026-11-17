@@ -36,7 +36,7 @@
     if (!has) return { lo: 0, hi: 8 };
     return { lo: 0, hi: Math.max(3, Math.ceil(hi * 1.15)) };
   }
-  const C = { raw: '#63d89b', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', press2: '#4dd0e1', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
+  const C = { raw: '#63d89b', raw2: '#ffffff', decaid: '#c77dff', target: '#f0c75e', cmd: '#e8833a', press: '#63d89b', press2: '#63d89b', mflow: '#6ea8fe', temp: '#f2a0aa', vec: '#8fd7ff', vecdn: '#e9c276', grid: '#232830', axis: '#7d8592' };
   const PHASE_LABEL = { stage1: 'S1', stage2: 'S2', stage3: 'S3', dumping: '泄压', soak: '浸泡', restart_wait: '等 GHC', finishing: '收尾', idle: 'IDLE', aborted: '中止' };
   const PHASE_PILL = { stage1: ['#20304d', '#9cc0ff'], stage2: ['#3d2c17', '#f5c078'], stage3: ['#173a2a', '#8fe0b0'], dumping: ['#3d1d22', '#f2a0aa'], soak: ['#322040', '#d5a8f5'], idle: ['#2a2f37', '#cfd5de'] };
   const STAGE_BAND = { stage1: 'rgba(110,168,254,.10)', dumping: 'rgba(242,144,154,.08)', soak: 'rgba(199,125,255,.08)', stage2: 'rgba(245,164,66,.10)', stage3: 'rgba(99,216,155,.10)' };
@@ -130,6 +130,9 @@
   let tareBusy = false;            // 去皮请求进行中
   // 杯流卡显示层稳定化（用户 2026-11-17 定）：weightFlow 优先 RAW 兜底 + EMA0.5 + 0.5s 刷新 + 杯内断档保持；不碰样本/曲线/影子
   let flowDisp = null, flowAt = 0, flowRunRef = null;
+  // 实时曲线宽度五档（用户 2026-11-17 定）：等比 √2，中间档=现状；仅实时图（line/stepLine 不被回放共用）
+  const CURVE_W = [0.5, 0.71, 1, 1.41, 2];
+  let curveW = 1;
   let takeLast = null;
   let stageWeights = null;         // 阶段目标重量 {stage2, final}：calibration-status curveEditor.stageWeights
                                    // （external-status 不带此字段；影子救急 remainingS 需要）
@@ -802,7 +805,7 @@
   }
   function line(ctx, pts, p, w, h, xMax, yMin, yMax, color, width, dash) {
     if (!pts.length) return;
-    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+    ctx.strokeStyle = color; ctx.lineWidth = width * curveW; ctx.setLineDash(dash || []);
     ctx.beginPath(); let st = false;
     for (const q of pts) {
       if (q[1] == null || !Number.isFinite(q[1])) { st = false; continue; }
@@ -813,7 +816,7 @@
   }
   function stepLine(ctx, pts, p, w, h, xMax, yMin, yMax, color, width) {
     if (!pts.length) return;
-    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath();
+    ctx.strokeStyle = color; ctx.lineWidth = width * curveW; ctx.beginPath();
     let px = null, py = null;
     for (const q of pts) {
       const x = p.l + (w - p.l - p.r) * q[0] / xMax, y = p.t + (h - p.t - p.b) * (1 - (q[1] - yMin) / (yMax - yMin));
@@ -973,9 +976,9 @@
     if (rawOn) {
       const rp = rawSeries(samples);
       if (rawWin > 0) {
-        if (on('rawdot')) scatterRaw(ctx, rp, pL, w, h, xMax, 0, 10, C.raw);
-        if (on('raw')) L(filterRaw(rp, rawWin), C.raw, 1.8);
-      } else if (on('raw')) L(rp, C.raw, 1.8);
+        if (on('rawdot')) scatterRaw(ctx, rp, pL, w, h, xMax, 0, 10, C.raw2);
+        if (on('raw')) L(filterRaw(rp, rawWin), C.raw2, 1.8);
+      } else if (on('raw')) L(rp, C.raw2, 1.8);
     }
     if (hx) {
       if (on('targetcmd')) L(samples.map((s) => [s.t, s.tcmd]), C.cmd, 1.2, [5, 4]);
@@ -1007,8 +1010,8 @@
     press.push({ l: t('温度'), c: C.temp });
     lg('lgPress', press);
     if (chartStyle === 2) {
-      const items = [{ k: 'decaid', l: t('decaid 杯流'), c: C.decaid }, { k: 'raw', l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
-      if (rawOn && rawWin > 0) items.push({ k: 'rawdot', l: t('原始'), c: C.raw, dot: 1 });
+      const items = [{ k: 'decaid', l: t('decaid 杯流'), c: C.decaid }, { k: 'raw', l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw2 }];
+      if (rawOn && rawWin > 0) items.push({ k: 'rawdot', l: t('原始'), c: C.raw2, dot: 1 });
       items.push({ k: 'press', l: t('压力'), c: C.press2 }, { k: 'mflow', l: t('机器流量'), c: C.mflow });
       if (hx) items.push({ k: 'target', l: t('目标杯流'), c: C.target, dash: 1 }, { k: 'vec', l: t('矢量·增'), c: C.vec, arrow: 1 }, { k: 'vecdn', l: t('矢量·减'), c: C.vecdn, arrow: 1 }, { k: 'targetcmd', l: t('目标指令'), c: C.cmd, dash: 1 }, { k: 'cmd', l: t('APK 指令'), c: C.cmd });
       items.push({ k: 'temp', l: t('温度'), c: C.temp });
@@ -1270,6 +1273,7 @@
       try { sideCollapsed = (await dbGet('hecSideCollapsed')) === 1; } catch (_) {}
       try { sideAutoHide = (await dbGet('hecSideAutoHide')) !== 0; } catch (_) {}
       try { chartStyle = (await dbGet('hecChartStyle')) === 2 ? 2 : 1; } catch (_) {}
+      try { const cw = await dbGet('hecCurveWidth'); curveW = CURVE_W[Number.isInteger(cw) && cw >= 0 && cw <= 4 ? cw : 2]; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
       $('sideToggle').addEventListener('click', toggleSide);
@@ -1322,6 +1326,7 @@
     },
     setSideAutoHide: function (v) { sideAutoHide = !!v; if (!sideAutoHide) { clearTimeout(autoExpandTimer); autoExpandTimer = 0; } },
     setChartStyle: function (v) { chartStyle = v === 2 ? 2 : 1; applyChartStyle(); drawCharts(); },
+    setCurveWidth: function (i) { curveW = CURVE_W[Math.max(0, Math.min(4, i | 0))]; drawCharts(); },
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
