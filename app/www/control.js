@@ -1209,6 +1209,7 @@
       if (typeof renderDe1Pill === 'function') renderDe1Pill();
       if (typeof renderFetchCount === 'function') renderFetchCount();
       if (typeof layoutCards === 'function') layoutCards();
+      window.dispatchEvent(new Event('resize')); // 回放画布可能在隐藏期按兜底尺寸画过，触发 app.js resize 重排重绘
     }
     try { dbSet('hecMode', m); } catch (_) {}
   }

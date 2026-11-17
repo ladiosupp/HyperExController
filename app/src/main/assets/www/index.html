@@ -400,7 +400,7 @@ body.side-collapsed .side-toggle{left:-8px}
 .lp-it.hot{background:#2c3442;color:#e8eaee;box-shadow:inset 3px 0 0 #e8833a}
 </style>
 </head>
-<body>
+<body class="hec-mode">
 <header>
   <h1 id="appTitle" title="学习中心"><span class="ttl"><span class="ttl-a">H</span>yper<span class="ttl-a">E</span>x<span class="ttl-a">C</span>ontroller</span><span class="appver" id="appVer"></span></h1>
   <div class="modedrop" id="modeDrop">
@@ -421,7 +421,7 @@ body.side-collapsed .side-toggle{left:-8px}
   <span class="status" id="status" hidden>载入中…</span>
 </header>
 <main>
-<aside id="replayAside">
+<aside id="replayAside" hidden>
   <fieldset><legend data-i18n="选择杯">选择杯</legend>
     <select id="cup" style="display:none"><option>—</option></select>
     <div class="cupdrop" id="cupDrop">
@@ -448,7 +448,7 @@ body.side-collapsed .side-toggle{left:-8px}
     <button class="ghost" id="clearArchive" style="color:#f2909a" data-i18n="清空归档">清空归档</button>
   </fieldset>
 </aside>
-<aside id="controlAside" hidden>
+<aside id="controlAside">
   <div class="dial curve-card">
     <div class="dial-k" data-i18n="曲线选择">曲线选择</div>
     <button type="button" class="curvebtn" id="curveBtn"><span class="lb" id="curveLb">—</span><span class="arr">▾</span></button>
@@ -489,7 +489,7 @@ body.side-collapsed .side-toggle{left:-8px}
   </div>
   <div class="side-spacer"></div>
 </aside>
-<section class="view" id="replayView">
+<section class="view" id="replayView" hidden>
   <div class="transport">
     <div class="tbar">
       <button id="btnStart" title="开头">⏮︎</button>
@@ -514,7 +514,7 @@ body.side-collapsed .side-toggle{left:-8px}
   <div class="chartbox" data-chart="cPress"><h3><span class="charthandle" title="长按拖动排序">⠿</span><span class="chartlegend" id="legend-cPress"></span><span class="charttitle" data-i18n="压力 (bar) · 流量 (ml/s)">压力 (bar) · 流量 (ml/s)</span></h3><canvas id="cPress"></canvas></div>
   <div class="events" id="log"></div>
 </section>
-<section class="view" id="controlView" hidden>
+<section class="view" id="controlView">
   <div class="takeover" id="takeoverBanner" hidden data-i18n="接管横幅">插件已接管本杯 · 指令已收回基值，曲线继续</div>
   <div class="hec-cards" id="hecCards"></div>
   <div class="hec-chartbox" id="boxFlow"><h3 id="flowHead"><span class="chartlegend" id="lgFlow"></span><label class="rawtoggle"><input type="checkbox" id="hecRawToggle" checked><span class="sw"></span>RAW</label><span class="rawwin" id="rawWin"><span id="rawWinK">滤波</span><span class="rw-v" id="rawWinV">1.0s</span><button type="button" data-rw="1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M3 0 6 4 0 4Z"/></svg></button><button type="button" data-rw="-1"><svg viewBox="0 0 6 4" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg></button></span><span class="charttitle" data-i18n="杯流 (g/s)">杯流 (g/s)</span></h3><div class="chartwrap"><canvas id="hcFlow"></canvas></div></div>
