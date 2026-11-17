@@ -11,7 +11,9 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none !important}
 /* 顶栏胶囊/按钮统一高度 */
-header .modedrop-btn,header .de1pill,header .hb,header .sleepbtn,header .fetchbtn,header .waterpill{height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;line-height:1}
+header .modedrop-btn,header .de1pill,header .hb,header .sleepbtn,header .fetchbtn,header .waterpill,header .telepill{height:34px;padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;line-height:1}
+.telepill{flex:none;display:inline-flex;align-items:center;font-size:12px;font-weight:700;border-radius:999px;padding:6px 11px;white-space:nowrap;background:#141a24;border:1px solid #33415c;color:#9fb4e8}
+.telepill.stale{background:#3d1d22;border-color:#6a3038;color:#f2a0aa}
 header #lang{height:34px;padding:0 8px}
 html,body{margin:0;height:100%}
 body{background:#121418;color:#e8eaee;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;display:flex;flex-direction:column;overflow:hidden}
@@ -413,6 +415,7 @@ body.side-collapsed .side-toggle{left:-8px}
   <span class="de1pill off" id="de1Pill"><span class="dot"></span><span id="de1PillTxt">—</span></span>
   <span class="hb off" id="hbPill" hidden><span class="dot"></span><span id="hbPillTxt"></span></span>
   <span class="hb rec" id="recPill" hidden><span class="dot"></span><span data-i18n="recorder 在录">recorder 在录</span></span>
+  <span class="telepill" id="telePill" hidden></span>
   <span class="hstat" id="hstat" hidden></span>
   <span class="waterpill" id="waterPill" hidden><span class="wfill" id="waterFill"></span><span class="wtxt" id="waterTxt"></span></span>
   <button type="button" class="sleepbtn" id="sleepBtn" hidden><span class="ic" id="sleepIc"></span><span id="sleepLb" data-i18n="咖啡机休眠">咖啡机休眠</span></button>

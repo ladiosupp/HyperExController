@@ -143,6 +143,13 @@ function dbCupDel(runId) {
     tx.onabort = () => reject(tx.error);
   });
 }
+function dbCupGet(runId) {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').get(runId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 let archive = null;
 let cups = [];
@@ -1254,18 +1261,22 @@ function renderWhitelistWarning() {
 // ---- 启动 ----
 (async () => {
   await openDb();
-  archive = (await dbGet('archive')) || HxArchive.emptyArchive();
-  const savedUrl = await dbGet('srcUrl');
+  // m15：无依赖键并行批读（原 6 次串行 dbGet）；HxControl.init 不依赖归档合并，提前与 mergePending 并行。
+  const [archiveRaw, savedUrl, savedSec, savedLang, chartOrder, autoOn] = await Promise.all([
+    dbGet('archive'), dbGet('srcUrl'), dbGet('autoSec'), dbGet('lang'), dbGet('chartOrder'), dbGet('autoOn'),
+  ]);
+  archive = archiveRaw || HxArchive.emptyArchive();
   if (savedUrl) $('srcUrl').value = savedUrl;
-  const savedSec = await dbGet('autoSec');
   if (savedSec) $('autoSec').value = savedSec;
-  const savedLang = await dbGet('lang');
   if (savedLang === 'en' || savedLang === 'zh') { lang = savedLang; $('lang').value = lang; }
-  applyChartOrder(await dbGet('chartOrder'));
+  applyChartOrder(chartOrder);
   initChartDrag();
   initCupDrop();
   if (window.HxBridge) {
     try { const ver = window.HxBridge.appVersion(); if (ver) $('appVer').textContent = 'v' + ver; } catch (_) {}
+  }
+  if (window.HxControl && window.HxControl.init) window.HxControl.init(); // m15：提前（控制页键独立于回放归档）
+  if (window.HxBridge) {
     await mergePending();
     window.HxBridge.setAutoFetch($('srcUrl').value.trim(), $('autoOn').checked ? Number($('autoSec').value) : 0);
     // 回前台自动合并：MainActivity.onResume 发 hxresume，visibilitychange 双保险。
@@ -1274,14 +1285,13 @@ function renderWhitelistWarning() {
   }
   renderArchiveInfo();
   rebuildCupList();
-  if (await dbGet('autoOn')) { $('autoOn').checked = true; startAuto(); }
+  if (autoOn) { $('autoOn').checked = true; startAuto(); }
   startCountdownTick();
   startDe1Poll();
   applyLang();
   renderWhitelistWarning();
   renderReadyStatus();
   checkPluginsOnStartup();
-  if (window.HxControl && window.HxControl.init) window.HxControl.init();
 })().catch((e) => setStatus(() => t('初始化失败：') + (e.message || e)));
 
 // ---- 插件安装检测：启动静默查一次，缺任一支弹窗引导去 GitHub 安装 ----

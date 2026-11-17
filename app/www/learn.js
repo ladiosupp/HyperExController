@@ -15,6 +15,7 @@
     '误差': 'Error', '状态': 'Status', '研磨建议': 'Grind advice', '学习完整性': 'Learning integrity', '合格': 'eligible', '不合格': 'not eligible',
     '已存杯数': 'Saved shots', '兼容杯数': 'Compatible', '基线参考': 'Baseline refs', '排除': 'excluded', '证据': 'evidence',
     '模型状态': 'Model state', '加载中': 'loading', '就绪': 'ready', '未加载': 'idle', '加载失败': 'load failed',
+    '学习仲裁': 'Learned arbiter', '棵': 'trees', '阈值': 'threshold',
     '本杯决策': 'Current-cup decisions', '已归档杯': 'Archived cups', '插件写入': 'Plugin writes', '模型倾向写入': 'Model-leaning writes',
     '决策点': 'Decision points', '写入概率': 'Write prob', '档位': 'Quanta', '候选': 'Candidate', '动作': 'Action',
     '保持': 'hold', '写入': 'write', '算法': 'algo', '模型': 'model', '理由': 'Reason', '裁剪': 'clipped',
@@ -188,7 +189,7 @@
     if (st && st.cup) {
       html += '<div class="lrn-card"><div class="k">' + t('本杯决策') + '</div><div class="v">' + st.cup.decisions + '</div><div class="s">' + t('插件写入') + ' ' + st.cup.writes + '</div></div>';
     }
-    html += '<div class="lrn-card"><div class="k">' + t('已归档杯') + '</div><div class="v">' + (st ? st.archived : 0) + '</div><div class="s">hecShadowCups · max 40</div></div>';
+    html += '<div class="lrn-card"><div class="k">' + t('已归档杯') + '</div><div class="v" id="lrnArchN">…</div><div class="s" id="lrnArchS">hecShadowCups · max 40</div></div>';
     html += '</div>';
     if (!st || st.loadState !== 'ready') html += '<div class="lrn-note">' + t('影子模块随控制页连上插件后加载；这里展示它的推理记录。') + '</div>';
     html += '</div>';
@@ -204,17 +205,12 @@
     const live = window.HxShadow && window.HxShadow._debug ? window.HxShadow._debug().cup : null;
     const all = cups.slice();
     if (!all.length && !live) { box.innerHTML = '<div class="lrn-empty">' + t('暂无决策记录') + ' · ' + t('萃取中 S2/S3 才会产生决策点（只记录、不发送）。') + '</div>'; return; }
-    // 取最近一杯的决策（归档最后一杯；正在跑的杯优先）
+    // m16：只读最近杯（在跑杯优先，否则 lastRunId 单杯读），不全量 exportJSON。
     let decs = [], writes = [], label = '';
-    if (live && live.decisions > 0) {
-      const dbg = window.HxShadow._debug();
-      label = (dbg.cup && dbg.cup.runId) || 'live';
-      // _debug 只给计数；正在跑的杯的完整决策在内存，exportJSON 能拿到
-      try { const ex = JSON.parse(await window.HxShadow.exportJSON()); const c = ex.cups[ex.cups.length - 1]; if (c) { decs = c.decisions || []; writes = c.writes || []; label = c.runId; } } catch (_) {}
-    } else {
-      const c = all[all.length - 1];
+    try {
+      const c = window.HxShadow && window.HxShadow.latestCup ? await window.HxShadow.latestCup() : all[all.length - 1];
       if (c) { decs = c.decisions || []; writes = c.writes || []; label = c.runId; }
-    }
+    } catch (_) {}
     if (!decs.length) { box.innerHTML = '<div class="lrn-empty">' + t('暂无决策记录') + '</div>'; return; }
     const last = decs.slice(-30).reverse();
     let html = '<div class="lrn-note" style="margin:0 0 6px">' + esc(label) + ' · ' + decs.length + ' ' + t('决策') + ' · ' + writes.length + ' ' + t('插件写入') + '</div>';
@@ -233,10 +229,15 @@
     let html = '';
     html += '<div class="lrn-sec"><h4>' + t('仲裁倾向') + '</h4>';
     const lean = pref < 0.45 ? t('倾向算法') : pref > 0.55 ? t('倾向模型') : t('均衡');
-    html += '<div class="lrn-row"><span class="lbl">' + t('算法') + '</span><div class="lrn-bar"><i style="width:' + Math.round((1 - pref) * 100) + '%;background:#6ea8fe"></i></div><span class="val">' + Math.round((1 - pref) * 100) + '%</span></div>';
-    html += '<div class="lrn-row"><span class="lbl">' + t('模型') + '</span><div class="lrn-bar"><i style="width:' + Math.round(pref * 100) + '%;background:#f5c078"></i></div><span class="val">' + Math.round(pref * 100) + '%</span></div>';
+    html += '<div class="lrn-row"><span class="lbl">' + t('算法') + '</span><div class="lrn-bar"><i id="lrnBarAlgo" style="width:' + Math.round((1 - pref) * 100) + '%;background:#6ea8fe"></i></div><span class="val" id="lrnValAlgo">' + Math.round((1 - pref) * 100) + '%</span></div>';
+    html += '<div class="lrn-row"><span class="lbl">' + t('模型') + '</span><div class="lrn-bar"><i id="lrnBarModel" style="width:' + Math.round(pref * 100) + '%;background:#f5c078"></i></div><span class="val" id="lrnValModel">' + Math.round(pref * 100) + '%</span></div>';
     html += '<input type="range" class="lrn-slider" id="lrnPref" min="0" max="100" value="' + Math.round(pref * 100) + '">';
-    html += '<div class="lrn-note">' + lean + ' · ' + t('软预算') + ' 12 ' + t('写入') + '/杯 · ' + t('分歧门') + ' 0.5 ml/s · ' + t('硬边界') + ' ' + (A ? A.CMD_LO : 0.1) + '–' + (A ? A.CMD_HI : 8) + ' ml/s（1/16 量化）</div>';
+    // i12：学习仲裁启用时显学习参数（阈值/树数），未就绪显规则 v0 参数。
+    const learned = A && A.learnedReady && A.learnedReady();
+    const lst = learned && A.learnedStatus ? A.learnedStatus() : null;
+    html += '<div class="lrn-note"><span id="lrnLean">' + lean + '</span> · ' + (learned
+      ? t('学习仲裁') + ' · LightGBM ' + (lst ? lst.trees : 300) + ' ' + t('棵') + ' · ' + t('阈值') + ' ' + (lst && lst.threshold != null ? lst.threshold : 0.5) + '（P(model_better)≥阈值）'
+      : t('软预算') + ' 12 ' + t('写入') + '/杯 · ' + t('分歧门') + ' 0.5 ml/s') + ' · ' + t('硬边界') + ' ' + (A ? A.CMD_LO : 0.1) + '–' + (A ? A.CMD_HI : 8) + ' ml/s（1/16 量化）</div>';
     html += '</div>';
     html += '<div class="lrn-sec"><h4>' + t('决策点') + ' · ' + t('仲裁') + '</h4><div id="lrnArbList"><div class="lrn-empty">' + t('读取中…') + '</div></div></div>';
     return html;
@@ -246,11 +247,12 @@
     if (!box) return;
     let cups = [];
     try { cups = (await dbGet('hecShadowCups')) || []; } catch (_) {}
+    // m16：只读最近杯，不全量 exportJSON。
     let decs = [], label = '';
     try {
-      if (window.HxShadow) { const ex = JSON.parse(await window.HxShadow.exportJSON()); const c = ex.cups[ex.cups.length - 1]; if (c) { decs = (c.decisions || []).filter((d) => d.arbiter); label = c.runId; } }
+      const c = window.HxShadow && window.HxShadow.latestCup ? await window.HxShadow.latestCup() : cups[cups.length - 1];
+      if (c) { decs = (c.decisions || []).filter((d) => d.arbiter); label = c.runId; }
     } catch (_) {}
-    if (!decs.length && cups.length) { const c = cups[cups.length - 1]; decs = (c.decisions || []).filter((d) => d.arbiter); label = c.runId; }
     if (!decs.length) { box.innerHTML = '<div class="lrn-empty">' + t('暂无决策记录') + ' · ' + t('萃取中 S2/S3 才会产生决策点（只记录、不发送）。') + '</div>'; return; }
     // 统计
     const counts = { algo: 0, model: 0, hold: 0 };
@@ -276,7 +278,7 @@
     const body = $('lrnBody');
     if (!body) return;
     if (tab === 'learn') body.innerHTML = renderLearn();
-    else if (tab === 'model') { body.innerHTML = renderModel(); fillDecisions(); }
+    else if (tab === 'model') { body.innerHTML = renderModel(); fillDecisions(); fillArchCount(); }
     else { body.innerHTML = renderArbiter(); fillArbiter(); wirePref(); }
   }
   function renderSection() {
@@ -326,12 +328,32 @@
   function wirePref() {
     const sl = $('lrnPref');
     if (!sl) return;
+    let deb = 0;
     sl.addEventListener('input', () => {
       const p = Number(sl.value) / 100;
       if (window.HxShadow && window.HxShadow.setPreference) window.HxShadow.setPreference(p);
-      renderBody();
-      const again = $('lrnPref'); if (again) again.focus();
+      updatePrefDisplay(p); // m16：局部刷新（bar/百分比/倾向文案），不重建整页，滑杆不失焦
+      clearTimeout(deb);
+      deb = setTimeout(() => { if (open && tab === 'arbiter') fillArbiter(); }, 150); // m16：防抖 150ms 再重读决策
     });
+  }
+  function updatePrefDisplay(p) {
+    const ba = $('lrnBarAlgo'), bm = $('lrnBarModel'), va = $('lrnValAlgo'), vm = $('lrnValModel'), ln = $('lrnLean');
+    if (ba) ba.style.width = Math.round((1 - p) * 100) + '%';
+    if (bm) bm.style.width = Math.round(p * 100) + '%';
+    if (va) va.textContent = Math.round((1 - p) * 100) + '%';
+    if (vm) vm.textContent = Math.round(p * 100) + '%';
+    if (ln) ln.textContent = p < 0.45 ? t('倾向算法') : p > 0.55 ? t('倾向模型') : t('均衡');
+  }
+  // i11：已归档杯读 IDB 真实计数（per-cup 键数），内存结算数降为副标注（§6.15 语义）。
+  async function fillArchCount() {
+    const el = $('lrnArchN'), sub = $('lrnArchS');
+    if (!el) return;
+    let n = null;
+    try { if (window.dbCupKeys) n = (await window.dbCupKeys()).length; } catch (_) {}
+    const st = window.HxShadow ? window.HxShadow.status() : null;
+    if (n != null) { el.textContent = n; if (sub) sub.textContent = 'per-cup 存储 · max 40 · 内存结算 ' + (st ? st.archived : 0); }
+    else { el.textContent = st ? st.archived : 0; if (sub) sub.textContent = '内存结算数（无 per-cup 存储）'; }
   }
   function renderTabs() {
     document.querySelectorAll('.lrn-tab').forEach((el) => el.classList.toggle('sel', el.dataset.tab === tab));
@@ -347,7 +369,7 @@
       '<div class="lrn-tabs" id="lrnTabs">' +
       '<button class="lrn-tab" data-tab="learn">' + t('算法学习') + '<span class="sub">' + t('插件杯间学习成果') + '</span></button>' +
       '<button class="lrn-tab" data-tab="model">' + t('决策模型') + '<span class="sub">' + t('影子推理 bc_v0') + '</span></button>' +
-      '<button class="lrn-tab" data-tab="arbiter">' + t('仲裁模型') + '<span class="sub">' + t('规则仲裁 v0') + '</span></button>' +
+      '<button class="lrn-tab" data-tab="arbiter">' + t('仲裁模型') + '<span class="sub">' + (window.HxArbiter && window.HxArbiter.learnedReady && window.HxArbiter.learnedReady() ? t('学习仲裁') + ' · LightGBM' : t('规则仲裁 v0')) + '</span></button>' +
       '</div>' +
       '<div class="lrn-body" id="lrnBody"></div>' +
       '<div class="modal-foot" id="lrnFoot" style="padding:0 16px 12px;margin:0">' + t('只读展示 · 不发送指令') + '</div>' +

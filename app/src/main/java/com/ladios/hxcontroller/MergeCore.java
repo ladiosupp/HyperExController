@@ -22,6 +22,7 @@ public class MergeCore {
         a.put("updatedAt", JSONObject.NULL);
         a.put("count", 0);
         a.put("fullRecordCount", 0);
+        a.put("gainMemory", JSONObject.NULL);
         a.put("shots", new JSONArray());
         return a;
     }
@@ -57,6 +58,8 @@ public class MergeCore {
             JSONArray v = fr.optJSONArray(k);
             JSONArray cur = recFull.optJSONArray(k);
             if (v != null && v.length() > (cur == null ? 0 : cur.length())) {
+                // m5：与 archive-core.js 同口径——更长但不带温度的 samples 不顶掉带温度的（HEC 直写杯温度保真）。
+                if (k.equals("samples") && !hasTemp(v) && hasTemp(cur)) continue;
                 try { recFull.put(k, v); } catch (Exception ignored) {}
             }
         }
@@ -70,6 +73,29 @@ public class MergeCore {
                 try { recFull.put("liveFlowTrim", trim); } catch (Exception ignored) {}
             }
         }
+    }
+
+    private static boolean hasTemp(JSONArray a) {
+        if (a == null) return false;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject s = a.optJSONObject(i);
+            if (s != null && s.has("temp") && !s.isNull("temp")) return true;
+        }
+        return false;
+    }
+
+    // m5：ISO 毫秒解析（与 JS Date.parse 的 Z 形 ISO 口径对齐；尾零写法差异豁免）。
+    private static long parseIsoMs(String s) {
+        String[] pats = { "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'" };
+        for (String p : pats) {
+            try {
+                java.text.SimpleDateFormat f = new java.text.SimpleDateFormat(p, java.util.Locale.US);
+                f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                f.setLenient(false);
+                return f.parse(s).getTime();
+            } catch (Exception ignored) {}
+        }
+        return -1;
     }
 
     private static JSONObject cleanSummary(JSONObject shot) throws Exception {
@@ -109,6 +135,12 @@ public class MergeCore {
                 rec = newRec(runId, summary, started);
                 records.put(runId, rec);
             } else {
+                // m5：与 archive-core.js 同口径——同 runId startedAt 冲突抛错，Date.parse 相等（ISO 尾零）豁免。
+                String oldStarted = rec.optString("startedAt", "");
+                if (!oldStarted.isEmpty() && !started.isEmpty() && !oldStarted.equals(started)) {
+                    long ta = parseIsoMs(oldStarted), tb = parseIsoMs(started);
+                    if (!(ta >= 0 && tb >= 0 && ta == tb)) throw new Exception("同一 runId 的 startedAt 冲突: " + runId);
+                }
                 JSONObject oldSum = rec.optJSONObject("summary");
                 if (oldSum == null) oldSum = new JSONObject();
                 Iterator<String> keys = summary.keys();
@@ -128,7 +160,7 @@ public class MergeCore {
         }
     }
 
-    public static JSONObject buildArchive(Map<String, JSONObject> records, int maxShots) throws Exception {
+    public static JSONObject buildArchive(Map<String, JSONObject> records, int maxShots, JSONObject gainMemory) throws Exception {
         List<JSONObject> rows = new ArrayList<>(records.values());
         rows.sort((a, b) -> {
             int c = a.optString("startedAt", "").compareTo(b.optString("startedAt", ""));
@@ -153,6 +185,7 @@ public class MergeCore {
         a.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(new java.util.Date()));
         a.put("count", shots.length());
         a.put("fullRecordCount", fullCount);
+        a.put("gainMemory", gainMemory == null ? JSONObject.NULL : gainMemory);
         a.put("shots", shots);
         return a;
     }
@@ -178,7 +211,10 @@ public class MergeCore {
     public static JSONObject merge(JSONObject archive, JSONObject exportJson, int maxShots) throws Exception {
         Map<String, JSONObject> records = loadRecords(archive == null ? emptyArchive() : archive);
         mergeExport(records, exportJson);
-        return buildArchive(records, maxShots);
+        // m5：顶层 gainMemory 随导出更新、导出没有时保留已有（与 archive-core.js merge 同口径）。
+        JSONObject gm = exportJson == null ? null : exportJson.optJSONObject("gainMemory");
+        if (gm == null && archive != null) gm = archive.optJSONObject("gainMemory");
+        return buildArchive(records, maxShots, gm);
     }
 }
 

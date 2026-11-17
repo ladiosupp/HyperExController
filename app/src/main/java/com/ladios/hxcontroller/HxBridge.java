@@ -24,7 +24,8 @@ import java.util.concurrent.Executors;
 
 public class HxBridge {
     private final Context ctx;
-    private final ExecutorService net = Executors.newSingleThreadExecutor();
+    // m7：3 线程池——慢请求（读超时 8s）不再堵住心跳轮询（原单线程串行）。
+    private final ExecutorService net = Executors.newFixedThreadPool(3);
 
     public HxBridge(Context ctx) {
         this.ctx = ctx;
@@ -236,11 +237,15 @@ public class HxBridge {
         try {
             File f = new File(ctx.getFilesDir(), "pending-buffer.json");
             if (f.exists()) {
-                String s = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
-                f.delete();
-                SharedPreferences sp = ctx.getSharedPreferences("hx", Context.MODE_PRIVATE);
-                sp.edit().remove("pending").apply();
-                return s;
+                // m12：原子换名取走再读——与 FetchService writeBuffer 的 tmp→rename 交错不再丢轮。
+                File taken = new File(ctx.getFilesDir(), "pending-buffer.taken.json");
+                if (f.renameTo(taken)) {
+                    String s = new String(Files.readAllBytes(taken.toPath()), StandardCharsets.UTF_8);
+                    taken.delete();
+                    SharedPreferences sp = ctx.getSharedPreferences("hx", Context.MODE_PRIVATE);
+                    sp.edit().remove("pending").apply();
+                    return s;
+                }
             }
         } catch (Exception ignored) {
         }

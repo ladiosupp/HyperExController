@@ -51,6 +51,7 @@
     '时刻': 'Time', '相位': 'Phase', '秤重': 'Weight', '杯流': 'Flow', '压力': 'Pressure', '温度': 'Temp', '趋势角': 'Trend°', '机器流量': 'Machine flow',
     '杯流 (g/s)': 'Flow (g/s)',
     '握手': 'Handshake', '未握手': 'No handshake', '未握手 · 只读': 'No handshake · read-only', 'recorder 在录': 'recorder recording',
+    '遥测': 'Telemetry',
     '插件已接管本杯': 'Plugin took over', '只读 · 下一杯恢复': 'read-only · resumes next shot',
     '接管横幅': 'Plugin took over · command returned to base, chart continues',
     '咖啡机休眠': 'Machine sleep', '唤醒': 'Wake', '已休眠': 'Asleep', '萃取中': 'Extracting', '待机': 'Ready', '加热中': 'Heating', '睡眠': 'Sleep', '未连接': 'Offline',
@@ -129,6 +130,7 @@
   let helloBusy = false;           // 主动握手进行中
   let tareBusy = false;            // 去皮请求进行中
   let lastPollSuccessAt = 0;       // M2 守卫：最近一次 external-status/hello 成功时刻（ext 新鲜度）
+  let ctrlResizeTimer = 0;         // m18：控制页 resize 防抖（对齐回放页 150ms）
   // 杯流卡显示层稳定化（用户 2026-11-17 定）：weightFlow 优先 RAW 兜底 + EMA0.5 + 0.5s 刷新 + 杯内断档保持；不碰样本/曲线/影子
   let flowDisp = null, flowAt = 0, flowRunRef = null;
   // 实时曲线宽度五档（用户 2026-11-17 定）：等比 √2，中间档=现状；仅实时图（line/stepLine 不被回放共用）
@@ -169,16 +171,25 @@
   async function connect() {
     if (!baseUrl) { setConn('off'); return; }
     const st = await httpJson('GET', pluginPath('status'));
-    if (!st.ok || !st.body) { setConn('bad'); stopPoll(); return; }
+    if (!st.ok || !st.body) {
+      // m8：失败清旧态——关 WS、清 ext、冻结未结束杯并结算影子，防旧主机数据继续喂。
+      setConn('bad'); stopPoll(); closeWs(); ext = null; takeLast = null;
+      if (run && !runEnded) { runEnded = true; runEndedAt = Date.now(); if (window.HxShadow) window.HxShadow.onCupEnd(); }
+      renderAll();
+      return;
+    }
     setConn('ok');
     pluginVersion = (st.body.calibration && st.body.calibration.pluginVersion) || null;
     pluginOk = verAtLeast(pluginVersion, MIN_PLUGIN);
     if (!pluginOk) { stopPoll(); showUpgrade(); renderAll(); return; }
-    const cm = await httpJson('GET', pluginPath('control-mode'));
-    hecMode = !!(cm.ok && cm.body && cm.body.algorithmIntervention === 'hec');
+    // m7：无依赖请求并行（control-mode / stageWeights 与 curves→workflow 链并行）。
+    const cmP = httpJson('GET', pluginPath('control-mode'));
+    const swP = loadStageWeights();
     await loadCurves();
     await loadWorkflow();
-    loadStageWeights();
+    const cm = await cmP;
+    hecMode = !!(cm.ok && cm.body && cm.body.algorithmIntervention === 'hec');
+    await swP;
     startPoll();
     openWs();
     renderAll();
@@ -189,7 +200,7 @@
     hello();
     pollTimer = setInterval(poll, 700);
   }
-  function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = 0; helloOk = false; }
+  function stopPoll() { if (pollTimer) clearInterval(pollTimer); pollTimer = 0; helloOk = false; ext = null; } // m8：清旧 ext
   async function hello() {
     if (helloBusy) return;
     helloBusy = true;
@@ -242,7 +253,7 @@
     }
     if (!x.takeover) takeLast = null;
     if (Number.isFinite(x.lastCommandMlS) && run && !runEnded && x.lastCommandMlS !== run.lastCmd) {
-      run.cmd.push({ t: runT(), v: x.lastCommandMlS });
+      run.cmd.push({ t: runT(), v: x.lastCommandMlS, f: x.logicalFrame != null ? x.logicalFrame : null }); // m4：带逻辑帧
       run.lastCmd = x.lastCommandMlS;
     }
   }
@@ -272,6 +283,7 @@
     if (extracting && (!run || runEnded)) {
       run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
       runId = (ext && ext.runId) || null;
+      loadStageWeights(); // m9：开杯补拉阶段目标重量（失败 → shadow status stageWeightsMissing 暴露）
       // 开杯即落第一段色带：用插件当前相位（握手/轮询可能晚于机器快照）
       const ph = (ext && ext.phase) || 'stage1';
       run.phases.push({ t: 0, phase: ph });
@@ -316,7 +328,13 @@
       phase: s.phase,
     }));
     const events = r.phases.map((p) => ({ tMs: Math.round(p.t * 1000), name: 'phase', phase: p.phase }));
-    const trace = r.cmd.map((c) => ({ kind: 'write', tMs: Math.round(c.t * 1000), commandMlS: c.v }));
+    // m4：与影子 R2 同口径——同帧变化 write、跨帧/首笔 frame-change（对齐 §6.10）。
+    let prevCmd = null, prevFrame = null;
+    const trace = r.cmd.map((c) => {
+      const kind = (prevCmd != null && c.f != null && prevFrame === c.f) ? 'write' : 'frame-change';
+      prevCmd = c.v; prevFrame = c.f;
+      return { kind, tMs: Math.round(c.t * 1000), commandMlS: c.v, frame: c.f };
+    });
     const last = samples[samples.length - 1];
     const shot = {
       runId: rid, startedAt,
@@ -390,7 +408,12 @@
     const target = Number(ext.targetGS);
     if (!Number.isFinite(target) || target <= 0) return;
     if (lastCheck && s.t - lastCheck.t < 1.0) return;
-    const win = run.samples.filter((x) => x.raw != null && !x.tare && s.t - x.t <= 1.2);
+    // m17：t 单调追加，窗起点索引消 O(n)×10Hz 全扫描（shift/newRun 首元素变时重置）。
+    let mc = run._mcIdx;
+    if (!mc || mc.first !== run.samples[0]) mc = run._mcIdx = { first: run.samples[0], i: 0 };
+    while (mc.i < run.samples.length && run.samples[mc.i].t < s.t - 1.2) mc.i++;
+    const win = [];
+    for (let k = mc.i; k < run.samples.length; k++) { const x = run.samples[k]; if (x.raw != null && !x.tare) win.push(x); }
     if (win.length < 4) return;
     const fit = linreg(win.map((x) => ({ x: x.t, y: x.raw })));
     if (!fit || fit.r2 < 0.5) return;
@@ -552,7 +575,7 @@
   }
   async function applyDials() {
     if (applying || !baseUrl) return;
-    if (ext && ext.extracting) { toast(t('空闲才能改')); return; }
+    if ((ext && ext.extracting) || (machine && machine.state === 'espresso')) { toast(t('空闲才能改')); return; } // i10：机器态兜底 ext 滞后
     applying = true; renderApply();
     try {
       if (dialDirty.temp) {
@@ -682,6 +705,17 @@
     else { hb.hidden = true; }
     // recorder 胶囊：非 HyperEx 且机器在录
     $('recPill').hidden = !(connState === 'ok' && !isHxSelected() && mp.raw === 'espresso' && recorderOn);
+    // i7：遥测新鲜度胶囊（插件侧 machine/scale age，状态标注；>1s 标红——秤休眠/遥测断可视）。
+    const tp = $('telePill');
+    if (tp) {
+      if (connState === 'ok' && ext && (ext.machineAgeMs != null || ext.scaleAgeMs != null)) {
+        const ma = ext.machineAgeMs, sa = ext.scaleAgeMs;
+        const stale = (ma != null && ma > 1000) || (sa != null && sa > 1000);
+        tp.hidden = false;
+        tp.className = 'telepill' + (stale ? ' stale' : '');
+        tp.textContent = t('遥测') + ' ' + (ma != null ? (ma / 1000).toFixed(1) : '—') + '/' + (sa != null ? (sa / 1000).toFixed(1) : '—') + 's';
+      } else tp.hidden = true;
+    }
     // 休眠按钮
     const sb = $('sleepBtn');
     sb.hidden = connState !== 'ok';
@@ -1265,7 +1299,7 @@
     $('controlView').hidden = !control;
     $('manualFetch').hidden = control;
     $('status').hidden = control;
-    $('hbPill').hidden = true; $('recPill').hidden = true; $('sleepBtn').hidden = true; $('hstat').hidden = true; $('waterPill').hidden = true;
+    $('hbPill').hidden = true; $('recPill').hidden = true; $('sleepBtn').hidden = true; $('hstat').hidden = true; $('waterPill').hidden = true; $('telePill').hidden = true;
     $('modeLb').textContent = t(control ? '控制' : '回放');
     $('modeLb').dataset.i18n = control ? '控制' : '回放';
     document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.classList.toggle('sel', it.dataset.mode === m));
@@ -1274,6 +1308,12 @@
       if (baseUrl && pluginOk && !pollTimer) startPoll();
       if (baseUrl && !machineWs) openWs();
     } else {
+      // m11：离开控制页时未结束杯按杯末处理（冻结+直写+影子结算），影子杯不悬空。
+      if (run && !runEnded) {
+        runEnded = true; runEndedAt = Date.now();
+        archiveRun().catch(() => {});
+        if (window.HxShadow) window.HxShadow.onCupEnd();
+      }
       stopPoll(); closeWs();
       const wl = $('whitelistBar'); if (wl) wl.hidden = false;
       // 回放页恢复自己的顶栏状态
@@ -1325,6 +1365,7 @@
       num.addEventListener('pointerdown', (e) => { if (ext && ext.extracting) return; if (k === 'weight' && isHxSelected()) { toast(t('液重由插件控制')); return; } drag = true; sy = e.clientY; sv = dial[k].v; num.setPointerCapture(e.pointerId); });
       num.addEventListener('pointermove', (e) => {
         if (!drag) return;
+        if ((ext && ext.extracting) || (machine && machine.state === 'espresso')) { drag = false; return; } // i10：drag 中途开杯守卫
         const d = dial[k];
         const delta = (sy - e.clientY) / 7;
         d.v = clampDial(k, sv + delta * d.step);
@@ -1370,7 +1411,7 @@
       $('modeBtn').addEventListener('click', (e) => { e.stopPropagation(); $('modePanel').hidden = !$('modePanel').hidden; });
       document.addEventListener('click', () => { $('modePanel').hidden = true; });
       document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.addEventListener('click', () => { setMode(it.dataset.mode); $('modePanel').hidden = true; }));
-      window.addEventListener('resize', () => { if (mode === 'control') drawCharts(); });
+      window.addEventListener('resize', () => { clearTimeout(ctrlResizeTimer); ctrlResizeTimer = setTimeout(() => { if (mode === 'control') drawCharts(); }, 150); }); // m18
       document.addEventListener('visibilitychange', () => { if (!document.hidden && mode === 'control' && baseUrl && pluginOk) { hello(); } });
       renderDial('temp'); renderDial('weight');
       setMode(savedMode === 'replay' ? 'replay' : 'control');

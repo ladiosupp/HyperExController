@@ -21,11 +21,17 @@
   let session = null, loadState = 'idle', loadError = null;
   let cup = null, cups = [];
   let busy = false;
+  let busySince = 0, inferErrors = 0, lastInferError = null, stageWeightsMissing = 0;
+  const failedCups = new Map(); // m13：persist 失败的杯全量留这里供导出回退（内存 cups 只留摘要）
   // 仲裁倾向（默认偏算法 0.35；学习证明后可调高）。软预算是倾向不是硬墙。
   let arbPreference = 0.35;
   const ARB_SOFT_CAP = 12;
 
   function db() { return window.dbSet && window.dbGet ? { set: window.dbSet, get: window.dbGet } : null; }
+  // m13：内存结算杯只留摘要（runId/计数），全量杯靠 IDB；_debug 形状兼容。
+  function summaryOf(c) {
+    return { runId: c.runId, startedAt: c.startedAt, modeAtStart: c.modeAtStart, fixLevel: c.fixLevel, decisions: c.decisions.length, writes: c.writes.length, samples: c.samples.length };
+  }
 
   // 桥读 assets（file:// 页面 fetch 会被拦）；浏览器预览回退 fetch。
   function b64ToBytes(b64) {
@@ -111,8 +117,14 @@
   }
 
   // ---- RAW 回归（重量 vs 秤时间戳，插件口径；去重、跳变 ≤0.6s）----
-  function weightRegression(samples, tSec, windowS) {
-    const rows = samples.filter((s) => s.stamp != null && s.weight != null && !s.tare && s.stamp <= tSec && s.stamp >= tSec - windowS);
+  function weightRegression(samples, tSec, windowS, startIdx, phase) {
+    // m17：样本按 stamp 单调追加，startIdx 窗起点索引消全扫描；phase 可选过滤（决策用，响应窗不传）。
+    const rows = [];
+    for (let k = startIdx || 0; k < samples.length; k++) {
+      const s = samples[k];
+      if (s.stamp != null && s.stamp > tSec) break;
+      if (s.stamp != null && s.weight != null && !s.tare && s.stamp <= tSec && s.stamp >= tSec - windowS && (!phase || s.phase === phase)) rows.push(s);
+    }
     const seen = new Set(); const uniq = [];
     for (const s of rows) { if (seen.has(s.stamp)) continue; seen.add(s.stamp); uniq.push(s); }
     if (uniq.length < 6) return null;
@@ -172,10 +184,16 @@
   // 插件 liveTrimRegression 的窗按**接收时刻**（x.tMs）筛，回归用秤时间戳。
   // 这里入参 tSec 是决策时刻（杯内秒），样本带 t（接收秒）与 stamp（秤秒）。
   // frame：插件按 profileFrame===t.frame 过滤（S3 子帧 2/3/4 各自独立窗）。
-  function trimRegression(samples, tSec, phase, target, frame) {
+  function trimRegression(samples, tSec, phase, target, frame, sinceStamp, startIdx) {
     const isS3 = phase === 'stage3';
     const windowS = isS3 ? 3.0 : 1.6, tailSec = isS3 ? 1.2 : 0.75, headSec = isS3 ? 1.2 : 0.65, horizon = isS3 ? 1.2 : 1.5;
-    const rows = samples.filter((s) => s.stamp != null && s.weight != null && !s.tare && s.phase === phase && (frame == null || s.frame === frame) && s.t <= tSec && s.t >= tSec - windowS);
+    // m17：t 单调追加，startIdx 窗起点索引；sinceStamp = S2 onset 裁剪（原 pool 过滤并入谓词）。
+    const rows = [];
+    for (let k = startIdx || 0; k < samples.length; k++) {
+      const s = samples[k];
+      if (s.t > tSec) break;
+      if (s.stamp != null && s.weight != null && !s.tare && s.phase === phase && (frame == null || s.frame === frame) && s.t >= tSec - windowS && (sinceStamp == null || s.stamp >= sinceStamp)) rows.push(s);
+    }
     const seen = new Set(); const points = [];
     for (const s of rows) {
       if (seen.has(s.stamp)) continue;
@@ -248,7 +266,12 @@
     if (cup.s2FirstStamp != null || s.phase !== 'stage2' || s.stamp == null || s.weight == null || s.tare) return;
     const target = Number(cup.live && cup.live.target) || 5;
     const threshold = Math.max(0.05, target * 0.01);
-    const rows = cup.samples.filter((x) => x.phase === 'stage2' && x.stamp != null && x.weight != null && !x.tare);
+    // m17：onset 滑窗只留 2.05s，窗起点索引即可（更旧的行本来就被 shift 出窗）。
+    const rows = [];
+    for (let k = winStart(cup, 'so', s.stamp, 2.05); k < cup.samples.length; k++) {
+      const x = cup.samples[k];
+      if (x.phase === 'stage2' && x.stamp != null && x.weight != null && !x.tare) rows.push(x);
+    }
     const seen = new Set(); const window = [];
     for (const row of rows) {
       if (seen.has(row.stamp)) continue;
@@ -288,8 +311,7 @@
     }
     if (cmd != null) { lv.lastWriteSeen = cmd; lv.lastWriteFrame = frame; }
     if (nowMs / 1000 - lv.frameStartSec < 1.6) return; // settling
-    const pool = phase === 'stage2' && cup.s2FirstStamp != null ? cup.samples.filter((x) => x.stamp >= cup.s2FirstStamp) : cup.samples;
-    const reg = trimRegression(pool, s.t, phase, target, frame);
+    const reg = trimRegression(cup.samples, s.t, phase, target, frame, phase === 'stage2' ? cup.s2FirstStamp : null, winStart(cup, 't3', s.t, 3.0));
     lv.reg = reg;
     if (!reg) { lv.predictedGS = null; lv.predictedAvailable = false; lv.rescueActive = false; lv.rescueHot = false; return; }
     if (lv.lastWriteAtSec !== null && nowMs / 1000 - lv.lastWriteAtSec < 0.05) return;
@@ -343,11 +365,22 @@
   let persistError = null;
   let persistChain = Promise.resolve();
   let migratePromise = null;
+  // m17：窗起点索引缓存（键独立：t3=预测窗 / s3=决策窗 / sr=响应窗 / so=onset；样本 shift 首元素变时重置）。
+  function winStart(cup, key, val, span) {
+    const arr = cup.samples;
+    let c = cup._winIdx;
+    if (!c || c.first !== arr[0]) c = cup._winIdx = { first: arr[0] };
+    let i = c[key] || 0;
+    if (key === 't') { while (i < arr.length && arr[i].t < val - span) i++; }
+    else { while (i < arr.length && (arr[i].stamp == null || arr[i].stamp < val - span)) i++; }
+    c[key] = i;
+    return i;
+  }
   // per-cup 键存储（app.js openDb v2 建 hecShadowCups objectStore，keyPath runId）；
   // 无该 store 的环境（旧测试沙箱）回退 kv 全数组路径，仍走链。
   function cupDb() {
-    return window.dbCupPut && window.dbCupAll && window.dbCupKeys && window.dbCupDel
-      ? { put: window.dbCupPut, all: window.dbCupAll, keys: window.dbCupKeys, del: window.dbCupDel } : null;
+    return window.dbCupPut && window.dbCupAll && window.dbCupKeys && window.dbCupDel && window.dbCupGet
+      ? { put: window.dbCupPut, all: window.dbCupAll, keys: window.dbCupKeys, del: window.dbCupDel, get: window.dbCupGet } : null;
   }
   // 首载迁移：旧 kv hecShadowCups 数组逐杯 put 进 per-cup store，成功后清空旧键；幂等。
   function migrate() {
@@ -360,6 +393,7 @@
       if (!old.length) return;
       for (const rec of old) await cd.put(rec);
       try { await d.set('hecShadowCups', []); } catch (_) {}
+      try { await d.set('hecShadowLastRunId', old[old.length - 1].runId); } catch (_) {}
     })().catch((e) => { persistError = String(e && e.message || e); });
     return migratePromise;
   }
@@ -367,7 +401,7 @@
   // 直接序列化会把同一批决策点重复写两份。
   function cleanCup(c) {
     const copy = Object.assign({}, c);
-    delete copy.live; delete copy.pendingRealized; delete copy.pendingResponse;
+    delete copy.live; delete copy.pendingRealized; delete copy.pendingResponse; delete copy._decTotal; delete copy._winIdx;
     // _decStamp 是 R4 响应窗结算用的内部秤时间戳，不进存储/导出
     if (Array.isArray(copy.decisions)) copy.decisions = copy.decisions.map((d) => { const { _decStamp, ...rest } = d; return rest; });
     return copy;
@@ -396,8 +430,11 @@
         while (all.length > 40) all.shift();
         await d.set('hecShadowCups', all);
       }
+      failedCups.delete(rec.runId);
+      const d2 = db();
+      if (d2) { try { await d2.set('hecShadowLastRunId', rec.runId); } catch (_) {} }
       persistError = null;
-    }).catch((e) => { persistError = String(e && e.message || e); });
+    }).catch((e) => { persistError = String(e && e.message || e); failedCups.set(rec.runId, rec); });
     return persistChain;
   }
 
@@ -407,13 +444,15 @@
     if (loadState === 'idle') load();
     if (!cup || (ctx.runId && cup.runId !== ctx.runId)) {
       // 与 onCupEnd 同口径：有决策或写入即结算（审计 m2：writes-only 杯不再丢）。
-      if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(cup); persist(cup); }
+      if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(summaryOf(cup)); persist(cup); }
       cup = newCup(ctx.runId);
       cup.modeAtStart = ctx.mode || null;
     }
     const s = ctx.sample;
     cup.samples.push({ t: s.t, stamp: s.stamp != null ? s.stamp : null, weight: s.weight, tare: !!s.tare, phase: ctx.phase, frame: ctx.frame != null ? ctx.frame : null });
     if (cup.samples.length > 4000) cup.samples.shift();
+    // m9：阶段目标重量缺失计数（loadStageWeights 失败 → rescue cannotReturn 残废，status 暴露）。
+    if (ctx.extracting && (ctx.phase === 'stage2' || ctx.phase === 'stage3') && !(Number.isFinite(ctx.stage2WeightG) && Number.isFinite(ctx.finalWeightG))) stageWeightsMissing++;
     // R2：插件写入台账区分帧切换与真实写入。帧号变化引起的跳变记 frame-change，
     // 同帧变化记 write；仲裁算法候选只消费 kind:'write'。
     const cmd = ctx.commandMlS;
@@ -443,7 +482,8 @@
     // R4：写后响应窗到期结算（秤时间戳口径 0.75–2.75s）
     settleResponses(cup, s);
 
-    // M2 守卫：后台 / ext 冻结（control.js 记 lastPollSuccessAt 传 stale）不出决策，防脏标签。
+    // m10：busy 超时自愈（session 挂死 5s 后复位，计错误数）；M2 守卫：后台/ext 冻结不出决策防脏标签。
+    if (busy && busySince && Date.now() - busySince > 5000) { busy = false; inferErrors++; lastInferError = 'busy-timeout-self-heal'; }
     if (loadState !== 'ready' || busy || !ctx.extracting || ctx.takeover || ctx.stale) return;
     if (ctx.phase !== 'stage2' && ctx.phase !== 'stage3') return;
     const target = Number(ctx.targetGS);
@@ -454,9 +494,8 @@
     const nowMs = Math.round(s.t * 1000);
     if (nowMs - cup.lastDecisionAt < interval) return;
     if (s.stamp == null) return;
-    // 决策回归按 phase 过滤（对齐离线 build-dataset.js regAt 的 phaseRawSamples，审计 m3）；
-    // 响应窗 settleResponses 不过滤（物理响应，§6.12 口径）；trimRegression 的帧过滤不动。
-    const reg = weightRegression(cup.samples.filter((x) => x.phase === ctx.phase), s.stamp, WINDOW_S[ctx.phase] || 1.6);
+    // 决策回归按 phase 过滤（对齐离线 regAt，审计 m3）+ 窗起点索引（m17）；响应窗不过滤（§6.12）。
+    const reg = weightRegression(cup.samples, s.stamp, WINDOW_S[ctx.phase] || 1.6, winStart(cup, 's3', s.stamp, 3.0), ctx.phase);
     if (!reg) return;
 
     const obs = {
@@ -467,7 +506,7 @@
       cumulativeWeightG: ctx.cumulativeWeightG, commandMlS: cmd,
       phase: ctx.phase, rescue,
     };
-    busy = true;
+    busy = true; busySince = Date.now();
     try {
       const ort = window.ort;
       const input = new ort.Tensor('float32', Float32Array.from(features(obs)), [1, 13]);
@@ -519,9 +558,12 @@
       cup.pendingRealized.push(dec);
       cup.pendingResponse.push(dec);
       if (cup.decisions.length > 2000) cup.decisions.shift();
-      if (cup.decisions.length % 20 === 0) persist(cup);
-    } catch (_) {
-    } finally { busy = false; }
+      // i9：checkpoint 按累计决策数（_decTotal）而非截断后 length，2000 上限后不再每决策都 persist。
+      cup._decTotal = (cup._decTotal || 0) + 1;
+      if (cup._decTotal % 20 === 0) persist(cup);
+    } catch (e) {
+      inferErrors++; lastInferError = String(e && e.message || e); // m10：推理错误计数进 status
+    } finally { busy = false; busySince = 0; }
   }
 
   // R4：决策点后 0.75–2.75s（插件 controlRunReview 同窗，秤时间戳口径）RAW 回归。
@@ -534,7 +576,7 @@
       const decStamp = d._decStamp;
       if (decStamp == null) { d.responseIncomplete = true; continue; }
       if (s.stamp < decStamp + 2.75) { still.push(d); continue; }
-      const rows = cup.samples.filter((x) => x.stamp != null && x.stamp >= decStamp + 0.75 && x.stamp <= decStamp + 2.75);
+      const rows = cup.samples.slice(winStart(cup, 'sr', decStamp + 2.75, 2.0)); // m17：窗起点索引
       const reg = rows.length ? weightRegression(rows, decStamp + 2.75, 2.0) : null;
       if (reg) { d.responseGS = reg.slope; d.responseR2 = reg.r2; d.responseWindow = [0.75, 2.75]; }
       else { d.responseIncomplete = true; }
@@ -548,7 +590,7 @@
   }
 
   function onCupEnd() {
-    if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(cup); persist(cup); }
+    if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(summaryOf(cup)); persist(cup); }
     cup = null;
   }
 
@@ -556,7 +598,7 @@
     load,
     onSample,
     onCupEnd,
-    status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length }; },
+    status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length, inferErrors, lastInferError, stageWeightsMissing }; },
     exportJSON: async function () {
       await persistChain; // 先等在途 persist 落盘，杯末立即导出不再缺刚结算杯（审计 M1）
       await migrate();
@@ -564,11 +606,9 @@
       let all = [];
       if (cd) { try { all = (await cd.all()).filter((x) => x && x.runId); } catch (_) {} }
       else { const d = db(); try { all = ((d && await d.get('hecShadowCups')) || []).filter((x) => x && x.runId); } catch (_) {} }
-      // persistError 回退：内存结算杯按 runId 并档（内存为准），防丢杯静默。
+      // persistError 回退：failedCups（persist 失败杯的全量快照）按 runId 并档，防丢杯静默。
       if (persistError) {
-        for (const c of cups) {
-          if (!c || !c.runId) continue;
-          const rec = cleanCup(c);
+        for (const rec of failedCups.values()) {
           const i = all.findIndex((x) => x && x.runId === rec.runId);
           if (i >= 0) all[i] = rec; else all.push(rec);
         }
@@ -578,6 +618,17 @@
       // 并档规则：训练标签只取 modeAtStart=full 且 fixLevel 齐全的杯；
       // hec 杯与 pre-fix 旧杯（无 fixLevel）只作链路证据，不进训练。
       return JSON.stringify({ kind: 'HecShadowLog', schema: 2, model: 'bc_v0', rectify: '2026-11-16', exportedAt: new Date().toISOString(), cups: all });
+    },
+    // m16：学习中心只读最近杯（在跑杯优先，否则 lastRunId 单杯读），不全量 exportJSON。
+    latestCup: async function () {
+      await persistChain; await migrate();
+      if (cup && (cup.decisions.length || cup.writes.length)) return cleanCup(cup);
+      const cd = cupDb(); const d = db();
+      let rid = null;
+      try { rid = d && await d.get('hecShadowLastRunId'); } catch (_) {}
+      if (rid && cd) { try { const rec = await cd.get(rid); if (rec && rec.runId) return rec; } catch (_) {} }
+      if (cd) { try { const all = await cd.all(); if (all.length) { all.sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0)); return all[all.length - 1]; } } catch (_) {} }
+      return null;
     },
     _features: features,
     _regression: weightRegression,
@@ -590,6 +641,6 @@
     _finalizeCup: finalizeCup,
     setPreference: function (p) { if (Number.isFinite(p)) arbPreference = Math.max(0, Math.min(1, p)); return arbPreference; },
     getPreference: function () { return arbPreference; },
-    _debug: function () { return { cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, samples: cup.samples.length, writes: cup.writes.length } : null, cups: cups.map(function (c) { return c ? { runId: c.runId, decisions: c.decisions.length } : String(c); }), persistError: persistError }; },
+    _debug: function () { return { cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, samples: cup.samples.length, writes: cup.writes.length } : null, cups: cups.map(function (c) { return c ? { runId: c.runId, decisions: c.decisions } : String(c); }), persistError: persistError, inferErrors: inferErrors, stageWeightsMissing: stageWeightsMissing }; },
   };
 })();

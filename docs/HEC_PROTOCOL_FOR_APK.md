@@ -1,4 +1,4 @@
-# HEC 协议（插件端 → HyperExControler APK 对话）
+# HEC 协议（插件端 → HyperExController APK 对话）
 
 > 2026-11-15。插件端实现见 HANDOFF_2026-11-15-hec-mode-proposal.md 与 verify_v02248.cjs。
 > 本文是给 APK 对话的接口契约，**逐条实现即可，不需要改插件**。中立对话评估用同一份。
@@ -28,7 +28,7 @@
 
 ## 2. 握手与心跳（保险的核心）
 
-- POST /external-hello，body {"client":"HyperExControler","version":"<apk版本>"}（字段可省略，仅作记录）。
+- POST /external-hello，body {"client":"HyperExController","version":"<apk版本>"}（字段可省略，仅作记录）。
   返回 200 {ok:true, mode, ...（其余字段同 §4 external-status）}，超时在 heartbeat.heartbeatTimeoutMs（=4000）。
   **hello 与 external-status 都刷新心跳**。
 - 心跳超时 HEC_HEARTBEAT_MS = 4000 ms（插件常量，external-status 里透出 heartbeat.heartbeatTimeoutMs）。

@@ -8,7 +8,8 @@
   'use strict';
   const CMD_LO = 0.10, CMD_HI = 8.00;
   function snap(v) { return Math.round(v * 16) / 16; }
-  function clip(v) { return Math.max(CMD_LO, Math.min(CMD_HI, snap(v))); }
+  // i4：先夹后 snap，输出恒在 1/16 网格（旧先 snap 后夹可产非网格 0.10；插件 toDriverStep 同口径）。
+  function clip(v) { return snap(Math.max(CMD_LO, Math.min(CMD_HI, v))); }
 
   // ---- 规则仲裁 v0（与离线 pipeline/arbitrate.js 同逻辑，原样保留）----
   function arbitrate(algo, model, ctx, opts) {
@@ -19,24 +20,17 @@
 
     const aCmd = algo && Number.isFinite(algo.commandMlS) ? algo.commandMlS : null;
     let mCmd = model && Number.isFinite(model.commandMlS) ? model.commandMlS : null;
-    const cur = ctx && Number.isFinite(ctx.currentMlS) ? ctx.currentMlS : null;
-
-    let clipped = false;
-    if (mCmd != null) {
-      const c = clip(mCmd);
-      if (c !== mCmd) clipped = true;
-      mCmd = c;
-      const lim = ctx && Number.isFinite(ctx.limiterBar) ? ctx.limiterBar : null;
-      const pr = ctx && Number.isFinite(ctx.pressureBar) ? ctx.pressureBar : null;
-      if (lim != null && pr != null && cur != null && mCmd > cur && pr >= lim * 0.90) mCmd = null;
-      if (mCmd != null && cur != null && mCmd === cur) mCmd = null;
-    }
+    // i5：第 1 层包线单一实现（applyEnvelope），规则/学习共用防漂移；行为逐字不变。
+    const env = applyEnvelope(mCmd, ctx);
+    mCmd = env.mCmd;
+    const clipped = env.clipped;
 
     const aValid = aCmd != null, mValid = mCmd != null;
     if (!aValid && !mValid) return { pick: 'hold', commandMlS: null, reason: 'both-hold', clipped };
     if (aValid && !mValid) return { pick: 'algo', commandMlS: aCmd, reason: 'model-hold-or-rejected', clipped };
     if (!aValid && mValid) {
-      if (used >= softCap) return { pick: 'hold', commandMlS: null, reason: 'model-over-soft-cap', clipped };
+      // m1：与 both-valid 分支同口径——软预算是倾向不是墙，preference≥0.7 仍可超（§6.4/§6.17）。
+      if (used >= softCap && preference < 0.7) return { pick: 'hold', commandMlS: null, reason: 'model-over-soft-cap', clipped };
       return { pick: 'model', commandMlS: mCmd, reason: 'algo-hold-model-write', clipped };
     }
     const divergence = Math.abs(aCmd - mCmd);
@@ -47,7 +41,7 @@
     return { pick: 'algo', commandMlS: aCmd, reason: 'preference-algo', clipped };
   }
 
-  // ---- 第 1 层安全包线（硬；与 arbitrate 内的包线同逻辑，学习仲裁复用）----
+  // ---- 第 1 层安全包线（硬；规则 arbitrate 与学习 arbitrateLearned 共用的单一实现）----
   function applyEnvelope(mCmd, ctx) {
     let clipped = false;
     const cur = ctx && Number.isFinite(ctx.currentMlS) ? ctx.currentMlS : null;
