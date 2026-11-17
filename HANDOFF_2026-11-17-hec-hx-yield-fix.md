@@ -1,4 +1,4 @@
-# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ v0.15 已发版装平板；v0.16 校准同口径就绪待发版（供统筹）
+# 交接：HX 曲线切曲线液重注入修复（2026-11-17）→ v0.15 / v0.16 均已发版装平板（供统筹）
 
 > 前序：HANDOFF_2026-11-16-hec-yield-fix.md（液重停杯修复，非 HX 口径）。
 > 技能：android-tablet-apk-dev（通用坑）、decentplugin §22（控制口径）。规矩照 AGENTS.md（7/15/16/19/20）。
@@ -9,7 +9,7 @@
 根因钉死：**HEC selectCurve 对 HX 曲线也注入拨轮残留液重到 context.targetYield**，Decaid SAW 按残留值（26g，拉杆配方带来）提前停杯。
 已修（v0.15，versionCode 15）：HX 曲线改发曲线自己的 target_weight（真机 HX auto=0 → SAW 禁用、停杯交插件），非 HX 维持 11-16 拨轮口径。
 模拟器回归 17/17 过。**用户确认后已装平板并完整发版**（push / GitHub Release / 夸克，回执见 §6）。
-用户随后拍板：Flow Calibration 同口径处理 + 父仓指针推。v0.16 已改好并回归 19/19（§8），**发版（装平板/推送/Release/夸克）待用户拍板**。
+用户随后拍板：Flow Calibration 同口径处理 + 父仓指针推。v0.16 整合 UI（杯流卡稳定化、状态卡居中）与自定义图标后**已发版装平板**（§9）。
 
 ## 1. 根因与真机证据（2026-11-17 上午，插件 2.2.48，full 档）
 
@@ -80,7 +80,7 @@
   可直接补 HANDOFF_2026-11-17-hec-live-cups.md §2/§3。v0.15 后 HEC 切 HX 不再注入残留液重，full 档取证可继续。
 - **UI 对话**：杯流卡显示稳定化（flowDisp/EMA）仍未提交，已随 v0.15 包发出（用户知情）；请尽快提交固化，避免下次构建漂移。
   cfff2aa（去皮光条）已随本次 push 上远端。
-- **待拍板**：① ~~Flow Calibration 同口径~~ 已实施（v0.16，§8）；② ~~父仓指针推不推~~ 已推（§8）；③ 夸克 v0.6 历史欠传；④ v0.16 发版（装平板/推送/Release/夸克）。
+- **待拍板**：① ~~Flow Calibration 同口径~~ 已实施（v0.16，§8）；② ~~父仓指针推不推~~ 已推（§8/§9）；③ 夸克 v0.6 历史欠传；④ ~~v0.16 发版~~ 已完成（§9）。
 - **口径澄清**：HX 杯停杯 = 插件 FinalWeight（≈100g）写 Idle；拨轮/SAW 不是 HX 的液重入口，改 HX 液重改插件设置。
   Streamline 显示目标液重 0 对 HX 是正常态（皮肤按曲线 target_weight=0 下发）。
 
@@ -95,4 +95,18 @@
 - 构建内容提示：含 c417157（UI 对话杯流卡同源+稳定化，已提交未推）+ 图标对话未提交 WIP（manifest icon→mipmap、
   index.html 卡片对齐、res/mipmap 与 values 新目录）——发版时用户知情决定要不要等图标对话收尾。
 - 父仓指针推送回执：D:/vscode origin main（ladiosupp/coffee-bean-manager），60e51d1 随待推指针提交链一起上远端，走 VPN 代理 57890。
-- **v0.16 发版待用户拍板**（装平板/推送/Release/夸克）；本批提交只在本地。
+- v0.16 发版：用户确认 UI/图标收尾后整合发出（§9）。
+
+## 9. v0.16 整合发版回执（2026-11-17，用户授权「整合发一个新版，装平板和推送」）
+
+- 整合内容：99b40ef（自定义图标）+ fd75aa0（状态卡单行垂直居中）+ 9e644c2（校准同口径）+ c417157（杯流卡同源+稳定化）；版本号 16/0.16。
+- 构建：gradle assembleDebug（.tools/__v016-build.log）；APK **6,717,371 字节**，副本 .tools/HyperExController_v0.16.apk。
+  包完整性实测：APK 内 assets/www/index.html 与 control.js 哈希与磁盘一致；17 条 mipmap 资源进包（15 PNG + 2 自适应 XML）。
+- 回归：模拟器装整合包 + 4798 桩 + CDP **19/19**（.tools/__v016-regress.log）。收尾已做（stayon false、reverse/forward 删、桩停）。
+- 平板：install -r，dumpsys **versionCode=16 / versionName=0.16 / lastUpdateTime=2026-11-17 07:58:57**；am start 拉前台。
+- push：origin main **13b3147..99b40ef**（VPN 代理）；本交接提交随后再推。
+- GitHub Release：**v0.16**，id **447789185**，https://github.com/ladiosupp/HyperExController/releases/tag/v0.16 ；
+  附件 HyperExController_v0.16.apk（asset id 756932829，6,717,371 字节）。REST 建 + 直传，token 走 git credential fill。
+- 夸克：**夸克网盘/来自：Codex**，fileId **f817ee88ea10448cb60722594e765fa9**，6,717,371 字节（CLI 1.0.25）。
+- 父仓指针：更新至本交接提交，本地提交并推送（用户 11-17 已拍板父仓指针推）。
+- 真机验收仍待用户出杯（§4.2）：HX auto 完整跑 ~100g 插件收尾；校准杯不再被 SAW 残留值提前停。
