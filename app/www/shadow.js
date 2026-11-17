@@ -13,6 +13,10 @@
   const MODEL_URL = 'vendor/bc_v0.onnx';
   const ORT_URL = 'vendor/ort.wasm.min.js';
   const WASM_BASE = 'vendor/';
+  // 原生 asset loader（MainActivity shouldInterceptRequest，WebViewAssetLoader 同款 URL）：
+  // https 流式 fetch，免 base64 桥的内存峰值与 JS 线程阻塞；失败回退桥读（浏览器预览再回退相对 fetch）。
+  const ASSET_HTTPS = 'https://appassets.androidplatform.net/assets/www/';
+  let assetHttpsOk = null;
 
   let session = null, loadState = 'idle', loadError = null;
   let cup = null, cups = [];
@@ -31,6 +35,13 @@
     return bytes;
   }
   async function assetBytes(relPath) {
+    if (assetHttpsOk !== false) {
+      try {
+        const hr = await fetch(ASSET_HTTPS + relPath, { cache: 'no-store' });
+        if (hr.ok) { assetHttpsOk = true; return new Uint8Array(await hr.arrayBuffer()); }
+      } catch (_) {}
+      assetHttpsOk = false;
+    }
     if (window.HxBridge && window.HxBridge.readAssetBase64) {
       const b64 = window.HxBridge.readAssetBase64('www/' + relPath);
       if (b64) return b64ToBytes(b64);
@@ -43,6 +54,7 @@
   async function load() {
     // 学习仲裁模型独立加载（fire-and-forget；未就绪时仲裁优雅回落规则 v0）
     if (window.HxArbiter && window.HxArbiter.loadLearned) window.HxArbiter.loadLearned();
+    migrate(); // 旧 kv 数组 → per-cup 键存储（幂等，保 install -r 跨装机存活）
     if (loadState === 'ready' || loadState === 'loading') return;
     loadState = 'loading';
     try {
@@ -56,14 +68,19 @@
       const ort = window.ort;
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.simd = true;
-      // file:// 下 ORT 的 import()/fetch 都会被拦：.mjs 读成 blob URL 绝对地址，
-      // wasm 二进制直接注入 wasmBinary，两者都走桥（浏览器预览回退 fetch）。
-      const wasmBytes = await assetBytes('vendor/ort-wasm-simd-threaded.wasm');
-      ort.env.wasm.wasmBinary = wasmBytes.buffer;
-      const mjsBytes = await assetBytes('vendor/ort-wasm-simd-threaded.mjs');
-      const mjsUrl = URL.createObjectURL(new Blob([mjsBytes], { type: 'text/javascript' }));
-      ort.env.wasm.wasmPaths = { mjs: mjsUrl, wasm: mjsUrl };
+      // 模型小文件先探 asset loader：可用则 wasmPaths 指 https，ORT 自己流式 fetch/编译 wasm，
+      // 不再 base64 注入 wasmBinary；不可用回退旧路（file:// 下 import()/fetch 被拦，
+      // .mjs 读成 blob URL、wasm 二进制注入，两者走桥；浏览器预览回退 fetch）。
       const modelBytes = await assetBytes(MODEL_URL);
+      if (assetHttpsOk) {
+        ort.env.wasm.wasmPaths = { mjs: ASSET_HTTPS + 'vendor/ort-wasm-simd-threaded.mjs', wasm: ASSET_HTTPS + 'vendor/ort-wasm-simd-threaded.wasm' };
+      } else {
+        const wasmBytes = await assetBytes('vendor/ort-wasm-simd-threaded.wasm');
+        ort.env.wasm.wasmBinary = wasmBytes.buffer;
+        const mjsBytes = await assetBytes('vendor/ort-wasm-simd-threaded.mjs');
+        const mjsUrl = URL.createObjectURL(new Blob([mjsBytes], { type: 'text/javascript' }));
+        ort.env.wasm.wasmPaths = { mjs: mjsUrl, wasm: mjsUrl };
+      }
       session = await ort.InferenceSession.create(modelBytes.buffer, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
       loadState = 'ready';
     } catch (e) {
@@ -324,6 +341,28 @@
   }
 
   let persistError = null;
+  let persistChain = Promise.resolve();
+  let migratePromise = null;
+  // per-cup 键存储（app.js openDb v2 建 hecShadowCups objectStore，keyPath runId）；
+  // 无该 store 的环境（旧测试沙箱）回退 kv 全数组路径，仍走链。
+  function cupDb() {
+    return window.dbCupPut && window.dbCupAll && window.dbCupKeys && window.dbCupDel
+      ? { put: window.dbCupPut, all: window.dbCupAll, keys: window.dbCupKeys, del: window.dbCupDel } : null;
+  }
+  // 首载迁移：旧 kv hecShadowCups 数组逐杯 put 进 per-cup store，成功后清空旧键；幂等。
+  function migrate() {
+    if (migratePromise) return migratePromise;
+    migratePromise = (async () => {
+      const cd = cupDb(); const d = db();
+      if (!cd || !d) return;
+      let old = [];
+      try { old = ((await d.get('hecShadowCups')) || []).filter((x) => x && x.runId); } catch (_) { return; }
+      if (!old.length) return;
+      for (const rec of old) await cd.put(rec);
+      try { await d.set('hecShadowCups', []); } catch (_) {}
+    })().catch((e) => { persistError = String(e && e.message || e); });
+    return migratePromise;
+  }
   // 内部运行态（live 状态机 / 待结算队列）不进存储与导出：队列里是决策点引用，
   // 直接序列化会把同一批决策点重复写两份。
   function cleanCup(c) {
@@ -333,17 +372,33 @@
     if (Array.isArray(copy.decisions)) copy.decisions = copy.decisions.map((d) => { const { _decStamp, ...rest } = d; return rest; });
     return copy;
   }
-  // 显式传入要存的杯：persist 是异步的，调用方随后可能把全局 cup 置 null。
-  async function persist(c) {
-    const d = db(); if (!d || !c) return;
-    try {
-      const rec = JSON.parse(JSON.stringify(cleanCup(c)));
-      const all = ((await d.get('hecShadowCups')) || []).filter((x) => x && x.runId);
-      const i = all.findIndex((x) => x && x.runId === rec.runId);
-      if (i >= 0) all[i] = rec; else all.push(rec);
-      while (all.length > 40) all.shift();
-      await d.set('hecShadowCups', all);
-    } catch (e) { persistError = String(e && e.message || e); }
+  // 显式传入要存的杯：调用方随后可能把全局 cup 置 null，先同步快照再入链。
+  // 链式串行（同 app.js saveChain 模式）：消除交错 persist 的 lost update；exportJSON 先等链尾。
+  function persist(c) {
+    if (!c) return persistChain;
+    const rec = JSON.parse(JSON.stringify(cleanCup(c)));
+    persistChain = persistChain.then(async () => {
+      await migrate();
+      const cd = cupDb();
+      if (cd) {
+        await cd.put(rec);
+        const keys = await cd.keys();
+        if (keys.length > 40) {
+          const all = await cd.all();
+          all.sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
+          for (let i = 0; i < keys.length - 40; i++) await cd.del(all[i].runId);
+        }
+      } else {
+        const d = db(); if (!d) return;
+        const all = ((await d.get('hecShadowCups')) || []).filter((x) => x && x.runId);
+        const i = all.findIndex((x) => x && x.runId === rec.runId);
+        if (i >= 0) all[i] = rec; else all.push(rec);
+        while (all.length > 40) all.shift();
+        await d.set('hecShadowCups', all);
+      }
+      persistError = null;
+    }).catch((e) => { persistError = String(e && e.message || e); });
+    return persistChain;
   }
 
   // 每个秤样本调用（control.js onScaleSnapshot 钩子）。只记录，不发送。
@@ -351,7 +406,8 @@
     if (!ctx || !ctx.run) return;
     if (loadState === 'idle') load();
     if (!cup || (ctx.runId && cup.runId !== ctx.runId)) {
-      if (cup && cup.decisions.length) { finalizeCup(cup); cups.push(cup); persist(cup); }
+      // 与 onCupEnd 同口径：有决策或写入即结算（审计 m2：writes-only 杯不再丢）。
+      if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(cup); persist(cup); }
       cup = newCup(ctx.runId);
       cup.modeAtStart = ctx.mode || null;
     }
@@ -387,7 +443,8 @@
     // R4：写后响应窗到期结算（秤时间戳口径 0.75–2.75s）
     settleResponses(cup, s);
 
-    if (loadState !== 'ready' || busy || !ctx.extracting || ctx.takeover) return;
+    // M2 守卫：后台 / ext 冻结（control.js 记 lastPollSuccessAt 传 stale）不出决策，防脏标签。
+    if (loadState !== 'ready' || busy || !ctx.extracting || ctx.takeover || ctx.stale) return;
     if (ctx.phase !== 'stage2' && ctx.phase !== 'stage3') return;
     const target = Number(ctx.targetGS);
     if (!Number.isFinite(target) || target <= 0) return;
@@ -397,7 +454,9 @@
     const nowMs = Math.round(s.t * 1000);
     if (nowMs - cup.lastDecisionAt < interval) return;
     if (s.stamp == null) return;
-    const reg = weightRegression(cup.samples, s.stamp, WINDOW_S[ctx.phase] || 1.6);
+    // 决策回归按 phase 过滤（对齐离线 build-dataset.js regAt 的 phaseRawSamples，审计 m3）；
+    // 响应窗 settleResponses 不过滤（物理响应，§6.12 口径）；trimRegression 的帧过滤不动。
+    const reg = weightRegression(cup.samples.filter((x) => x.phase === ctx.phase), s.stamp, WINDOW_S[ctx.phase] || 1.6);
     if (!reg) return;
 
     const obs = {
@@ -499,9 +558,22 @@
     onCupEnd,
     status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length }; },
     exportJSON: async function () {
-      const d = db();
+      await persistChain; // 先等在途 persist 落盘，杯末立即导出不再缺刚结算杯（审计 M1）
+      await migrate();
+      const cd = cupDb();
       let all = [];
-      try { all = ((d && await d.get('hecShadowCups')) || []).filter((x) => x && x.runId); } catch (_) {}
+      if (cd) { try { all = (await cd.all()).filter((x) => x && x.runId); } catch (_) {} }
+      else { const d = db(); try { all = ((d && await d.get('hecShadowCups')) || []).filter((x) => x && x.runId); } catch (_) {} }
+      // persistError 回退：内存结算杯按 runId 并档（内存为准），防丢杯静默。
+      if (persistError) {
+        for (const c of cups) {
+          if (!c || !c.runId) continue;
+          const rec = cleanCup(c);
+          const i = all.findIndex((x) => x && x.runId === rec.runId);
+          if (i >= 0) all[i] = rec; else all.push(rec);
+        }
+      }
+      all.sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0));
       if (cup) all = all.concat([cleanCup(cup)]);
       // 并档规则：训练标签只取 modeAtStart=full 且 fixLevel 齐全的杯；
       // hec 杯与 pre-fix 旧杯（无 fixLevel）只作链路证据，不进训练。

@@ -128,6 +128,7 @@
   let machineSubstate = '';        // 机器子状态（加热判定兜底）
   let helloBusy = false;           // 主动握手进行中
   let tareBusy = false;            // 去皮请求进行中
+  let lastPollSuccessAt = 0;       // M2 守卫：最近一次 external-status/hello 成功时刻（ext 新鲜度）
   // 杯流卡显示层稳定化（用户 2026-11-17 定）：weightFlow 优先 RAW 兜底 + EMA0.5 + 0.5s 刷新 + 杯内断档保持；不碰样本/曲线/影子
   let flowDisp = null, flowAt = 0, flowRunRef = null;
   // 实时曲线宽度五档（用户 2026-11-17 定）：等比 √2，中间档=现状；仅实时图（line/stepLine 不被回放共用）
@@ -195,6 +196,7 @@
     const r = await httpJson('POST', pluginPath('external-hello'), { client: 'HyperExController', version: appVer() });
     helloOk = !!(r.ok && r.body && r.body.ok);
     if (helloOk && r.body) ext = r.body;
+    if (helloOk) lastPollSuccessAt = Date.now();
     helloBusy = false;
     renderAll();
   }
@@ -205,6 +207,7 @@
     pollBusy = false;
     if (!r.ok || !r.body) { helloOk = false; renderAll(); return; }
     ext = r.body;
+    lastPollSuccessAt = Date.now();
     helloOk = !!(ext.heartbeat && ext.heartbeat.ok);
     hecMode = ext.mode === 'hec';
     noteExternal(ext);
@@ -290,8 +293,7 @@
       if (Number.isFinite(pf) && pf !== run.lastStep) { run.steps.push({ t: runT(), step: pf }); run.lastStep = pf; }
     }
     renderHeaderState();
-    renderCards();
-    drawCharts();
+    requestRender();
   }
   // ---- 杯末直写回放归档（用户 2026-11-15 定）：全点含 mix 温度，不经插件导出 ----
   async function archiveRun() {
@@ -365,6 +367,8 @@
           run, runId: ext && ext.runId, sample: s,
           phase: (ext && ext.phase) || run.lastPhase, extracting: !!(ext && ext.extracting),
           takeover: !!(ext && ext.takeover), targetGS: ext && ext.targetGS,
+          // M2 守卫：后台或轮询断档 >1500ms（≈2 个 700ms 周期）视 ext 为冻结，影子不出决策（防脏标签）。
+          stale: document.hidden || (Date.now() - lastPollSuccessAt > 1500),
           commandMlS: ext && ext.lastCommandMlS, baseCommandMlS: ext && ext.baseCommandMlS,
           frame: ext && ext.logicalFrame, pressureBar: machine && machine.pressure,
           machineFlowMlS: machine && machine.flow, cumulativeWeightG: weight,
@@ -375,8 +379,7 @@
         });
       }
     }
-    renderCards();
-    drawCharts();
+    requestRender();
   }
   // 趋势角（技能 §19 口径）：相邻带 rawGS 检测点连线 vs 目标线夹角。
   // 朝目标且斜率同向 = atan(|slope|)（0–90）；平行偏离 = 90；背离 = 180−atan(|slope|)。
@@ -409,12 +412,7 @@
     checks.push(ck); if (checks.length > 40) checks.shift();
     lastCheck = ck;
   }
-  // ---- RAW 滤波（仅显示层；趋势角/影子仍用原始 raw）----
-  function rawSeries(samples) {
-    const pts = [];
-    for (const s of samples) if (s.raw != null && Number.isFinite(s.raw)) pts.push([s.t, s.raw]);
-    return pts;
-  }
+  // ---- RAW 滤波（仅显示层；趋势角/影子仍用原始 raw；原始散点序列走 M4 series 缓存）----
   // 居中时间窗滑动平均（双指针 O(n)，不引入滞后）
   function filterRaw(pts, win) {
     const half = win / 2, out = [];
@@ -722,11 +720,21 @@
     const pill = PHASE_PILL[phase] || ['#2a2f37', '#cfd5de'];
     const f1 = (v) => Number.isFinite(v) ? v.toFixed(1) : '—';
     const f2 = (v) => Number.isFinite(v) ? v.toFixed(2) : '—';
-    const card = (k, v) => '<div class="card"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
-    let html = '';
-    html += card(t('时刻'), mm + ':' + (ss < 10 ? '0' : '') + ss);
-    if (hx) html += card(t('相位'), '<span class="phasepill' + (phase === 'idle' ? ' idle' : '') + '" style="background:' + pill[0] + ';color:' + pill[1] + '">' + esc(phaseName(phase)) + '</span>');
-    html += '<div class="card tareable" id="tareCard" title="' + esc(t('去皮')) + '"><div class="k">' + t('秤重') + '</div><div class="v">' + f1(s.weight) + '<small>g</small></div></div>';
+    // M4 差量更新：骨架按 hx/plain+语言 建一次（去皮监听只挂一次），各卡 .v 仅内容变化时写。
+    const key = (hx ? 'hx' : 'plain') + '|' + (typeof lang !== 'undefined' ? lang : 'zh');
+    if (key !== cardsKey) {
+      const card = (k) => '<div class="card"><div class="k">' + k + '</div><div class="v"></div></div>';
+      let html = card(t('时刻'));
+      if (hx) html += card(t('相位'));
+      html += '<div class="card tareable" id="tareCard" title="' + esc(t('去皮')) + '"><div class="k">' + t('秤重') + '</div><div class="v"></div></div>';
+      html += card(t('杯流')) + card(t('压力')) + card(t('温度'));
+      html += hx ? card(t('趋势角')) : card(t('机器流量'));
+      box.innerHTML = html;
+      cardsKey = key;
+      cardsV = Array.prototype.slice.call(box.querySelectorAll('.v'));
+      cardsCache = cardsV.map(() => null);
+      $('tareCard').addEventListener('click', tareScale);
+    }
     if (run !== flowRunRef) { flowRunRef = run; flowDisp = null; flowAt = 0; }
     if (!run || runEnded) flowDisp = null;
     else {
@@ -734,14 +742,19 @@
       const nowMs = Date.now();
       if (cand != null && nowMs - flowAt >= 500) { flowDisp = flowDisp == null ? cand : flowDisp + (cand - flowDisp) * 0.5; flowAt = nowMs; }
     }
-    html += card(t('杯流'), f2(flowDisp) + '<small>g/s</small>');
-    html += card(t('压力'), f2(m.pressure) + '<small>bar</small>');
-    html += card(t('温度'), f1(m.mix) + '<small>°C</small>');
-    if (hx) html += card(t('趋势角'), (lastCheck ? lastCheck.ang : '—') + '<sup class="deg">°</sup>');
-    else html += card(t('机器流量'), f2(m.flow) + '<small>ml/s</small>');
-    box.innerHTML = html;
-    $('tareCard').addEventListener('click', tareScale);
+    const vals = [];
+    vals.push(mm + ':' + (ss < 10 ? '0' : '') + ss);
+    if (hx) vals.push('<span class="phasepill' + (phase === 'idle' ? ' idle' : '') + '" style="background:' + pill[0] + ';color:' + pill[1] + '">' + esc(phaseName(phase)) + '</span>');
+    vals.push(f1(s.weight) + '<small>g</small>');
+    vals.push(f2(flowDisp) + '<small>g/s</small>');
+    vals.push(f2(m.pressure) + '<small>bar</small>');
+    vals.push(f1(m.mix) + '<small>°C</small>');
+    vals.push(hx ? (lastCheck ? lastCheck.ang : '—') + '<sup class="deg">°</sup>' : f2(m.flow) + '<small>ml/s</small>');
+    for (let i = 0; i < vals.length; i++) {
+      if (vals[i] !== cardsCache[i]) { cardsCache[i] = vals[i]; cardsV[i].innerHTML = vals[i]; }
+    }
   }
+  let cardsKey = null, cardsV = null, cardsCache = null;
   // ---- 秤去皮（点秤重卡片；Decaid 官方 /api/v1/scale/tare，PUT 失败回退 POST，同 NSX 皮肤）----
   async function tareScale() {
     if (tareBusy || !baseUrl || connState !== 'ok') return;
@@ -780,8 +793,8 @@
   }
   function renderAll() {
     if (mode !== 'control') return;
-    renderConn(); renderCurveBtn(); renderHeaderState(); renderCards(); renderHecBox(); renderApply();
-    drawCharts();
+    renderConn(); renderCurveBtn(); renderHeaderState(); renderHecBox(); renderApply();
+    requestRender();
   }
 
   // ---- 图表 ----
@@ -791,8 +804,13 @@
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = box.clientWidth, h = box.clientHeight;
     if (w <= 0 || h <= 0) return null;
-    cv.width = w * dpr; cv.height = h * dpr;
-    const ctx = cv.getContext('2d');
+    // M4 画布尺寸缓存：仅尺寸/dpr 变化时重设 backing store（重设会清状态并重分配内存）。
+    if (cv.__hecW !== w || cv.__hecH !== h || cv.__hecDpr !== dpr) {
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.__hecW = w; cv.__hecH = h; cv.__hecDpr = dpr;
+      cv.__hecCtx = cv.getContext('2d');
+    }
+    const ctx = cv.__hecCtx || (cv.__hecCtx = cv.getContext('2d'));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
     return { ctx, w, h };
@@ -905,13 +923,60 @@
       }
     });
   }
+  // ---- M4 渲染合帧：WS/轮询路径只标 dirty，rAF 按 ≤8Hz（125ms）合帧重绘；
+  // 交互路径（拨轮/图例/resize/侧栏等）仍直接 drawCharts 即时响应。后台 rAF 暂停 → 零重绘。
+  let renderDirty = false, renderRaf = 0, lastRenderAt = 0, drawCount = 0;
+  function requestRender() {
+    renderDirty = true;
+    if (!renderRaf) renderRaf = requestAnimationFrame(renderTick);
+  }
+  function renderTick() {
+    renderRaf = 0;
+    if (!renderDirty || mode !== 'control') { renderDirty = false; return; }
+    const now = Date.now();
+    if (now - lastRenderAt < 125) { renderRaf = requestAnimationFrame(renderTick); return; }
+    renderDirty = false; lastRenderAt = now;
+    renderCards();
+    drawCharts();
+  }
+  // M4 series 增量缓存：样本只追加；4000 上限 shift 使首元素变化 → 全量重建。
+  function seriesCache(run, samples) {
+    let sc = run.__sc;
+    if (!sc || sc.first !== samples[0] || sc.len > samples.length) {
+      sc = run.__sc = { first: samples[0], len: 0, decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtHist: [], tgt: [], tgtVal: null };
+    }
+    for (let i = sc.len; i < samples.length; i++) {
+      const s = samples[i];
+      sc.decaid.push([s.t, s.decaid]);
+      if (s.raw != null && Number.isFinite(s.raw)) sc.raw.push([s.t, s.raw]);
+      sc.mflow.push([s.t, s.mflow]);
+      sc.press.push([s.t, s.pressure]);
+      sc.temp.push([s.t, s.temp]);
+      sc.tcmd.push([s.t, s.tcmd]);
+      sc.tgtHist.push([s.t, s.tgt]);
+    }
+    sc.len = samples.length;
+    return sc;
+  }
+  function targetSeries(sc, samples, val) {
+    if (sc.tgtVal !== val || sc.tgt.length > sc.len) {
+      sc.tgtVal = val; sc.tgt = [];
+      for (let i = 0; i < sc.len; i++) sc.tgt.push([samples[i].t, val]);
+    } else {
+      for (let i = sc.tgt.length; i < sc.len; i++) sc.tgt.push([samples[i].t, val]);
+    }
+    return sc.tgt;
+  }
+  const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtHist: [], tgt: [], tgtVal: null, len: 0 };
   function drawCharts() {
     if (mode !== 'control') return;
+    drawCount++;
     const hx = isHxSelected();
     const samples = run ? run.samples : [];
+    const sc = run ? seriesCache(run, samples) : EMPTY_SC;
     const tEnd = run ? Math.max(runT(), 10) : 30;
     const xMax = Math.max(30, Math.ceil(tEnd / 10) * 10);
-    if (chartStyle === 2) { drawMerge(hx, samples, xMax); renderLegends(hx); return; }
+    if (chartStyle === 2) { drawMerge(hx, samples, xMax, sc); renderLegends(hx); return; }
     // 杯流图
     const a = setup('hcFlow');
     if (a) {
@@ -922,11 +987,11 @@
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
       else if (run && run.steps.length) stepBands(ctx, w, h, pad, xMax, run.steps);
       axes(ctx, w, h, pad, yMin, yMax, fdec);
-      const tgt = samples.map((s) => [s.t, hx ? (run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : s.tgt) : null]);
-      if (hx) line(ctx, tgt, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
-      line(ctx, samples.map((s) => [s.t, s.decaid]), pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
+      const useLiveTgt = hx && run && !runEnded && ext && ext.targetGS != null;
+      if (hx) line(ctx, useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+      line(ctx, sc.decaid, pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
       if (rawOn) {
-        const rp = rawSeries(samples);
+        const rp = sc.raw;
         if (rawWin > 0) {
           scatterRaw(ctx, rp, pad, w, h, xMax, yMin, yMax, C.raw);
           line(ctx, filterRaw(rp, rawWin), pad, w, h, xMax, yMin, yMax, C.raw, 1.8);
@@ -948,18 +1013,18 @@
       ctx.fillStyle = C.temp; ctx.font = '10px ui-monospace,monospace';
       for (let i = 0; i <= 4; i++) { const y = p2.t + (h - p2.t - p2.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
       if (hx) {
-        line(ctx, samples.map((s) => [s.t, s.tcmd]), pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+        line(ctx, sc.tcmd, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
         stepLine(ctx, run ? run.cmd : [], pad, w, h, xMax, yMin, yMax, C.cmd, 1.8);
       }
-      line(ctx, samples.map((s) => [s.t, s.mflow]), pad, w, h, xMax, yMin, yMax, C.mflow, 1.2);
-      line(ctx, samples.map((s) => [s.t, s.pressure]), pad, w, h, xMax, yMin, yMax, C.press, 1.6);
-      line(ctx, samples.map((s) => [s.t, s.temp]), p2, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
+      line(ctx, sc.mflow, pad, w, h, xMax, yMin, yMax, C.mflow, 1.2);
+      line(ctx, sc.press, pad, w, h, xMax, yMin, yMax, C.press, 1.6);
+      line(ctx, sc.temp, p2, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
       if (run) nowLine(ctx, w, h, pad, xMax, runT());
     }
     renderLegends(hx);
   }
   // 样式 2：两卡合一。左轴固定 0–10（6 格），右轴温度自适应（无标题）；图例点击隐藏/显示。
-  function drawMerge(hx, samples, xMax) {
+  function drawMerge(hx, samples, xMax, sc) {
     const a = setup('hcMerge'); if (!a) return;
     const { ctx, w, h } = a;
     const pL = { l: pad.l, r: 32, t: pad.t, b: pad.b };
@@ -971,22 +1036,23 @@
     for (let i = 0; i <= 4; i++) { const y = pL.t + (h - pL.t - pL.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
     const on = (k) => !seriesOff.has(k);
     const L = (pts, color, width, dash) => line(ctx, pts, pL, w, h, xMax, 0, 10, color, width, dash);
-    if (hx && on('target')) L(samples.map((s) => [s.t, run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : s.tgt]), C.target, 1.2, [5, 4]);
-    if (on('decaid')) L(samples.map((s) => [s.t, s.decaid]), C.decaid, 1.4);
+    const useLiveTgt = hx && run && !runEnded && ext && ext.targetGS != null;
+    if (hx && on('target')) L(useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, C.target, 1.2, [5, 4]);
+    if (on('decaid')) L(sc.decaid, C.decaid, 1.4);
     if (rawOn) {
-      const rp = rawSeries(samples);
+      const rp = sc.raw;
       if (rawWin > 0) {
         if (on('rawdot')) scatterRaw(ctx, rp, pL, w, h, xMax, 0, 10, C.raw2);
         if (on('raw')) L(filterRaw(rp, rawWin), C.raw2, 1.8);
       } else if (on('raw')) L(rp, C.raw2, 1.8);
     }
     if (hx) {
-      if (on('targetcmd')) L(samples.map((s) => [s.t, s.tcmd]), C.cmd, 1.2, [5, 4]);
+      if (on('targetcmd')) L(sc.tcmd, C.cmd, 1.2, [5, 4]);
       if (on('cmd')) stepLine(ctx, run ? run.cmd : [], pL, w, h, xMax, 0, 10, C.cmd, 1.8);
     }
-    if (on('mflow')) L(samples.map((s) => [s.t, s.mflow]), C.mflow, 1.2);
-    if (on('press')) L(samples.map((s) => [s.t, s.pressure]), C.press2, 1.6);
-    if (on('temp')) line(ctx, samples.map((s) => [s.t, s.temp]), pL, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
+    if (on('mflow')) L(sc.mflow, C.mflow, 1.2);
+    if (on('press')) L(sc.press, C.press2, 1.6);
+    if (on('temp')) line(ctx, sc.temp, pL, w, h, xMax, tr.lo, tr.hi, C.temp, 1.6);
     if (hx) vecArrows(ctx, checks.filter((ck) => (ck.dc >= 0 ? on('vec') : on('vecdn'))), pL, w, h, xMax, 0, 10);
     if (run) nowLine(ctx, w, h, pL, xMax, runT());
   }
@@ -999,7 +1065,12 @@
     if (merge) { const hd = $('mergeHead'); hd.appendChild(raw); hd.appendChild(rw); }
     else { const hd = $('flowHead'), ti = hd.querySelector('.charttitle'); hd.insertBefore(raw, ti); hd.insertBefore(rw, ti); }
   }
+  let legendSig = null;
   function renderLegends(hx) {
+    // M4 图例差量：签名（hx/RAW 开关/滤波/样式/语言/隐藏集）不变不重建。
+    const sig = [hx, rawOn, rawWin > 0, chartStyle, typeof lang !== 'undefined' ? lang : '', Array.from(seriesOff).sort().join(',')].join('|');
+    if (sig === legendSig) return;
+    legendSig = sig;
     const lg = (id, items) => { const el = $(id); if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + (it.dot ? ' dot' : '') + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span style="color:#aab2bf">' + it.l + '</span></span>').join(''); };
     const flow = [{ l: t('decaid 杯流'), c: C.decaid }, { l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
     if (rawOn && rawWin > 0) flow.push({ l: t('原始'), c: C.raw, dot: 1 });
@@ -1335,7 +1406,7 @@
     _injectWater: onWaterSnapshot,
     // 联调/回归用：注入检测点并重画（验证超长示意标注）
     _injectChecks: function (cks) { checks = cks.slice(); lastCheck = checks[checks.length - 1] || null; drawCharts(); },
-    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, steps: run ? run.steps.length : 0, runEnded, water, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
+    _state: function () { return { mode, baseUrl, connState, pluginVersion, pluginOk, hecMode, helloOk, ext, checks: checks.length, samples: run ? run.samples.length : 0, steps: run ? run.steps.length : 0, runEnded, draws: drawCount, water, shadow: window.HxShadow ? window.HxShadow.status() : null }; },
   };
 })();
 

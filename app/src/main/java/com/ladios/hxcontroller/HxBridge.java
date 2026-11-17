@@ -44,16 +44,18 @@ public class HxBridge {
     // 同步返回：调用方在子线程/异步流程里用，最大的是 wasm ~15MB。
     @JavascriptInterface
     public String readAssetBase64(String path) {
+        java.io.InputStream is = null;
         try {
-            java.io.InputStream is = ctx.getAssets().open(path);
+            is = ctx.getAssets().open(path);
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
             byte[] buf = new byte[65536];
             int n;
             while ((n = is.read(buf)) > 0) bos.write(buf, 0, n);
-            is.close();
             return Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP);
         } catch (Exception e) {
             return "";
+        } finally {
+            if (is != null) try { is.close(); } catch (Exception ignored) {}
         }
     }
 

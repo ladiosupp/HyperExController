@@ -83,8 +83,13 @@ function applyLang() {
 let db = null;
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('hx-replay', 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore('kv'); };
+    const req = indexedDB.open('hx-replay', 2);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+      // HEC 影子 per-cup 键存储（修复批1 M1）：keyPath runId，免全数组读改写与 lost update。
+      if (!d.objectStoreNames.contains('hecShadowCups')) d.createObjectStore('hecShadowCups', { keyPath: 'runId' });
+    };
     req.onsuccess = () => { db = req.result; resolve(); };
     req.onerror = () => reject(req.error);
   });
@@ -100,6 +105,39 @@ function dbSet(key, val) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('kv', 'readwrite');
     tx.objectStore('kv').put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+// HEC 影子 per-cup 存储助手（修复批1 M1；shadow.js 经 window.dbCup* 调用，旧沙箱无此助手时回退 kv 路径）。
+function dbCupPut(rec) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('hecShadowCups', 'readwrite');
+    tx.objectStore('hecShadowCups').put(rec);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+function dbCupAll() {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbCupKeys() {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function dbCupDel(runId) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('hecShadowCups', 'readwrite');
+    tx.objectStore('hecShadowCups').delete(runId);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);

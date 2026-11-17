@@ -66,6 +66,7 @@
   // ---- 学习仲裁：模型加载（资产桥，同 shadow.js）+ 纯 JS 树评估 ----
   let learnedState = 'idle', learnedError = null, learnedModel = null, predictor = null, learnedThreshold = null;
   const LEARNED_URL = 'vendor/arbiter_lgb.json';
+  const ASSET_HTTPS = 'https://appassets.androidplatform.net/assets/www/';
   function b64ToBytes(b64) {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
@@ -73,6 +74,10 @@
     return bytes;
   }
   async function assetBytes(relPath) {
+    try {
+      const hr = await fetch(ASSET_HTTPS + relPath, { cache: 'no-store' });
+      if (hr.ok) return new Uint8Array(await hr.arrayBuffer());
+    } catch (_) {}
     if (window.HxBridge && window.HxBridge.readAssetBase64) {
       const b64 = window.HxBridge.readAssetBase64('www/' + relPath);
       if (b64) return b64ToBytes(b64);
