@@ -282,6 +282,7 @@
     const extracting = st === 'espresso';
     if (extracting && (!run || runEnded)) {
       run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
+      if (window.HxSummary) window.HxSummary.onExtracting();
       runId = (ext && ext.runId) || null;
       loadStageWeights(); // m9：开杯补拉阶段目标重量（失败 → shadow status stageWeightsMissing 暴露）
       // 开杯即落第一段色带：用插件当前相位（握手/轮询可能晚于机器快照）
@@ -295,6 +296,7 @@
       runEnded = true; runEndedAt = Date.now();
       archiveRun().catch(() => {});
       if (window.HxShadow) window.HxShadow.onCupEnd();
+      if (window.HxSummary) window.HxSummary.onCupEnd({ runId, run, hx: isHxSelected() });
       if (sideAutoHide && mode === 'control' && sideCollapsed) {
         clearTimeout(autoExpandTimer);
         autoExpandTimer = setTimeout(() => { autoExpandTimer = 0; if (sideCollapsed) setSide(false); }, 3000);
@@ -326,6 +328,9 @@
       targetFlowMlS: s.tcmd,
       temp: s.temp,
       phase: s.phase,
+      scaleTimestampSeconds: s.stamp != null ? s.stamp : Math.round(s.t * 1000) / 1000,
+      tareReset: !!s.tare,
+      targetPressureBar: s.tgtP != null ? s.tgtP : null,
     }));
     const events = r.phases.map((p) => ({ tMs: Math.round(p.t * 1000), name: 'phase', phase: p.phase }));
     // m4：与影子 R2 同口径——同帧变化 write、跨帧/首笔 frame-change（对齐 §6.10）。
@@ -342,6 +347,8 @@
       result: 'HEC ' + (last.scaleWeightG != null ? last.scaleWeightG.toFixed(1) + ' g' : ''),
       pluginVersion: pluginVersion || null,
       source: 'hec',
+      rawScaleSamples: samples.map((x) => ({ tMs: x.tMs, weightG: x.scaleWeightG, scaleTimestampSeconds: x.scaleTimestampSeconds, phase: x.phase, tareReset: x.tareReset, decaidWeightFlowGS: x.decaidWeightFlowGS })),
+      finalWeightG: last.scaleWeightG != null ? last.scaleWeightG : null,
       samples, events,
       liveFlowTrim: trace.length ? { trace } : null,
     };
@@ -349,6 +356,14 @@
     archive = res.archive;
     await saveArchive();
     rebuildCupList();
+  }
+  // 杯末总结：在线算毕把总结持久化进归档记录（回看读持久化；只加字段不改旧字段）
+  function attachSummary(rid, obj) {
+    const sh = ((archive && archive.shots) || []).find((x) => x && x.runId === rid);
+    if (!sh) return false;
+    sh.summary = obj;
+    saveArchive();
+    return true;
   }
   function scaleTsSec(v) {
     if (v == null || v === '') return null;
@@ -375,7 +390,7 @@
     scale = { weight, weightFlow: Number.isFinite(wf) ? wf : null, raw, tare, at: now };
     if (run && !runEnded) {
       run.lastWeight = weight; if (stamp != null) run.lastStamp = stamp;
-      const s = { t: runT(), stamp, weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix, tgt: ext && Number.isFinite(ext.targetGS) ? ext.targetGS : null };
+      const s = { t: runT(), stamp, weight, decaid: scale.weightFlow, raw, tare, phase: (ext && ext.phase) || run.lastPhase || 'stage1', pressure: machine && machine.pressure, mflow: machine && machine.flow, tcmd: machine && machine.targetFlow, tgtP: machine && machine.targetPressure, cmd: ext ? ext.lastCommandMlS : null, temp: machine && machine.mix, tgt: ext && Number.isFinite(ext.targetGS) ? ext.targetGS : null };
       run.samples.push(s);
       if (run.samples.length > 4000) run.samples.shift();
       maybeCheck(s);
@@ -1430,6 +1445,7 @@
       $('modeSub1').textContent = t('选曲线 · 调温重量 · 实时调流');
       $('modeSub2').textContent = t('ProfileReplayer 原页');
       if (window.HxLearn && window.HxLearn.onLang) window.HxLearn.onLang();
+      if (window.HxSummary && window.HxSummary.onLang) window.HxSummary.onLang();
     },
     // 学习中心弹窗拉在线数据用（只读 GET，走同一条桥）
     httpJson: httpJson,
@@ -1441,6 +1457,7 @@
     setChartStyle: function (v) { chartStyle = v === 2 ? 2 : 1; applyChartStyle(); drawCharts(); },
     setCurveWidth: function (i) { curveW = CURVE_W[Math.max(0, Math.min(4, i | 0))]; drawCharts(); },
     // 供联调/回归脚本注入快照（模拟器无真机时）
+    _attachSummary: attachSummary,
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
     _samples: function () { return run ? run.samples.slice(-6) : []; },

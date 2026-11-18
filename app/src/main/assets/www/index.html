@@ -213,6 +213,30 @@ h1{cursor:pointer}
 .lrn-dec .ph{flex:none;width:30px}
 .lrn-dec .prob{flex:none;width:44px;text-align:right}
 .lrn-dec .cmd{flex:1;text-align:right;color:#aab2bf}
+/* ---- 杯末总结弹窗（示意稿 hec-shot-summary 定稿 2026-11-18）---- */
+.scoreline{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.total{font-family:'Orbitron','Segoe UI',ui-monospace,monospace;font-size:44px;font-weight:700;line-height:1}
+.total.good{color:#8fe0b0}.total.warn{color:#f5c078}.total.bad{color:#f2a0aa}
+.scoremeta{display:flex;flex-direction:column;gap:4px}
+.mrow{font-size:11px;color:#aab2bf;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.6}
+.mrow b{color:#e8eaee;font-weight:600}
+.ded{font-size:11px;color:#8b93a1;margin-top:5px;padding-top:5px;border-top:1px dashed #2a2f38;font-variant-numeric:tabular-nums;line-height:1.6}
+.ded b{color:#f2a0aa;font-weight:600}
+.applied{display:flex;align-items:center;gap:8px;margin-top:7px}
+.applied .cmd{font:11.5px ui-monospace,monospace;color:#f5c078}
+.arb{font-size:12px;color:#aab2bf;line-height:1.8;font-variant-numeric:tabular-nums}
+.arb b{color:#e8eaee;font-weight:600}
+.arb .guard{color:#8b93a1;font-size:11px}
+.grind{border-left:3px solid #f59e0b;background:rgba(245,158,11,.10);border-radius:8px;padding:8px 10px}
+.grind .t{font-size:12px;font-weight:700;color:#fbbf24;display:flex;align-items:center;gap:8px}
+.grind .d{font-size:12px;color:#d6d9de;margin-top:4px;line-height:1.6}
+.grind .s{font-size:11px;color:#8b93a1;margin-top:4px}
+.tdsrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tdsrow .lbl{font-size:11px;color:#8b93a1}
+.tdsbox{width:74px;background:#0e1116;color:#e8eaee;border:1px solid #333a44;border-radius:8px;padding:6px 8px;font:13px ui-monospace,monospace}
+.srcrow{font-size:11px;color:#6b7380;font-variant-numeric:tabular-nums}
+.setrow{display:flex;align-items:center;gap:18px;margin:2px 0 0 2px;flex-wrap:wrap}
+.curvetag.sum{background:#3d2c17;color:#f5c078;cursor:pointer}
 @media (max-width:600px){.lrn-modal{max-height:92vh}.lrn-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lrn-tab{font-size:12px;padding:8px 4px}}
 @media (max-width:900px){main{flex-direction:column;overflow-y:auto}aside{width:100%;border-right:0;border-bottom:1px solid #262a31;overflow:visible}section.view{overflow:visible}}
 @media (max-width:600px){.cards{gap:4px}.card{padding:5px 4px;border-radius:7px}}
@@ -529,12 +553,14 @@ body.side-collapsed .side-toggle{left:-8px}
 
 <div class="modal-dim" id="hecDim" hidden></div>
 <div class="modal-dim" id="lrnDim" hidden></div>
+<div class="modal-dim" id="sumDim" hidden></div>
 <script src="archive-core.js"></script>
 <script src="app.js"></script>
 <script src="arbiter.js"></script>
 <script src="shadow.js"></script>
 <script src="control.js"></script>
 <script src="learn.js"></script>
+<script src="summary.js"></script>
 </body>
 </html>
 
