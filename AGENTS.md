@@ -21,6 +21,7 @@
 8. 分工：APK 侧归本仓对话，插件端归插件对话，统筹对话（01a1ee1f-0841-7c91-866d-668705990047，hostId local；11-18 晚接力，旧 01a1eb9b 已交接）中立复核。统筹每次接力，新统筹主动更新本行 ID（用户 2026-11-18 授权，常规同步不必再问）。不碰别对话的功能区：影子发送逻辑归阶段 B/D 对话，UI 对话不碰；温度链路 / 影子仲裁 / HX 液重锁在非本批任务里不碰。（实现头；v012 §5；v013 §5；液重 §5；统筹交接通知 11-17；统筹接力 11-18）
 9. 每批做完写交接 MD 回本仓：一句话现状 / 本轮改动 / 验证回执 / 本轮坑（项目特有）/ 待办（每步先问）/ 别碰；通用坑引技能条号，项目现状不塞进技能。完成后回叫统筹（send_message_to_thread，prompt 字段：文档路径 / 分类数条数 / 冲突清单 / 待拍板事），纯确认不回叫。（v011–v013 头；技能 SKILL.md；统筹派单口径）
 10. 构建会打进别人 WIP 时（gradle 打磁盘现状），必须用户知情同意；不为「基线干净」代提交别人的改动。（图标 §4；HX液重 §5/§6）
+11. 修 bug 时同一写法 / 同一 bug 在别处也有的，一起修（用户 11-18 晚点名「有一样bug的地方一起修」）：本轮样式 1 杯流卡目标杯流 targetSeries 覆盖 bug 被点名后，样式 2 合并图同款 bug 一并修（commit 6776a3e），不只修被点名那处。（UI8 派单 11-18；v023 §1）
 
 ## 2. 构建与工具链
 
@@ -56,6 +57,7 @@
    - __v08-gm-test.cjs + __v08-regress.cjs（9 项）：gainMemory 保留 + 学习中心三入口。（v08 §2）
    - __v09-regress.cjs：七卡对齐（宽屏 + 窄屏两视口，标题 / 内容 / 卡高）。（脚本头注）
    - __m6m8-regress.cjs / __m6m8-stub.cjs 在父仓 D:/vscode/.tools（不在 APK 仓 .tools；统筹 11-17「已不在盘」误判已更正，UI 对话核实），齐全可复跑（侧栏自动隐藏 / step 色带 / 启动闪屏，m6m8 8/8+5/5）；口径见 v013 §1/§2。
+   - __targetline2-check.cjs（父仓 D:/vscode/.tools，回归 v4）14/14：目标线历史化（HX 空闲黄 0 / 换段 b5/b2 双值带 / 样式 2 合并图 m5/m2 双值带 / 非 HX·压力卡·图例不变）；band 助手 PIXB 按值带数黄像素（YM 两处 split/join，见 3.17）。__flowcard-check 6/6（杯流卡同源稳定化；hold during gap 等 700ms 闸门，见 3.16）、__boot-check 8/8（启动闪屏 / 首帧 HEC 骨架）。（v023 §2）
 8. 桩口径：node .tools/hec-stub.cjs [port=4795] [scenario=hec|plain|takeover|nohello]，按协议简化状态机，只供 UI / 链路联调，不是插件本体；注入端点 /__start（开杯）/__machine /__hb /__water /__tare /__puts /__ctx；PROFILES 含真机同款 hx-auto0（title "HyperEx Pulse Filter auto"，target_weight=0）。（hec-stub.cjs 头注；v03 §3；v05 §3；HX液重 §2）
 9. 桩端口参数化；4795/4796/4797/4799 旧桩可能是别对话遗留，别 kill；端口被占 EADDRINUSE 是静默的，先 Get-CimInstance Win32_Process 核命令行再 Stop-Process 精确 pid；桩 / 模拟器随对话结束会死，新对话先重起。（v05 §2；v012 §2；技能 emulator-regression）
 10. 注入测试：整段 machine/scale 序列放进一次同步求值（分多次 evaluate 桩 WS 会盖状态，samples=0 假失败）；或覆写 window.WebSocket 拦 /ws/v1/ 新建连接、收尾恢复；样本要间隔注入（集中在前 1s 会把曲线 / 色带压缩在 30s 横轴左缘，8s 步间隔模板见 v013 __diag17）；页面内 setTimeout 链被 WebView 节流，重播注入要宿主侧逐帧推。（v07 §3；v06 §3；v013 §2）
@@ -64,6 +66,8 @@
 13. 测试脚本要拿真机 history JSON 交叉验证：差距大就是测试不对，改测试不要改代码迎合测试；镜像断言不许写（assert 计划字段 = 当前代码算出的常数）；旧测试红了若因断言已被取代的口径，按新口径重写或删，不为变绿回退代码。（§22 支撑 references 规矩一；HX液重 §2 先例）
 14. 仿真结论不能覆盖技能口径：sim 植物默认值与本机差距大（rPeak 4.2 vs 实测 0.26/0.53，单杯 RMSE 1.5–2.5 g/s），反事实用决策级回放；植物要拿真机 JSON 反复校准（目标准确度 ≥90%），与真机数据或 §22 冲突时以真机 + 口径为准。（§22 规矩二；AGENTS 21；模型设计 §2.2）
 15. 真机取证另走只读口径（见第 8 节）：不改插件 / APK 出厂代码、不发版、不推送、不开闭环。（真机头）
+16. CDP 回归读「基线值」先等显示闸门落定：杯流卡有 0.5s 刷新闸门，慢 CDP 下 held 读到未落定显示值会让断档保持断言假红（flowcard hold during gap 曾红过一次，产品逻辑 cand null 不更新无辜）；断言改抖动后等 700ms 闸门落定再读 held。（v023 §2）
+17. 像素验收表达式注入占位符：String.replace 只换第一处，占位符出现多次（如 band 助手 PIXB 的 YM 两处）必须 split/join 全换，否则页内 ReferenceError 整套中断。（v023 §2）
 
 ## 4. 发版 SOP
 
@@ -159,6 +163,7 @@
 24. i18n：control.js/learn.js 自带 EN 表，共用词回退全局 t()（window.t）；applyLang 只扫 data-i18n，动态创建的节点要在 applyLang 重渲染或补 else 分支；模式下拉副标题用 id + 中文键（裸键中文 t() 回退显示键名）。（实现 §2.2；技能坑 21；v03 §1）
 25. WebView 交互坑（项目特有）：class 的 display:flex 会覆盖 hidden 属性（UA [hidden] 特异性低）→ 条状容器加 [hidden]{display:none}；开关 input 是 0 尺寸 opacity 0，tap/点击瞄准可见的 #sideAutoHide + .sw；弹窗开着时点标题 = 点 dim = 关弹窗，状态感知脚本先读 lrnDim.hidden 再决定点不点标题。（v013 §3）
 26. 回放页温度线：cPress 右轴（#f2a0aa，1.6px，真实 °C 5 档，pad.r 34），tempRange 口径同控制页（app.js 与 control.js 两个 IIFE 各一份，别过度抽象）；tempSource()：raw 优先的杯（合并插件导出后 isRaw=true）温度在 samples 里，经 nearestSample 按 tMs 取（只看 frames 会让合并后的杯温度线消失）；无温度杯温度线 / 右轴 / 图例都不出现，pad.r 保持 10，老数据零影响。（v07 §1/§3）
+27. 目标类曲线一律按逐样本历史画（v0.23 用户定稿，别回退）：杯流目标 tgtHist（样式 1 杯流卡 + 样式 2 合并图同改）、压力卡目标指令 sc.tcmd 是参照写法 —— 换段后旧段保留旧目标，不被当前值覆盖；未启动不画、不分段；HX 空闲不画 profileTargets 步参考。禁止用当前值重建整条历史（targetSeries 模式换段会把旧段盖成当前值，已删，见 10.16）；seriesCache 仍逐样本 push tgtHist。非 HX 步参考（杯流 / 压力 / 机器流量）、HX 压力卡（目标指令黄虚线 + APK 指令橙实线）、非 HX 压力卡（tgtP 黄 + tcmd 蓝）口径不变。（v023 §1；commit a0cb6b0/6776a3e）
 
 ## 8. 真机 / adb 坑
 
@@ -203,6 +208,7 @@
 13. 图标交接「未提交 / 未发版 / 未 push」状态行 → 图标批已随 v0.16 发版（99b40ef / 646080a），以 HX液重 §9 为准。（HX液重 §7）
 14. 「真机 matched 作增益最终裁判」/「离线能证出增益」→ 11-17 干净验证：单点只执行一条指令，matched 必平局、分歧 model 响应必反事实，干净正类结构性为空（N=32 全平局、纯净窗 12、分歧 43 不可裁；旧 headline 0.615 = 同指令植物估 vs 实测校准噪声 Wilson95 [0.513,0.709]）；matched 改作植物校准素材，增益裁决待阶段 D 执行取证或杯级 A/B（S3 独立 Δ=0.03 g/s 约每臂 49 杯）。路线拍板：离线植物校准先行、真机暂缓；5 异常终止杯排除出训练 universe 留压力测试集。（clean-arbiter-validation §0/§2.1/§3；用户 11-17 晚拍板）
 15. 「S3 植物近平坦是可修掉的拟合伪影」/「植物修正能收紧上界」→ 11-17 第二轮校准：近平坦是反馈控制 + 粉饼保留/漂移下 0.75–2.75s 响应窗内的真实有效斜率（§19 稳态线性 β=0.416 g/s per ml/s，簇 bootstrap CI [0.14,0.73]、素材子集敏感 0.03–0.42），与稳态比值 r（中位 1.27–2.28）差 5–10 倍、是不同物理量；中位 cup/command 直接当窗内斜率是范畴错误（pristine MAE 0.54）。修正模型 plant_v1_s3 在所有干净验证集校准比 v0 差（pristine12 MAE 0.073→0.136），植物 headline 随模型选择双向漂移（v0 0.615→v1 0.736→M1 22/71）；归谬：只预测中位数的常数模型植物评分「优于插件」70/71=98.6% → picked-better 量的是校准几何不是策略质量。定位：v0 留主参照、v1 作敏感性上界（统筹接受）；S2 低流量稳态素材 0、校准不可行沿用 v0。离线植物修正路线在没有更多真机稳态素材前不再推进。（plant-calibration §0/§2/§3/§4）
+16. 「目标曲线用当前值重建整条历史（targetSeries / sc.tgt / tgtVal）」→ v0.23 改按逐样本历史 tgtHist / sc.tcmd（换段保留旧值、未启动不画不分段）；targetSeries() 与 sc.tgt/tgtVal 已删（孤儿清理）。（v023 §1；commit 6776a3e）
 
 冲突核（报统筹，不擅自取舍）：
 - 影子持久化表述（统筹 11-17 已更正，闭环）：真机交接 §1 旧句「cups 纯内存、无持久化」与统筹派单旧句「install -r 清内存影子」均作废；shadow.js persist() + 08:16 导出（9 杯含 11-15 旧杯）证明归档持久化跨装机，早上「两杯零影子」是观测假象（连到后台旧进程 + archived 只计当前进程内存杯；-3/-4 实有 249/248 样本、4/3 决策，影子管线早上即正常）。本文件 6.15 / 8.6 / 8.13 按更正后口径写；真机交接 §2.1 已附更正（§1 旧句留作历史记录，以 §2.1 为准）。
@@ -211,9 +217,9 @@
 
 ## 11. 当前基线与待拍板（2026-11-17 快照，新对话先 git log / dumpsys 复核）
 
-- 仓 HEAD 15dccc1（v0.18 交接定稿）。已发版：v0.16（Release 447789185，APK 6,717,371 字节，夸克 fileId f817ee88ea10448cb60722594e765fa9）+ v0.17（294e57f 系统设置弹窗小字移除 + 2a5361b 合并图配色/曲线宽度滑块，平板 2026-11-17 08:32:34 装 versionCode 17） + v0.18（启动闪屏修复 51056e5，版本号 164aee6，Release 448471157，APK 6,703,446 字节，夸克 fileId 370500440749423ab456dcf7cc9fbcf0；平板 2026-11-17 18:31:04 装 versionCode 18、模拟器同装；用户 11-17 晚授权发版）；回归 m10 20/20、m6m8 8/8+5/5、flowcard 6/6、__boot-check 8/8。插件 2.2.48（用户「新插件」= autoApplyNextShot=true 设置开关，非新代码包，版本旗闭环）。子模块 main 已推至 15dccc1、tag v0.18 已推（统筹远端核过）；父仓指针 b99640a + 249f5f6 已推（用户 11-17 晚授权，统筹远端核过）。夸克 v0.6 欠传用户取消不传。
-- 修复批1（11-17 晚，用户授权审计修复）：本地提交 e3d0d95（M1 persist 链式 per-cup 存储 + m2 持久化同口径 + m3 phase parity + M2 后台 stale 守卫 + M3 asset loader 流式 + M4 重绘节流），回归 R2–R5 27/27 + 阶段 B 15/15 + 探针 30/30、红线复验 PASS（统筹复跑核实）；未推/未装平板/未发版/版本号未升（v0.19 待发另须授权）；m1 软预算墙与其余 minor 待另批。详见 HANDOFF_2026-11-17-hec-fix-batch1.md。
-- 修复批2（11-17 晚，用户 broad 授权「所有不需真机杯验证的」）：本地提交 0ab52ac，审计剩余 20 项全清（m1 软预算对齐 §6.4 + 可靠性 m4–m12 + 效率 m13/m15–m18 + UI i11/i12/i7 + 维护 i5/i3 + 理论 i4/i9/i10 加固，i8 不动），回归 R2–R5 27/27 + 阶段 B 15/15 + 探针 50/50 + m5 parity 6/6、红线 PASS（统筹复跑核实）；未推/未装平板/未发版（v0.20 待发另须授权）。审计可离线修复项全部闭环；剩阶段 D 增益裁决 / hec §8 演练 / 后台守卫真机复核 / 非 HX 色带待真机。详见 HANDOFF_2026-11-17-hec-fix-batch2.md。
+- 仓 HEAD 38df7de（v0.23 交接定稿，11-18 晚；下接 v0.16–v0.18 历史发版记录）。当前 v0.23 = 目标杯流历史化批（样式 1+2，tag v0.23，Release 450011833 / asset 763474919，APK 6,731,125 字节 SHA256 EDB2F5A14C18C5659C0C07C62E1D2705CF435C4C5CA0D181351DF1577DEB4AD5，夸克 8c7f7e47378b426a9df5bf2e45ce3afb，父仓 a936b89；子模块 6776a3e/94803be/38df7de；平板+模拟器 v0.23 冒烟通过；回归 v4 14/14 + flowcard 6/6 + boot 8/8）。v0.19/v0.20 = 修复批 1/2 发版并装平板 versionCode 20（11-18 统筹接力通知）；v0.22 = UI 目标线批（Release 449956741 / asset 763329190 / 夸克 3096730d）。两侧 git 全同步无待推、审计 34 项全闭环、离线验证三轮到顶（11-18 接力通知；状态真源 decenthyperexplugin/HANDOFF_2026-11-18-hec-coordinator-relay-2.md）。已发版：v0.16（Release 447789185，APK 6,717,371 字节，夸克 fileId f817ee88ea10448cb60722594e765fa9）+ v0.17（294e57f 系统设置弹窗小字移除 + 2a5361b 合并图配色/曲线宽度滑块，平板 2026-11-17 08:32:34 装 versionCode 17） + v0.18（启动闪屏修复 51056e5，版本号 164aee6，Release 448471157，APK 6,703,446 字节，夸克 fileId 370500440749423ab456dcf7cc9fbcf0；平板 2026-11-17 18:31:04 装 versionCode 18、模拟器同装；用户 11-17 晚授权发版）；回归 m10 20/20、m6m8 8/8+5/5、flowcard 6/6、__boot-check 8/8。插件 2.2.48（用户「新插件」= autoApplyNextShot=true 设置开关，非新代码包，版本旗闭环）。子模块 main 已推至 15dccc1、tag v0.18 已推（统筹远端核过）；父仓指针 b99640a + 249f5f6 已推（用户 11-17 晚授权，统筹远端核过）。夸克 v0.6 欠传用户取消不传。
+- 修复批1（11-17 晚，用户授权审计修复）：本地提交 e3d0d95（M1 persist 链式 per-cup 存储 + m2 持久化同口径 + m3 phase parity + M2 后台 stale 守卫 + M3 asset loader 流式 + M4 重绘节流），回归 R2–R5 27/27 + 阶段 B 15/15 + 探针 30/30、红线复验 PASS（统筹复跑核实）；已发版 v0.19 并装平板（11-18 统筹接力通知；原「待发」状态作废）；m1 软预算墙与其余 minor 待另批。详见 HANDOFF_2026-11-17-hec-fix-batch1.md。
+- 修复批2（11-17 晚，用户 broad 授权「所有不需真机杯验证的」）：本地提交 0ab52ac，审计剩余 20 项全清（m1 软预算对齐 §6.4 + 可靠性 m4–m12 + 效率 m13/m15–m18 + UI i11/i12/i7 + 维护 i5/i3 + 理论 i4/i9/i10 加固，i8 不动），回归 R2–R5 27/27 + 阶段 B 15/15 + 探针 50/50 + m5 parity 6/6、红线 PASS（统筹复跑核实）；已发版 v0.20 并装平板 versionCode 20（11-18 统筹接力通知；原「待发」状态作废）。审计可离线修复项全部闭环；剩阶段 D 增益裁决 / hec §8 演练 / 后台守卫真机复核 / 非 HX 色带待真机。详见 HANDOFF_2026-11-17-hec-fix-batch2.md。
 - 真机验收杯 PASS（1794873721382-6，v0.16，full，2026-11-17 08:02，真机 §2.4）：completed at 101.60 g、stopReason=apiStop、context.targetYield=0 → v0.15 液重修真机生效；S2 HIT +3.1% / S3 HIT -4.1%；影子 682 样本 / 35 决策、predictedGS 31/35、responseGS 34/35、matched=0（语义，攒无偏配对需更多 full 杯）、writes 7 = 4 write + 3 frame-change 零混入、学习仲裁真机生效（learned thr 0.5）、sent 恒 0；导出 9 杯落盘 .tools/__rectify-tablet-shadow-export-live-2026-11-17T0816.json（含早上两杯，归档跨装机存活）。统筹核过 c417157..HEAD 影子 / 仲裁 / 桥零改动。
 - 待用户拍板 / 待验：① 夸克 v0.6 历史欠传——用户 11-17 取消，不传（闭环）；② hec 档 §8 链路清单真机演练（用户 11-16「没空测真机」暂缓，不阻塞离线交付）；③ 控制中心「功能设置 / 其他」两分类内容等用户定义；④ 真机剩余：校准杯验证（不再被 SAW 残留值提前停，HX液重 §9）+ 非 HX profileFrame 色带验证（信号第一次真机验证，模拟器是注入；不符先问用户再换信号，v013 §4）。R1/R3/R4 真机数值已有验收杯证据（真机 §2.4），不再是空白。⑤⑥（v0.18 装平板/发版、父仓指针建推）已按用户 11-17 晚授权完成，见基线条。
 - 数据口径（用户 11-17 晚更正）：S3 设计工况就是低流量（命令 ~0.1–1.5 ml/s），「S3≥5 ml/s 标定样本」待办撤销——植物模型只需在设计命令范围内校准（用 observed realized 响应），不外推到系统不用的 5 ml/s。离线已有 21 杯全点 + 469 仲裁标签行（.tools/hx-train/data，仲裁已训已回放 CV AUC 0.865；样本小有过拟合风险、模型候选响应是植物估的乐观数）；真机新杯补样本/当前版本验证/干净 matched 标签，不是标签主来源，不压杯数指标、随缘攒。今晚 -6/-7 已验证管线 + 首批真机证据（matched=1）。出杯前复冒烟清单照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）。（真机 §3；hx-train replay_learned_arbiter_report.json）干净仲裁验证（11-17 晚，用户拍板）：离线证不出增益（结构性，见 §10.14）；matched 改作植物校准素材；5 异常终止杯排除出训练 universe 留压力测试集（见 6.13）；路线=离线植物校准修正先行（第二轮已派 hx-train），阶段 D / 杯级 A/B 暂缓。（hx-train HANDOFF_2026-11-17-clean-arbiter-validation.md / clean_arbiter_report.json）第二轮校准回执（11-17）：S3 近平坦是响应窗真实有效斜率非伪影，v1 校准比 v0 差、植物中介上界双向不可信（§10.15），v0 主参照 / v1 敏感性；S2 低流量稳态素材 0 不可行；离线仲裁验证路线到顶——增益裁决只等真机（阶段 D / A/B，暂缓），matched 继续随缘攒作校准素材，更多 full 杯后才重启 S2 低流量 / S3 settled 扩充。（hx-train HANDOFF_2026-11-17-plant-calibration.md）
@@ -224,6 +230,7 @@
 
 文中短名对应文件（除技能 / 全局 AGENTS 外均在本仓）：
 - HX液重 = HANDOFF_2026-11-17-hec-hx-yield-fix.md（v0.15/v0.16）
+- v023 = HANDOFF_2026-11-18-hec-v023-release.md（v0.23 目标杯流历史化，样式 1+2；UI8 对话）
 - 真机 = HANDOFF_2026-11-17-hec-live-cups.md
 - 图标 = HANDOFF_2026-11-17-hec-icon.md
 - 整改回执 = HANDOFF_2026-11-16-hec-shadow-rectify.md（v0.10，R1–R5）
