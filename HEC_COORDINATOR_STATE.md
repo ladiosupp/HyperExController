@@ -11,7 +11,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 | 角色 | threadId | 状态 |
 |---|---|---|
-| 统筹（现） | 01a1ee1f-0841-7c91-866d-668705990047 | active |
+| 统筹（现） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | active |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | idle |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 待命陪杯 |
 | UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | idle |
@@ -20,13 +20,13 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
-退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b；旧取证 01a1e685；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
+退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f；旧取证 01a1e685；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
 
 ## 2 基线（统筹远端核过）
 
 - 插件 **2.2.50**：代码 930ce25＋回执 e734f1e（branch auto-hyperex），tag v2.2.50；Release 449845323／asset RA_kwDOVO5zXc4teoab；zip 510796 B SHA256 2C3B7378F86D8E67200508043F2B11190D8B564C9E857B9523D92600DEE4D863；夸克 22cb7d9183be426c94d7444be269b95d；平板 Download/ 已推、**用户自装**。verify_v02250 837/837（统筹独立复跑）。五项：cutoff 背 stop 0.85＋accel 中位滤波＋predicted 显示 sanity（shaping 未封顶）＋manual 锚＋regimeChange 排除 manual＋删重复 push；§22.18 记录过冲约束峰≤40%。
-- APK **v0.23**：tag v0.23=94803be；Release 450011833／asset 763474919；APK 6,731,125 B SHA256 EDB2F5A14C18C5659C0C07C62E1D2705CF435C4C5CA0D181351DF1577DEB4AD5；夸克 8c7f7e47378b426a9df5bf2e45ce3afb；平板＋模拟器 versionCode 23 冒烟过。子模块 main **71cc3c3**（规矩同步 v0.23）；父仓 main **82290f5**。规矩 251 行／155 条。
-- 两仓 origin ahead 空（11-18 晚 push 后核）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2）。
+- APK **v0.23**：tag v0.23=94803be；Release 450011833／asset 763474919；APK 6,731,125 B SHA256 EDB2F5A14C18C5659C0C07C62E1D2705CF435C4C5CA0D181351DF1577DEB4AD5；夸克 8c7f7e47378b426a9df5bf2e45ce3afb；平板＋模拟器 versionCode 23 冒烟过。子模块 main **ab8d7a8**（统筹活文档设立批）；父仓 main **344ab2c**（指针同步 ab8d7a8）。规矩 251 行／155 条。
+- 两仓 origin ahead 空（11-18 晚 push 后旧统筹远端核过；新统筹接力时本地 origin/main 一致复核）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2）。
 
 ## 3 真机最新裁决（杯 10＝2.2.50 首杯 1795005952147-1）
 
@@ -63,3 +63,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-18 晚：设立活文档（用户点名「每次要统筹的都更新到一个 md、接力统筹都读它写进规矩」）；此前 chronology 见 decenthyperexplugin/HANDOFF_2026-11-18-hec-coordinator-relay-2.md 及各自交接。
 - 11-18 晚：杯 10 裁决＋两观察项闭环＋autoApply ON 口径落档（§3）。
 - 11-18 晚：v0.23 发版＋规矩同步 71cc3c3／父仓 82290f5 已推（§2）。
+- 11-18 晚：统筹接力 01a1ee1f → 01a1ef1c（活文档制）：§1 线程表／§2 基线（ab8d7a8／344ab2c）／AGENTS §1.8 同步；给 7 个执行对话发回叫转移通知（§5）。
