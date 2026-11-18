@@ -62,7 +62,7 @@
     '取消': 'Cancel', '连接': 'Connect', '连接失败': 'Connect failed', '选择曲线': 'Select curve',
     'HyperEx': 'HyperEx', '非HyperEx': 'Non-HyperEx', '非 HyperEx · 只读': 'Non-HyperEx · read-only', 'HyperEx · 插件接管': 'HyperEx · takeover',
     '预算': 'Budget', '拒绝': 'Rejects', '调流·写入': 'Trim·write', '检测': 'Check', '相位切换': 'Phase',
-    'decaid 杯流': 'decaid flow', '目标杯流': 'Target flow', '矢量·增': 'Vector up', '矢量·减': 'Vector down',
+    'decaid 杯流': 'decaid flow', '目标杯流': 'Target flow', '目标压力': 'Target pressure', '目标机器流量': 'Target machine flow', '矢量·增': 'Vector up', '矢量·减': 'Vector down',
     '机器流量': 'Machine flow', '目标指令': 'Target cmd', 'APK 指令': 'APK cmd',
     '插件版本过低': 'Plugin too old', '需要插件': 'Requires plugin', '升级提示': 'HEC needs plugin ≥ 2.2.48. Update HyperEx Pulse Filter, then reconnect.',
     '切档失败': 'Mode switch failed', '本杯进行中': 'Shot in progress; mode applies next shot.',
@@ -881,16 +881,16 @@
     }
     ctx.stroke(); ctx.setLineDash([]);
   }
-  function stepLine(ctx, pts, p, w, h, xMax, yMin, yMax, color, width) {
+  function stepLine(ctx, pts, p, w, h, xMax, yMin, yMax, color, width, dash) {
     if (!pts.length) return;
-    ctx.strokeStyle = color; ctx.lineWidth = width * curveW; ctx.beginPath();
+    ctx.strokeStyle = color; ctx.lineWidth = width * curveW; ctx.setLineDash(dash || []); ctx.beginPath();
     let px = null, py = null;
     for (const q of pts) {
       const x = p.l + (w - p.l - p.r) * q[0] / xMax, y = p.t + (h - p.t - p.b) * (1 - (q[1] - yMin) / (yMax - yMin));
       if (px == null) ctx.moveTo(x, y); else { ctx.lineTo(x, py); ctx.lineTo(x, y); }
       px = x; py = y;
     }
-    ctx.stroke();
+    ctx.stroke(); ctx.setLineDash([]);
   }
   function bands(ctx, w, h, p, xMax, phases) {
     for (let i = 0; i < phases.length; i++) {
@@ -992,7 +992,7 @@
   function seriesCache(run, samples) {
     let sc = run.__sc;
     if (!sc || sc.first !== samples[0] || sc.len > samples.length) {
-      sc = run.__sc = { first: samples[0], len: 0, decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtHist: [], tgt: [], tgtVal: null };
+      sc = run.__sc = { first: samples[0], len: 0, decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], tgt: [], tgtVal: null };
     }
     for (let i = sc.len; i < samples.length; i++) {
       const s = samples[i];
@@ -1002,6 +1002,7 @@
       sc.press.push([s.t, s.pressure]);
       sc.temp.push([s.t, s.temp]);
       sc.tcmd.push([s.t, s.tcmd]);
+      sc.tgtP.push([s.t, s.tgtP != null ? s.tgtP : null]);
       sc.tgtHist.push([s.t, s.tgt]);
     }
     sc.len = samples.length;
@@ -1016,7 +1017,25 @@
     }
     return sc.tgt;
   }
-  const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtHist: [], tgt: [], tgtVal: null, len: 0 };
+  const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], tgt: [], tgtVal: null, len: 0 };
+  // 空闲无杯时的曲线目标参考（样式 1）：杯流=步目标 g/s，压力=限压/压步目标 bar，机器流量=步 flow 设定 ml/s
+  function profileTargets() {
+    const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
+    const steps = (liveProfile && Array.isArray(liveProfile.steps)) ? liveProfile.steps : [];
+    const flow = [], press = [], mflow = []; let t = 0, flowMax = 0;
+    for (const s of steps) {
+      const dur = Number(s.seconds) || 0; if (dur <= 0) continue;
+      const isP = s.pump === 'pressure';
+      const m = String(s.name || '').match(/real\s*([\d.]+)\s*g\/s/i);
+      const g = isP ? 0 : (n(s.desiredRealFlowGS) != null ? n(s.desiredRealFlowGS) : (m ? Number(m[1]) : n(s.flow)));
+      const bar = n(s.limiter && s.limiter.value) != null ? n(s.limiter.value) : (isP ? n(s.pressure) : null);
+      const mf = isP ? 0 : n(s.flow);
+      flow.push([t, g], [t + dur, g]); press.push([t, bar], [t + dur, bar]); mflow.push([t, mf], [t + dur, mf]);
+      if (g != null && g > flowMax) flowMax = g;
+      t += dur;
+    }
+    return { flow, press, mflow, dur: t, flowMax };
+  }
   function drawCharts() {
     if (mode !== 'control') return;
     drawCount++;
@@ -1024,20 +1043,23 @@
     const samples = run ? run.samples : [];
     const sc = run ? seriesCache(run, samples) : EMPTY_SC;
     const tEnd = run ? Math.max(runT(), 10) : 30;
-    const xMax = Math.max(30, Math.ceil(tEnd / 10) * 10);
+    const idle = !run || !run.samples.length;
+    const prof = (idle || !hx) ? profileTargets() : null;
+    const xMax = Math.max(30, Math.ceil(tEnd / 10) * 10, idle && prof ? Math.ceil(prof.dur / 10) * 10 : 0);
     if (chartStyle === 2) { drawMerge(hx, samples, xMax, sc); renderLegends(hx); return; }
     // 杯流图
     const a = setup('hcFlow');
     if (a) {
       const { ctx, w, h } = a;
-      const fr = flowRange(samples, hx && run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : null, hx);
+      const fr = flowRange(samples, idle && prof ? prof.flowMax : (hx && run && !runEnded && ext && ext.targetGS != null ? ext.targetGS : null), hx);
       const yMin = fr.lo, yMax = fr.hi;
       const fdec = Number.isInteger((yMax - yMin) / 4) ? 0 : 1;
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
       else if (run && run.steps.length) stepBands(ctx, w, h, pad, xMax, run.steps);
       axes(ctx, w, h, pad, yMin, yMax, fdec);
       const useLiveTgt = hx && run && !runEnded && ext && ext.targetGS != null;
-      if (hx) line(ctx, useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+      if (prof && (!hx || idle)) stepLine(ctx, prof.flow, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+      else if (hx) line(ctx, useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
       line(ctx, sc.decaid, pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
       if (rawOn) {
         const rp = sc.raw;
@@ -1064,6 +1086,12 @@
       if (hx) {
         line(ctx, sc.tcmd, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
         stepLine(ctx, run ? run.cmd : [], pad, w, h, xMax, yMin, yMax, C.cmd, 1.8);
+      } else if (sc.tgtP.length || sc.tcmd.length) {
+        line(ctx, sc.tgtP, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+        line(ctx, sc.tcmd, pad, w, h, xMax, yMin, yMax, C.mflow, 1.2, [5, 4]);
+      } else if (prof) {
+        stepLine(ctx, prof.press, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+        stepLine(ctx, prof.mflow, pad, w, h, xMax, yMin, yMax, C.mflow, 1.2, [5, 4]);
       }
       line(ctx, sc.mflow, pad, w, h, xMax, yMin, yMax, C.mflow, 1.2);
       line(ctx, sc.press, pad, w, h, xMax, yMin, yMax, C.press, 1.6);
@@ -1123,10 +1151,12 @@
     const lg = (id, items) => { const el = $(id); if (el) el.innerHTML = items.map((it) => '<span class="lg' + (it.dash ? ' dash' : '') + (it.arrow ? ' arrow' : '') + (it.dot ? ' dot' : '') + '" style="color:' + it.c + '"><i style="background:' + it.c + '"></i><span style="color:#aab2bf">' + it.l + '</span></span>').join(''); };
     const flow = [{ l: t('decaid 杯流'), c: C.decaid }, { l: rawWin > 0 ? t('RAW 滤波') : 'RAW dW/dt', c: C.raw }];
     if (rawOn && rawWin > 0) flow.push({ l: t('原始'), c: C.raw, dot: 1 });
-    if (hx) flow.push({ l: t('目标杯流'), c: C.target, dash: 1 }, { l: t('矢量·增'), c: C.vec, arrow: 1 }, { l: t('矢量·减'), c: C.vecdn, arrow: 1 });
+    if (hx || chartStyle === 1) flow.push({ l: t('目标杯流'), c: C.target, dash: 1 });
+    if (hx) flow.push({ l: t('矢量·增'), c: C.vec, arrow: 1 }, { l: t('矢量·减'), c: C.vecdn, arrow: 1 });
     lg('lgFlow', flow);
     const press = [{ l: t('压力'), c: C.press }, { l: t('机器流量'), c: C.mflow }];
     if (hx) press.push({ l: t('目标指令'), c: C.target, dash: 1 }, { l: t('APK 指令'), c: C.cmd });
+    else if (chartStyle === 1) press.push({ l: t('目标压力'), c: C.target, dash: 1 }, { l: t('目标机器流量'), c: C.mflow, dash: 1 });
     press.push({ l: t('温度'), c: C.temp });
     lg('lgPress', press);
     if (chartStyle === 2) {
