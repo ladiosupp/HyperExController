@@ -1018,7 +1018,7 @@
     return sc.tgt;
   }
   const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], tgt: [], tgtVal: null, len: 0 };
-  // 空闲无杯时的曲线目标参考（样式 1）：杯流=步目标 g/s，压力=限压/压步目标 bar，机器流量=步 flow 设定 ml/s
+  // 非 HX 的曲线目标参考（样式 1）：杯流=步目标 g/s，压力=限压/压步目标 bar，机器流量=步 flow 设定 ml/s；HX 杯流目标按样本历史 tgtHist 画
   function profileTargets() {
     const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
     const steps = (liveProfile && Array.isArray(liveProfile.steps)) ? liveProfile.steps : [];
@@ -1044,7 +1044,7 @@
     const sc = run ? seriesCache(run, samples) : EMPTY_SC;
     const tEnd = run ? Math.max(runT(), 10) : 30;
     const idle = !run || !run.samples.length;
-    const prof = (idle || !hx) ? profileTargets() : null;
+    const prof = !hx ? profileTargets() : null;
     const xMax = Math.max(30, Math.ceil(tEnd / 10) * 10, idle && prof ? Math.ceil(prof.dur / 10) * 10 : 0);
     if (chartStyle === 2) { drawMerge(hx, samples, xMax, sc); renderLegends(hx); return; }
     // 杯流图
@@ -1057,9 +1057,8 @@
       if (hx && run) bands(ctx, w, h, pad, xMax, run.phases);
       else if (run && run.steps.length) stepBands(ctx, w, h, pad, xMax, run.steps);
       axes(ctx, w, h, pad, yMin, yMax, fdec);
-      const useLiveTgt = hx && run && !runEnded && ext && ext.targetGS != null;
-      if (prof && (!hx || idle)) stepLine(ctx, prof.flow, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
-      else if (hx) line(ctx, useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+      if (prof) stepLine(ctx, prof.flow, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
+      else if (hx) line(ctx, sc.tgtHist, pad, w, h, xMax, yMin, yMax, C.target, 1.2, [5, 4]);
       line(ctx, sc.decaid, pad, w, h, xMax, yMin, yMax, C.decaid, 1.4);
       if (rawOn) {
         const rp = sc.raw;
