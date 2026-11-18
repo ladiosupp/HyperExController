@@ -992,7 +992,7 @@
   function seriesCache(run, samples) {
     let sc = run.__sc;
     if (!sc || sc.first !== samples[0] || sc.len > samples.length) {
-      sc = run.__sc = { first: samples[0], len: 0, decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], tgt: [], tgtVal: null };
+      sc = run.__sc = { first: samples[0], len: 0, decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [] };
     }
     for (let i = sc.len; i < samples.length; i++) {
       const s = samples[i];
@@ -1008,16 +1008,7 @@
     sc.len = samples.length;
     return sc;
   }
-  function targetSeries(sc, samples, val) {
-    if (sc.tgtVal !== val || sc.tgt.length > sc.len) {
-      sc.tgtVal = val; sc.tgt = [];
-      for (let i = 0; i < sc.len; i++) sc.tgt.push([samples[i].t, val]);
-    } else {
-      for (let i = sc.tgt.length; i < sc.len; i++) sc.tgt.push([samples[i].t, val]);
-    }
-    return sc.tgt;
-  }
-  const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], tgt: [], tgtVal: null, len: 0 };
+  const EMPTY_SC = { decaid: [], raw: [], mflow: [], press: [], temp: [], tcmd: [], tgtP: [], tgtHist: [], len: 0 };
   // 非 HX 的曲线目标参考（样式 1）：杯流=步目标 g/s，压力=限压/压步目标 bar，机器流量=步 flow 设定 ml/s；HX 杯流目标按样本历史 tgtHist 画
   function profileTargets() {
     const n = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
@@ -1112,8 +1103,7 @@
     for (let i = 0; i <= 4; i++) { const y = pL.t + (h - pL.t - pL.b) * i / 4; ctx.fillText((tr.hi - (tr.hi - tr.lo) * i / 4).toFixed(0) + '\u00b0', w - 30, y + 3); }
     const on = (k) => !seriesOff.has(k);
     const L = (pts, color, width, dash) => line(ctx, pts, pL, w, h, xMax, 0, 10, color, width, dash);
-    const useLiveTgt = hx && run && !runEnded && ext && ext.targetGS != null;
-    if (hx && on('target')) L(useLiveTgt ? targetSeries(sc, samples, ext.targetGS) : sc.tgtHist, C.target, 1.2, [5, 4]);
+    if (hx && on('target')) L(sc.tgtHist, C.target, 1.2, [5, 4]);
     if (on('decaid')) L(sc.decaid, C.decaid, 1.4);
     if (rawOn) {
       const rp = sc.raw;
