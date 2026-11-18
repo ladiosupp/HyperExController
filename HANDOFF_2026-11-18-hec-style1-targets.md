@@ -1,6 +1,6 @@
 # 交接：样式 1 目标线批（2026-11-18 晚，用户三轮口径订正后定稿）
 
-> 前序：HANDOFF_2026-11-18-hec-shot-summary-impl.md（v0.21 已发）。本批提交 c01665d（本地未推），**未装平板、未发版**（待用户发话）。
+> 前序：HANDOFF_2026-11-18-hec-shot-summary-impl.md（v0.21 已发）。**本批已发 v0.22 装平板**（用户 11-18 晚授权「装平板、发版、推送和父仓指针」）：版本提交 d651809、tag v0.22、Release id 449956741（asset 763329190，6,731,329 字节）、夸克 fileId 3096730deafb461598486e781e82d7bf；平板 versionCode 22（20:31:24 装机）冒烟通过；子模块 main/tag 与父仓指针已推（父仓 hash 见回叫/对话）。接力交接见 HANDOFF_2026-11-18-hec-ui-continue.md。
 
 ## 0. 用户定稿口径
 
@@ -30,10 +30,19 @@
 - **注入时间压缩**：_injectScale 的 s.t 用 runT()（真实时钟），密集注入会把活线挤在左缘 1-2px；验收注入须间隔 ≥250ms 散开。
 - 套件 baseUrl 残留（上轮 yield 切 4802）→ 开头经地址弹窗复位 4801；桩 workflow 跨套件污染同前批。
 
-## 4. 待办
+## 4. v0.22 发版回执（2026-11-18 晚，用户授权）
 
-1. 装平板 / 发版（v0.22 或随下批）：待用户发话；本批未推。
-2. 父仓指针：c01665d 指针未建/未推，待用户发话。
+- 预检十支全绿（v0.22 包）：targetline2 12/12、summary 27/27、r2345 27/27、phaseB 15/15、m10 20/20、m6m8 8/8+5/5、flowcard 6/6、boot 8/8、yield 19/19。
+- flowcard 刷新项曾连红四次：套件按整圈计数而 CDP 往返延迟把 10 次注入拉至 1.3-1.5s → 4 次更新假红；**测量窗改固定前 1000ms** 后 6/6（改测量不改代码）。
+- APK 6,731,329 字节，SHA256 1BEB8804F000EE072E15CF60943D7780BF34BBB7C5A2F0CC6280C2B3633B2C0F；Release 449956741 / asset 763329190 uploaded；夸克 3096730deafb461598486e781e82d7bf（无 notice.text）。
+- 平板 install -r 20:31:24，dumpsys 22；冒烟 ver v0.22 / conn ok / helloOk / heartbeat ageMs 0 / externalWrites 0 / shadow ready；插件 2.2.50。
+- 推送：子模块 main 8e57211..d651809..（回执）+ tag v0.22；父仓指针提交 + 推。
+- 收尾：stayon false、forward 9224/9223、reverse 4801/4802 删、两桩按 pid 停。
+
+## 4b. 待办（转接力对话）
+
+1. 功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①②③另批授权。
+2. profileFrame 非 HX 真机色带验证仍待真杯（评估交接已确认未被覆盖）。
 
 ## 5. 别碰
 
