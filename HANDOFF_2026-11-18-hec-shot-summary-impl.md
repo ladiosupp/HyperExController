@@ -5,7 +5,7 @@
 
 ## 0. 一句话现状
 
-杯末总结弹窗已实施并本地提交（子模块本交接提交；父仓 mocks 提交），模拟器回归全绿；**未装平板、未推、未发版**。透明壳 bug 已修（.lrn-modal 单独无底色，须 modal lrn-modal 组合类）。
+**v0.21 已发版装平板**（用户 11-18 晚授权「发 v0.21 全套 + 装平板 + 父仓指针推」）：版本提交 86bf3eb、tag v0.21、Release id 449894725（asset 763153442，6,730,537 字节）、夸克 fileId d9187ab055004677a6671674b4eca2fb；平板 versionCode 21（19:36:19 装机）冒烟通过；子模块 main/tag 与父仓指针已推（父仓 hash 见回叫/对话）。透明壳 bug 已修（.lrn-modal 单独无底色，须 modal lrn-modal 组合类）。
 
 ## 1. 本轮改动
 
@@ -50,3 +50,13 @@ shadow/arbiter 发送逻辑、温度链路、HX 液重；插件仓（2.2.49 在�
 - 子模块提交：实施批（8 文件）+ 本交接；父仓提交：.impeccable/mocks/hec-shot-summary/（html/woff2/3 png）。
 - 脚本（不入库）：父仓 .tools/__summary-regress.cjs、__sum-shot.cjs、__sum-probe.cjs、__sum-errprobe.cjs、__sum-dbg.js、各 *-impl.log；子模块 .tools 无新增。
 - 取证：review/hec-ui5/v23-impl-*（4 张）。
+
+## 7. v0.21 发版回执（2026-11-18 晚，用户授权）
+
+- 预检（v0.21 包）：summary 27/27 + yield 19/19（hec-stub 4802）+ r2345 27/27 + phaseB 15/15 + m10 20/20 + m6m8 8/8+5/5 + flowcard 6/6 + boot 8/8；两桩各端口 reverse；套件开头复位 workflow。
+- APK：HyperExController_v0.21.apk 6,730,537 字节，SHA256 D67F8517037B2ECFF01AF79D86FD1008F871116D9D5250225C5A3736085684A7；aapt2 versionCode 21/0.21。
+- 提交/推送：子模块 86bf3eb（版本）+ 回执提交；main e03a2f8..86bf3eb..（回执）与 tag v0.21 已推（代理 57890）。父仓指针提交 + 推（含 937934a mocks）。
+- Release：id 449894725，asset 763153442（curl 耐慢传直传；pwsh 字符串拼接 URL 须加括号否则拆参数 bad hostname）。
+- 夸克：「/来自：Codex」fileId d9187ab055004677a6671674b4eca2fb，6,730,537 字节；最终 result 无 notice.text。
+- 平板：install -r 19:36:19，dumpsys versionCode 21；冒烟 ver v0.21 / conn ok / helloOk true / heartbeat ageMs 0 / externalWrites 0 / shadow ready（sent 恒 false 结构位 shadow.js:554）；插件实测 2.2.50（用户自装）。
+- 收尾：stayon false、forward 9224/9223、reverse 4801/4802 删、两桩按 pid 停。
