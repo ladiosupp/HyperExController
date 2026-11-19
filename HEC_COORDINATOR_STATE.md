@@ -12,8 +12,8 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 角色 | threadId | 状态 |
 |---|---|---|
 | 统筹（现） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | active（11-19 relay-3 接手同步完成） |
-| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已装杯 13 已出／c 诊断核码闭环（两项均预期设计）／待下一派单 |
-| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 13 完成（2.2.52 首杯，清锚代价如预期）／待命下一杯（base 3.125 adaptive） |
+| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已装杯 13 已出／c 诊断核码闭环／杯 13 收敛新口径只读评估在途 |
+| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 13 完成／新验杯口径已转／待命下一杯（base 3.125 adaptive） |
 | UI 入口（UI9，接 UI8） | 01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c | v0.28 已发（git 证据，见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
 | 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 排查完成（根因证实）／评分修复 git 证据已随 UI9 直管 v0.26 发（§4 ⑥） |
@@ -32,9 +32,11 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 ## 3 真机最新裁决（杯 13＝2.2.52 首杯 1795059672017-1，11-19 11:41；统筹独立复跑核实）
 
 **杯 13（2.2.52 首杯，APK v0.25 versionCode 25；统筹独立复跑核实）**：**用户经 ③ 入口清掉 manual 锚**——切换时无合格立即学习值（前杯 HOLD）→清锚回 LUT（③ 语义），commands.stage2 2.5 auto/original（=LUT 2.507 snap）、stage1 1.313 auto/original，本杯按空粉碗 base 2.5 跑。质量＝**清锚预期代价，非 bug**：S2 whole NEAR −12.7%（raw 4.363/5、R² 0.99839）／tail −15.56%（tailP95 19.52、rippleCV 4.25），live trim 段内爬 2.5→2.75→3→4 仍偏低；S3 HIT +3.1%／tail +2.75%。峰 7.5%（flood 5，retained-water 峰 5.374@return+1.3s）很安全；收口走 holdMs 4000ms 定时路径（boost 5→bleed 0.875→return 2.5→complete，driver-ack），**cutoff 未触发**（cutoff 对象空）。Decaid apiStop 102.0g dose 19 targetYield 0；grindAdvice flow-low（p/q +0.5%）。
-**平台与学习（auto 主流环重启）**：plan profile-base fallback、controlGain 2（=5/2.5）、base/return 2.5、flood 5 adaptive、sourceRunIds=[]、diagnosticLast null——杯 12 预测 gain-memory 3.875 被清锚改变前提（base 变 LUT 2.5），非路由失效，冷启动 fallback 机制同杯 12 闭环。s2 updated r1.3076/n13/observedR 1.351/deviation 6.9%/alpha 0.5/HIGH（S2 steady tail、commandBand 2.0-3.0、window 40-100%）；adaptiveDecision.s2 ADJUST/role=base/applied=true（g2 maps 5→3.8125，damped 2.5→3.125；live-learning 数值路径 coverage<70%/<4 样本被拒、gain-memory relaxed guard 放行）；杯后 autoApply applied@03:42:54Z stage2 3.125 adaptive／stage1 1.375 adaptive／s3 shape 0.563/0.813/0.813，audit differences=[] matchesExpected=true。**下一杯 base 3.125 阻尼爬升（目标 3.8125），流量收敛前仍偏低——预期代价，逐杯跟踪**。
+**平台与学习（auto 主流环重启）**：plan profile-base fallback、controlGain 2（=5/2.5）、base/return 2.5、flood 5 adaptive、sourceRunIds=[]、diagnosticLast null——杯 12 预测 gain-memory 3.875 被清锚改变前提（base 变 LUT 2.5），非路由失效，冷启动 fallback 机制同杯 12 闭环。s2 updated r1.3076/n13/observedR 1.351/deviation 6.9%/alpha 0.5/HIGH（S2 steady tail、commandBand 2.0-3.0、window 40-100%）；adaptiveDecision.s2 ADJUST/role=base/applied=true（g2 maps 5→3.8125，damped 2.5→3.125；live-learning 数值路径 coverage<70%/<4 样本被拒、gain-memory relaxed guard 放行）；杯后 autoApply applied@03:42:54Z stage2 3.125 adaptive／stage1 1.375 adaptive／s3 shape 0.563/0.813/0.813，audit differences=[] matchesExpected=true。**下一杯 base 3.125 阻尼爬升（目标 3.8125），流量收敛前仍偏低——按新口径这不是终点结论，收敛速度/杯内瓶颈见下设计目的重评**。
 **红线全 PASS**：峰 7.5%≤40；sent 0（全 17 杯）；writes 全 plugin（12=8write+4frame-change）；两段 complete（定时路径）；audit []；base 检查 N/A（manual 已清）。影子 685 样本/32 决策（hold 21/algo 6/model 5）、pred 29/32、rescue 0、realized 20、matched 0（modelWrites 5 未等值执行）、resp 31/32、inc 1、纯净 22/污染 9/inc 1；regime g2（signature 0.4376、压力 1.212/machineFlow 2.782）。
 **① 2.2.52c 新诊断字段本杯未验到；两项核码闭环（插件接力只读＋统筹探针复跑/代码抽查证实：均预期设计、非缺口、不需另批修复）**：(a) boosting 期 null＝估计自身回归门（s2RefillFlowEstimate 3230-3268：points<6/span<0.6s/age>600ms/tail<6/r²<0.90/slope<0→null，只为上升段设计），c 接线正确（refill check 9191 rfEst 每 tick 记录）；杯 13 弱灌（base 2.5/flood 5）秤重 boosting 期平在 7.4g 约 2.8s、窗末 r² 全<0.90（T23465 0.898）→null；**首个非 null 更正为 bleeding check@23970 rawGS 3.56/predicted 8.919**（陡升后估计成立证接线正常；取证原回执「首个非 null handover@24483」更正——该条走正常 check liveTrimRegression 9205 另一套门）。(b) cutoff 新字段仅 firing 分支记录（3304-3305），定时/压力/stale 收口不建 cutoff 对象＝2.2.50 起既有语义、c 批 additive 未改时机；杯 13 holdMs 4000 到期（23916）先于估计成立（~23936+）→定时收口 cutoff=null。tick-vs-backstop 时序需一杯正常 firing 的杯复核（建议下一杯正常 base 使 cutoff 触发）。可选诊断增强候选（非必需、取证若要另批）：①估计 null 记失败门因（r2/slope/stale/points）②定时/压力收口也记 estimate 快照。核码 MD decenthyperexplugin/HANDOFF_2026-11-19-cup13-diagnostic-semantics-eval.md、探针 .tools/__cup13-extract.cjs。③ UX 预览「清回 LUT」显示问题取证已直问用户、待答。无新用户拍板项。
+
+**设计目的重评（用户 11-19 新口径，统筹）**：清锚/研磨/豆种/粉量都是算法要适应的扰动，不是偏移的免责归因。杯 13 真正要回答：①杯内——live trim 爬 2.5→4 为何没追上（trim 步长/频率/权限、估计 r²≥0.90 门平杯流不出估计、弱灌 flood 5）？②杯间——阻尼 2.5→3.125（目标 3.8125）需几杯收敛，是否符合「很少杯数适应」？③参数逻辑——relaxed guard 放行/coverage 门拒数值路径在清锚重建场景方向对不对？已派插件接力按新口径只读评估（不改码；控制律改动建议须另授权；与 §22 冲突先报）。
 
 **杯 12（2.2.51 首杯 1795053602320-1，09:59；历史裁决，统筹独立复跑核实）**
 
@@ -42,7 +44,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 红线全 PASS：峰 39.1%≤40（余量薄，峰顶 6.955@22.4s）；两段收口 complete（boost 7→trim 5.125→bleed 1.375→return 3.875）；base 3.875 manual 保住＋manual-anchor 第二次实证（HOLD/applied=false）；sent 0（16 杯）；writes 全 plugin（13=9write+4frame-change）；audit differences=[]；杯后 autoApply stage2=3.875/manual 未覆盖（S1 学习 3.125→3.063、S3 shape 0.625/0.813/0.813）。101.80 g apiStop（Decaid 102.8g）；影子 674 样本/33 决策、matched 1（S3 EARLY model 0.625 执行 resp 1.733 但帧切换污染窗 matchedPure 0）。
 **两项观察核码闭环（插件接力只读，统筹复跑探针证实；非紧急、峰绊线成立）**：① 冷启动 profile-base fallback＝预期安全默认（reload 后 diagnosticLast 空→gain-memory/observed-tail 门均 null→落用户曲线指令 3.875，同杯 10 机制，非 LUT 饿死）；杯 13 gain-memory 恢复消费 g2 baseBand r1.2802 bandN7 HIGH→平台/return **3.875**（snap(5/1.2802)=3.875 探针实证，派单≈3.9375 修正）、flood 7；暖机恢复 diagnosticLast 可选另批、建议不动。② cutoff rawGS 4.517>backstop 4.25＝250ms tick 离散 artifact（predicted 主判先触发，rawGS 是触发当刻 0.75s 回归斜率、超约一个 tick 升幅）；§22.18「≤4.25」是近似界（≤4.25＋tick 裕量）；**峰余量薄主因 retained-water 物理非 backstop 迟到**（峰 6.955@return+0.5s）。建议 c+d：(c) 诊断字段加固小批（refill check 记 rawGS/predicted 序列＋cutoff estHistory/firingTickMs/margin，非控制律低风险）＋(d) 暂不动控制律（监控破 40% 再凭回放评估 a 降 backstop 0.80/b 密检 100ms）＋§22.18 文案澄清近似界。
 ③ 回学习入口杯 12 时用户未试（仍 manual）；s2 no-observation 预期、s3 updated r1.8372/n10。**杯 13 更新：用户已经 ③ 清 manual 锚回 auto（见上杯 13 裁决）；③ UX 预览问题待用户答**。
-口径裁定（续）：autoApply ON＋manual base 允许；manual 不学习＝no-observation；role 章在建议侧；§22.18 manual 尊重只覆盖杯间建议侧（用户 11-19 裁定不延伸杯内平台，§4）。
+口径裁定（续）：autoApply ON＋manual base 允许；manual 不学习＝no-observation；role 章在建议侧；§22.18 manual 尊重只覆盖杯间建议侧（用户 11-19 裁定不延伸杯内平台，§4）。**验杯与算法评估口径（用户 11-19 点名）**：调流设计目的＝自动适应研磨/豆种/粉量等扰动，杯内或很少杯数内收敛使杯流达标；验杯主验设计目的达成／算法优化方向／真实参数逻辑问题与设计方向偏差，偏移数值与因素归因只是证据不是结论（AGENTS §1.14，已转取证/插件接力）。
 杯 11（2.2.50 缺陷杯，11-19 早）：峰 38.8%、S2 tail +18.93% NEAR、平台 5.25（污染 band r0.9562），2.2.51 已修。杯 10（2.2.50 首杯）：峰 20.3%、tail −0.63% HIT、return 3.875。
 导出：杯 12 APK .tools/__rectify-tablet-shadow-export-live-2026-11-19T1004.json（16 杯）＋history-8/shots-9/audit-2026-11-19b/workflow-51/status-51；复核 __relay-cup12-verify.cjs／extra.cjs／ev.cjs（统筹复跑：质量/红线核过，cutoff rawGS>backstop 旗标证实）。杯 13 .tools/__rectify-tablet-shadow-export-live-2026-11-19T1144.json（17 杯、1,683,452 B）＋history-9/shots-10/audit-2026-11-19c/workflow-52/status-52；复核 __relay-cup13-verify.cjs／ev.cjs（统筹复跑：红线/质量/平台/学习核过，cutoff 未触发诊断缺属预期）。取证轮次细节 HANDOFF_2026-11-18-hec-live-cups-relay.md §12。
 
@@ -62,6 +64,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 - 插件→APK 算法同步（用户 11-19 点名「改完插件要同步到 apk 里面的算法里头」）：插件控制律/估计改动须同步 APK 移植版（shadow/arbiter 同口径）；时机＝插件不用 full 可 hec 时**做一次**（full→hec 里程碑，阶段 D），期间改动记 §4 同步债；插件批交接 MD 标注 APK 移植同步点。A 批只改插件，APK 同步留 hec 切换批。
 - 统筹范围（用户 11-19 点名）：负责 HEC（APK 控制/取证/协议）＋插件＋用户交代的事；**UI 有关不回叫统筹**（UI9 01a1f1cd 用户直管，统筹不派单不催不追踪 UI 批）。其余执行对话回叫照旧。
 - 批准链：用户当次批准→统筹转执行对话→执行回执 key 数字→统筹远端抽查（ls-remote／Release API／父仓 ahead）→落本文件§2/§8。
+- 验杯/算法回叫口径（用户 11-19 点名，AGENTS §1.14）：回执主验设计目的达成（扰动下杯内/少杯数收敛达标）＋算法优化方向＋真实参数逻辑/设计方向问题；偏移数值与因素归因是证据不是结论。取证裁决节/插件评估提案/统筹裁决同口径。
 
 ## 6 路径与复跑索引
 
@@ -109,3 +112,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：取证补发杯 13 回执（2.2.52 首杯 1795059672017-1，11:41，APK v0.25；接力间隙落盘补发）＋统筹独立复跑核实（__relay-cup13-verify/ev：红线全 PASS 峰 7.5%、sent 0 全 17 杯、writes 全 plugin、S2 NEAR −12.7%/tail −15.56%＝清锚预期代价、cutoff 未触发、autoApply stage2 3.125 adaptive、audit []）→§3 杯 13 裁决、§1/§4 状态；用户经 ③ 清 manual 锚（切换时无合格学习值→清回 LUT），杯 12 预测 3.875 前提作废；两项核码派插件接力只读（boosting null 语义/estHistory 记录时机）；③ UX 预览问题取证直问用户待答；无新拍板项。
 - 11-19：用户批推送（「你先本地推送」）→已执行：子模块 a50ff5e..c2d20aa→origin/main（VPN 代理 57890），父仓指针 3cefac5→origin/main（ee4501f..3cefac5，链上携带咖啡 logo 对话已提交未推的 25d016d，已报用户）；两仓 ahead 空核过；核码闭环批随推。
 - 11-19：插件接力杯 13 c 诊断语义核码回叫＋统筹独立核实（探针 __cup13-extract 复跑：15 boosting null/秤重平 7.4g 约 2.8s/r²全<0.90/首个非 null bleeding@23970；代码抽查 9191 接线/3240-3244 回归门/3304-3305 firing-only/3274 定时/3314 cutoff||null）→两项均预期设计、非缺口、不需另批修复；首个非 null 更正 bleeding@23970（handover@24483 走 liveTrimRegression 另一套门）；§3 ①闭环、§1/§4 状态；可选增强候选（null 门因/定时路径快照）记常设待办；新诊断字段待正常 firing 杯复核。
+- 11-19：用户点名验杯与算法评估口径（调流目的＝自动适应研磨/豆种/粉量扰动，杯内或很少杯数收敛达标；验杯主验设计目的达成/算法优化/参数逻辑与设计方向问题，不是报偏移数值与因素归因）→落 AGENTS §1.14＋活文档 §3 口径/§5；转取证 01a1eec0＋插件接力 01a1ee30（派杯 13 收敛速度/杯内瓶颈新口径只读评估）；统筹杯 13 裁决补设计目的重评注、纠正「清锚预期代价」归因式结论。
