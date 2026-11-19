@@ -13,7 +13,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 |---|---|---|
 | 统筹（现） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | active（11-19 relay-3 接手同步完成） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 交接完成停下（HANDOFF_2026-11-19-D1-6-impl-relay.md，统筹核过） |
-| 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 已发版闭环（统筹远端核过）／待用户装机测杯 |
+| 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 已发版闭环（统筹远端核过）／待用户装机测杯／manifest 简介文案批在途 |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 13 完成／新验杯口径已转／待命下一杯（base 3.125 adaptive） |
 | UI 入口（UI9，接 UI8） | 01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c | v0.28 已发（git 证据，见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
@@ -52,6 +52,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 ## 4 在途与待拍板
 
 - 在途：**D1–D6＋sourceBucketId 改名实施批——改码完成，待发版批**（用户 11-19 批「D1-6全改」＋「sourceRunId 改名也做」）：实施对话 01a1f274 commit **48c58e8**（auto-hyperex，本地未推/无 tag，8 文件，别人 WIP 未碰），**verify_v02253 870/870＋sim-regression 5/5 统筹复跑核过**；决策级回放统筹探针复跑证实（D1 杯12 先验 HOLD→fallback FF k 4.0＝杯13 清锚场景首杯≈4.0 起步；D3 大缺口保护性收回 90% 时间 8.2s→2.55s、rescue 收回后 1s、峰 0.9%；D4 低 base flood 5→7 抖动 0/0.6/1.2 峰+3.9%≤40/rise 0.6s/maxCmd 7/两段 complete，正常 base 峰 15.4% 不动；整杯回放 4/4）；定参复核通过：D2 k 优先（非加权）＋混带 spread≤5%＋P0-1 包线、D3 gap>30% 6/8 步/静默 1000ms/rescueHot 角度豁免（三门不动）/杯间±50% 仅大缺口、D4 只改 adaptiveColdMlS（固定挡人工旋钮不动，落点正确）；技能 §22.8/§22.11/§22.18 补注统筹审过（只加不改、现有文本与 prior reads 一致、manual 锚不动）；红线代码未动。**2.2.53 已发版闭环**（全 SOP 执行，统筹独立远端核 ls-remote/Release API/zip SHA256/平板 ls；平板 Download/ 已推、用户 Decaid 自装→测杯 4 项，取证陪杯已通知）。杯 13 c 诊断＋estimateGate 待正常 firing 杯复核（取证待命）。backstop 加固仍另批。
+- 在途（文案）：**manifest description 短简介批**（用户点名「Decaid 插件页英文简介太长很难看」，交接 HANDOFF_2026-11-19-manifest-description-shorten.md，文案用户已确认「我觉得没问题」）→派实施 01a1f274：只改 description 为 275 字符固定短简介，不升版/不发版/不 push，只 add manifest.json；写法口径固定（AGENTS §1.15／§5）：短简介＋重大功能更新（如 hec 联动）才写，不堆 changelog/Retains。生效时机＝随下次发版自然生效（推荐 a）；马上看到需 b 换 Release 资产＋重装／c 升版，另批用户批。
 - 在途（弹窗）：杯末弹窗评估 01a1ebd1 排查完成（根因＝collect 把 controlReview.phases 数组当对象索引→total 恒 null，统筹复跑证实；fix1+2+4＋fix3 方案见 HANDOFF_2026-11-19-hec-popup-score-eval.md）。简单档 UI 已随 v0.25 发版（v7 锁稿，用户直管 UI8→UI9）；**评分解析修复 git 证据已随 UI9 直管 v0.26 发版**（bc5e422 phases 数组解析＋writes trace 分类＋startedAt，回归 50+8、真数据交叉 85/91/80；fix3 是否含未核），UI 批用户直管、统筹不追踪（§4 ⑥）。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。UI9 后续直管 v0.25–v0.28（见 §2 注），统筹不追踪细节。
 - 待拍板：backstop 控制律加固留待破 40% 另批（a 降 backstop 0.80／b 密检 100ms，控制律敏感须另授权）。已拍板闭环：**2.2.53 发版批用户 11-19 批**（「发版吧」，已发版闭环统筹远端核过）；**D1–D6＋sourceRunId 改名用户 11-19 批全改**（「D1-6全改」＋「sourceRunId 改名也做」；实施批在途见上；D1 改 ③ 清回 LUT 语义／D2=B FFk／D3 杯内提速／D4 flood≥7／D5 诊断门因／D6 UX 提示／改名 holdingReference.sourceRunId）；A=1+2＋③ 合并发 2.2.51（杯 12 验证通过）；⑤ 2.2.52 已发（c 诊断＋§22.18 文案＋③ UX，统筹核过）；**④ 简单档 UI v0.25 已发**（v7 锁稿＋倒计时 5s，用户直管 UI8 全链，统筹远端核过）；**⑥ 评分解析修复 git 证据已随 UI9 直管 v0.26 发**（bc5e422/d0d5a24，统筹未独立远端核、UI 批不追踪；fix3 是否含以 UI9 交接为准）；杯 12 观察①冷启动预期不动；杯 13 先验（平台 3.875，清锚后作废）；① manual 不延伸；选项 4 不做、原 D 已否；历史杯分数三期。
@@ -66,6 +67,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 - 统筹范围（用户 11-19 点名）：负责 HEC（APK 控制/取证/协议）＋插件＋用户交代的事；**UI 有关不回叫统筹**（UI9 01a1f1cd 用户直管，统筹不派单不催不追踪 UI 批）。其余执行对话回叫照旧。
 - 批准链：用户当次批准→统筹转执行对话→执行回执 key 数字→统筹远端抽查（ls-remote／Release API／父仓 ahead）→落本文件§2/§8。
 - 验杯/算法回叫口径（用户 11-19 点名，AGENTS §1.14）：回执主验设计目的达成（扰动下杯内/少杯数收敛达标）＋算法优化方向＋真实参数逻辑/设计方向问题；偏移数值与因素归因是证据不是结论。取证裁决节/插件评估提案/统筹裁决同口径。
+- manifest description 写法（用户 11-19 点名，AGENTS §1.15）：固定短产品简介＋只记重大功能改动更新（如 hec 可联动写一句），不堆叠每版 changelog/Retains 历史段；版本细节归 release/notes-vX.md 与 Release body。基线文案＝HANDOFF_2026-11-19-manifest-description-shorten.md §3（用户确认 275 字符）。
 
 ## 6 路径与复跑索引
 
@@ -120,3 +122,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：实施接力 01a1f274 改码完成回叫（48c58e8，D1–D6＋sourceBucketId 改名，8 文件）＋统筹独立复核全过：verify_v02253 870/870 复跑 EXIT=0／sim-regression 5/5／__d16-replay 探针复跑（loopD3gap timeTo90 2550ms/firstRescue 2000/峰 0.9；loopD4lowBase 峰 3.9/rise 0.6/maxCmd 7×3 抖动；loopD4normal 峰 15.4 不动；fullReplay 4/4 flood 7；plans 杯12 fb FF k 4.0/杯13 混带 5.1%>5% 门拒入平台）／代码抽查（D1 10372 三级 fallback＋estimateSource／D2 3049-3080 eligible＋混带≤5%／D3 8836-9468 largeGap 6/8 步/1000ms/rescueHot 角度豁免三门不动／D4 3233 max(7,floor,min(8,1.8×platform)) 固定挡不动／改名 3291 sourceBucketId legacy 不动）／技能 §22.8/22.11/22.18 补注审过（只加不改、manual 锚不动、用户授权引用）；定参①②③复核通过、④直接改名无别名确认；git 核 48c58e8 父 1663e24、无 tag、别人 WIP 未碰；**2.2.53 发版批呈用户待批**；APK 同步债落 §4（HANDOFF_v02253 §6）。
 - 11-19：用户批 2.2.53 发版（「2.2.53 发版」「发版吧」）→派实施接力 01a1f274 全 SOP（tag v2.2.53/push auto-hyperex＋tag VPN 57890/Release/夸克「来自：Codex」/推平板 Download/ zip ls 核字节不代装用户 Decaid 自装/回执 commit＋push/回叫 key 数字）；§1/§4 发版在途、待拍板移闭环；回执后统筹远端核（ls-remote/Release API/zip SHA256）＋通知取证陪杯测杯 4 项（c 诊断 firing＋estimateGate／③ 清锚首杯≈4.0 HIT／大缺口收敛／低 base flood≥7 峰≤40）。
 - 11-19：2.2.53 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=c7278af/tag v2.2.53=48c58e8；Release 451046769 asset 766828642 uploaded 536730；本地 zip SHA256 9F6B36E6…DC0E 复算一致 9 条目 manifest 2.2.53；平板 ls 536730@16:13 mDNS；包内 870/870）→§2 基线推 2.2.53、§1/§4 闭环；待用户 Decaid 自装测杯 4 项（c 诊断 firing＋estimateGate／③ 清锚首杯≈4.0 HIT／大缺口收敛／低 base flood≥7 峰≤40），取证陪杯＋改名脚本同步已通知；APK 同步债不变（HANDOFF_v02253 §6）。
+- 11-19：用户点名 manifest description 太长（Decaid 插件页原样全文渲染）→读 HANDOFF_2026-11-19-manifest-description-shorten.md（只读排查已完成：description 7388 字符堆叠 2.2.45–2.2.53 Retains；文案 275 字符用户已确认；verify/build 无副作用）→派实施 01a1f274 执行（只改 description 一个字段、不升版不发版不 push、只 add manifest.json）；写法立常设规矩 AGENTS §1.15＋活文档 §5（短简介＋重大功能更新才写，不堆 changelog/Retains）；生效时机随下次发版（b/c 选项另批）。
