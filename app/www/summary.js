@@ -329,14 +329,15 @@
     const st = ctrl();
     if (!st.baseUrl) return openOffline(ctx, seq);
     let body = null;
-    for (let i = 0; i < 6; i++) {
+    // 提速（用户 11-19）：400ms 密轮询（旧 1s 格把就绪时刻量化到整秒，圈满后白等~1s）；12 次覆盖窗与旧 6 次相当
+    for (let i = 0; i < 12; i++) {
       if (seq !== fetchSeq) return;
       const r = await window.HxControl.httpJson('GET', DP + '/diagnostics');
       const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
       const cr = b && b.controlReview;
       const rid = cr && (cr.runId || b.runId);
       if (cr && (rid == null || rid === ctx.runId)) { body = b; break; }
-      if (i < 5) await new Promise((res) => setTimeout(res, 1000));
+      if (i < 11) await new Promise((res) => setTimeout(res, 400));
     }
     if (seq !== fetchSeq) return;
     if (!body) return openOffline(ctx, seq);
@@ -704,9 +705,9 @@
       cdTimer = setTimeout(tick, 100);
     };
     tick();
-    setTimeout(() => { if (seq === fetchSeq && cdActive) collect(ctx); }, 100);
+    setTimeout(() => { if (seq === fetchSeq && cdActive) collect(ctx); }, 0); // 提速：collect 不再等 100ms
   }
-  function open(runId, m) { if (cdActive) { cdQueued = [runId, m]; return; } doOpen(runId, m); }
+  function open(runId, m) { if (cdActive) { if (Date.now() >= cdEnd) { stopCountdown(); doOpen(runId, m); return; } cdQueued = [runId, m]; return; } doOpen(runId, m); }
   function doOpen(runId, m) { stopCountdown(); simpleConfirmed = false; morphFrom = null; model = m; openId = runId; model.runId = runId; render(); updateTag(); }
   function close() { stopCountdown(); fetchSeq++; closeKeypad(); const d = $('sumDim'); if (d) { d.hidden = true; d.innerHTML = ''; } openId = null; }
   function updateTag() {
