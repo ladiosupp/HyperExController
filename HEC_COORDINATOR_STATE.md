@@ -12,11 +12,11 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 角色 | threadId | 状态 |
 |---|---|---|
 | 统筹（现） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | active |
-| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | A＋③ 合并批进行中（2.2.51，用户授权含发版） |
-| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 11 完成／待命下一杯 |
-| UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | v0.24 已发；杯末弹窗简单档重构派单（示意图先行） |
+| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.51 已发（统筹远端核过）／待用户装机测杯 12 |
+| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 待命陪杯 12（2.2.51 已发，用户装机后） |
+| UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | v0.24 已发；简单档示意图 v2 待用户审（用户直管迭代） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
-| 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 派单（评分排查＋TDS 重算按钮需求，只读） |
+| 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 排查完成（根因证实）／修复待批，实现归 UI8 |
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
@@ -24,7 +24,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 ## 2 基线（统筹远端核过）
 
-- 插件 **2.2.50**：代码 930ce25＋回执 e734f1e（branch auto-hyperex），tag v2.2.50；Release 449845323／asset RA_kwDOVO5zXc4teoab；zip 510796 B SHA256 2C3B7378F86D8E67200508043F2B11190D8B564C9E857B9523D92600DEE4D863；夸克 22cb7d9183be426c94d7444be269b95d；平板 Download/ 已推、**用户自装**。verify_v02250 837/837（统筹独立复跑）。五项：cutoff 背 stop 0.85＋accel 中位滤波＋predicted 显示 sanity（shaping 未封顶）＋manual 锚＋regimeChange 排除 manual＋删重复 push；§22.18 记录过冲约束峰≤40%。
+- 插件 **2.2.51**（A 平台路由加固＋③ 诊断页回学习入口，用户授权合并发，11-19；统筹远端独立核过 ls-remote/Release API/zip SHA256）：代码 a07dc30＋回执 07159d9（branch auto-hyperex，自 e734f1e 快进），tag v2.2.51=a07dc30；Release 450771204／asset RA_kwDOVO5zXc4tpLJQ（state uploaded）；zip 516564 B SHA256 87A471D53B8D2CE3D29C6611FBD2729C82DDF1FA1B17919575839FE9E7F83A34（本地 release/ zip 复算一致）；夸克 dbd3d84950124c479e76f81b4bd1f3ca；平板 Download/ 已推 ls 核 516564（09:37 mDNS）、**用户 Decaid 自装**。verify_v02251 846/846（837 基线＋A6＋③3）；闭环＋污染 immature 带行注入峰≤40%/rise≤1.5s/maxCmd≥7/两段 complete。杯 6–12 决策级回放平台 before→after：杯8 4.375→4.25（门）/杯10 4.3125→4.125（路由）/杯11 5.25→3.875（精确复现旧律 gain0.9524/flood8 并修掉）/杯12 预测 4.375→4.125（降温）；杯6/7/9 不变。A① 消费端成熟度门（bandN<3/provisional→overall r，local 不受压）② 选行带改 baseBand（effectiveBand 降诊断、删 stage 级陈旧带回退）③ S1/S2 加 ADAPTIVE 选项 mode=adaptive 立即应用最新合格学习值/无则清锚。§22.11/§22.18 不动。交接 decenthyperexplugin.reaplugin/HANDOFF_v02251.md（§5 APK 移植同步点）。前版 2.2.50（930ce25/e734f1e，Release 449845323，837/837）。
 - APK **v0.24**（UI8 四批合发，用户已批全链，11-19）：沉浸全屏 immersive sticky＋去 HX 侧栏指令卡 hecBox（接管提示保留）＋控制中心样式 1/2 拆 HX/非HX 独立存盘（hecChartStyleByType、旧键迁移）＋杯末总结全屏 3s 倒计时/去控制分大数字（小字行保留控制/TDS/加权）。tag v0.24=5167bb0；Release 450739200／asset 765634999；APK 6,732,561 B SHA256 2824AFEFA7DC756E600108555BD99B3BAFE8A84378747FF4FC864315210FCBCC（本地 app-debug.apk 字节数与 asset 一致）；夸克 3d836dc013fb4326b80f60ed43f611a6；平板＋模拟器 versionCode 24 冒烟过；回归 summary 35/35＋拆分 6/6＋m10 20/20＋targetline 14/14＋flowcard 6/6＋boot 8/8。子模块 main **85f8964**（v0.24 交接；commits 0020b1d/e924d8b/148d519/5167bb0/85f8964）；父仓 main **ff7ea13**（指针同步 85f8964）。交接 HANDOFF_2026-11-19-hec-v024-release.md。规矩 251 行／155 条。
 - 两仓 origin ahead 空（11-19 UI8 v0.24 全链 push 后本地核：子模块 origin/main=85f8964、父仓=ff7ea13；统筹批 b48ee50…715279d 随 UI8 main 推送一并上远端，统筹未单独 push）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2，Release 450011833）、v0.24=四批合发。
 
@@ -38,11 +38,11 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 ## 4 在途与待拍板
 
-- 在途：插件接力 01a1ee30 **A＋③ 合并修复批进行中**（用户 11-19 授权合并发 2.2.51：A＝读取侧成熟度门＋baseBand 路由；③＝S1/S2 下拉加 ADAPTIVE 选项、立即应用最新合格学习值；verify_v02251 覆盖两者＋回归＋杯 6–11 回放；**发版全 SOP 已授权**〔Release＋夸克＋推平板 zip，用户自装〕，发完叫用户测杯 12）。核码 MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md。取证接力杯 11 完成、待命下一杯；研磨调粗已用户确认（grinderSetting 字段未同步；调粗几格取证侧已问、可选记工况表）。出杯前复冒烟照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）；秤休眠须唤醒复测才放行；autoApply ON 不再拦放行。
-- 在途（弹窗）：杯末弹窗评估 01a1ebd1 **只读排查已派**（用户反馈总「缺数据不评分」：summary.js total=null 根因＋能打分条件清单；＋TDS 确认重算按钮方案〔现 change 自动重算无按钮〕）。统筹已定位锚点：scoreSec(~400)/四路源 collect online·portModel·compactModel·persisted/stageQuality 门(~130-167)/TDS change→tdsSave＋render(~549)。修复待批（可能牵涉 control.js 杯末持久化钩子/插件 /diagnostics 就绪时机）。**UI8 简单档重构示意图派单已发**（用户批按概念改、示意图先行→用户审→实现，impeccable 兜底；UI 先按有分/缺分两态设计）。
+- 在途：插件接力 01a1ee30 **2.2.51 已发版闭环**（A＋③ 合并，统筹远端独立核过；平板 Download/ 已推、用户 Decaid 自装→测杯 12，取证接力陪杯；预期杯 12 平台≈4.125〔g3 base 带 r1.2078〕，③ 入口可从 manual 选回 ADAPTIVE 立即应用学习值）。交接 HANDOFF_v02251.md。B（选项 3 FF k 入平台）/改名另批。
+- 在途（弹窗）：杯末弹窗评估 01a1ebd1 **排查完成，根因统筹复跑证实**（__sum-eval-diag.js：phases 是数组、现状解析 total=null/修正 total=85；strict TypeError 复现；portModel 真数据杯8=31/杯9=70/杯10=82/杯11=48；APK 直写归档无 commands＋trace 无分类→port=null；persisted null 遮蔽 port；回归 GOOD_DIAG 镜像断言 35/35 绿真机恒 null 违 §3.13）。**根因＝summary.js collect 把 controlReview.phases 数组当对象索引**（非缺数据）。零插件改动修复 fix1（collect 数组 find＋writes 映射＋trace 分类＋startedAt ~25 行）/fix2（persisted.total==null fall through port ~6 行）/fix3 可选（control.js archiveRun 补 commands 快照 ~8 行）/fix4（回归 mock 真形状＋真数据交叉＋在线 total≠null 断言 ~30 行）。MD HANDOFF_2026-11-19-hec-popup-score-eval.md。**UI8 简单档示意图 v2 待用户审**（popup-simple-v2.png；用户四条反馈已改：两侧底纹统一/重算紧贴 TDS/研磨度独立只记录/再来一杯居中短按钮；实现只 www summary.js＋index.html CSS、研磨度 hecShotTds 同款、不需 control.js 钩子）。修复＋重构待用户批并入 UI8 v0.25 批。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。两仓 origin ahead 空（统筹批随 UI8 push 上远端）。
-- 待拍板：**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）；**④ 杯末弹窗评分修复＋简单档 UI 重构**（用户 11-19：a 总「缺数据不评分」查根因；b 补录 TDS 后确认重算按钮重算一次加权分〔非无 TDS 自动补算〕；c 简单档打分页重构＝中央 hero 大数字〔控制分/录 TDS 后加权〕＋两侧精简建议〔下一杯指令/研磨〕＋TDS％与研磨度格数补录清晰〔研磨度 per-cup 字段需新增，现仅 TDS/粉量〕＋底部「再来一杯」确认关闭按钮；简单档隐藏仲裁/决策表/来源等详细分区，完整档保留全部，守 AGENTS §7 UI 口径不回退；v0.24 刚去大数字、简单档作 hero 放回与全屏 3s 倒计时共存；total=null 中央降级态接评分修复。弹窗评估 01a1ebd1 排查评分根因＋方案中；**实现归 UI8**（用户 11-19 批：按概念改 summary.js、**先出示意图**给用户审、不行再喂 impeccable 抽卡；示意图→审→实现，发版另批 v0.25 候选）；评分数据修复待排查结论另批）。已拍板：A=1+2＋③ 诊断页 ADAPTIVE 选项**合并发 2.2.51**（用户 11-19「修，合并一起发2.2.51，偏好立即应用最新学习值」；③ 语义＝选 ADAPTIVE 立即应用最新合格学习建议 origin=adaptive、无则清锚 armed）；**发版 2.2.51 全 SOP 已授权**（Release＋夸克＋推平板 zip，用户自装→叫用户测杯 12）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
-- 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选；**插件算法→APK 移植版同步**（用户 11-19 点名）：full→hec 切换时做一次，同步债＝A 批 2.2.51 平台律（读取侧成熟度门＋baseBand 路由）＋后续插件批，hec 切换批一并移植（AGENTS §1.12）。
+- 待拍板：**④ 杯末弹窗批 v0.25（UI8）**：评分解析修复 fix1+2+4（＋fix3 可选，让 APK 直写杯离线可算分）＋简单档 UI 重构（按 v2 示意图，待用户审）＋TDS 确认重算按钮（门控重算推荐三档）＋研磨度录入（仅展示不喂公式，守 TDS 同边界）；hero 大数字仅简单档（标准/完整守 v0.24 去大数字）；待用户批修复范围＋审示意图，发版另批。**B＝选项 3 接 eligible FF k**（2.2.51 已落地＋回放已验，另批；k 优先级/±25%·0.35 阻尼/带同质性门）；**改名** holdingReference.sourceRunId（核消费方另批）。已拍板闭环：A=1+2＋③ 合并发 2.2.51（已发已核）；杯 12 先修后验（待用户装机）；① manual 不延伸（§3）；选项 4 不做、原 D 已否；历史杯分数（提案① compact 持久化）仍三期。
+- 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选；**插件算法→APK 移植版同步**（用户 11-19 点名）：full→hec 切换时做一次，同步债＝A 平台律（gain-memory band 记忆＋baseBand 路由＋成熟度门，APK shadow/arbiter 当前无对应物＝hec 切换需新增移植，HANDOFF_v02251 §5）＋③ 清 manual 入口（APK 走 external-flow 不复用 test-command-set，hec 若需按③语义新增）＋后续插件批，full→hec 里程碑一并移植（AGENTS §1.12）。
 
 ## 5 回叫与接力协议
 
@@ -82,3 +82,5 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户反馈杯末弹窗总「缺数据不评分」＋要求补录 TDS 后确认重算按钮（重算一次加权分，非无 TDS 自动补算）→统筹定位 summary.js（total=null 四路源／stageQuality 门／TDS change 自动重算无按钮／weighted total=null→null），派弹窗评估 01a1ebd1 只读排查根因＋按钮方案；修复待批（§4 ④）。
 - 11-19：用户追加杯末弹窗简单档 UI 重构（中央大数字＋两侧精简建议＋TDS/研磨度补录清晰＋底部「再来一杯」确认关闭按钮，简洁；完整档保留细节）→§4 ④ 扩；派单补充转弹窗评估 01a1ebd1（方案加简单档重构节）；impeccable 设计稿选项已问用户（AGENTS 5，不擅自启用）。
 - 11-19：用户定杯末弹窗简单档实现路径——按概念让 UI8 改 summary.js、先出示意图、不行喂 impeccable 抽卡→派 UI8 示意图先行（HTML mock→截图→用户审→实现，§4 ④）；评分根因仍弹窗评估 01a1ebd1 并行排查；发版 v0.25 候选另批。
+- 11-19：插件 2.2.51 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=07159d9/tag v2.2.51=a07dc30；Release 450771204 asset 516564 uploaded；本地 zip SHA256 87A471D5…3A34 一致；verify 846/846；回放杯11 5.25→3.875/杯12 4.375→4.125）→§2 基线推 2.2.51、§1/§4 闭环、同步债补 HANDOFF_v02251 §5；待用户装机测杯 12（取证陪杯已通知）。
+- 11-19：弹窗评估排查完成＋统筹复跑证实根因（collect 把 phases 数组当对象索引→total 恒 null，非缺数据；回归镜像断言违 §3.13；修复后杯10=82/杯11=48）；零插件改动 fix1+2+4＋fix3 可选，待用户批并入 UI8 v0.25；UI8 简单档示意图 v2 待用户审（用户直管迭代）。
