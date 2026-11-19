@@ -4,7 +4,7 @@
 // 红线：不碰影子发送/仲裁/温度链路/HX 液重；TDS 仅本地展示，不喂增益记忆。
 (function () {
   'use strict';
-  const EN = { '本杯总结': 'Shot summary', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末总结弹窗': 'Shot summary popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
+  const EN = { '本杯总结': 'Shot summary', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', '研磨调整建议': 'Grind adjustment advice', '完成': 'Done', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末总结弹窗': 'Shot summary popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
   Object.assign(EN, { '控制': 'Control', '分带': 'band', '写入': 'writes', '供水': 'refill', '常规': 'normal', '救急': 'rescue', '反转': 'reversals', '平台过冲': 'plateau over', '过冲': 'overshoot', '平台': 'plateau', '长段': 'long stage', '启动': 'startup', '整段': 'whole', '尾均': 'tail mean', '尾': 'tail', '扣分': 'deductions', '原始': 'raw', '整杯': 'whole cup', '中位': 'med', '峰': 'peak', '限压命中': 'limit hits', '滚动回归口径': 'rolling regression', '桶中心': 'bucket centre', '平滑': 'smoothed', '置信': 'conf', '分': 'pts', '匹配': 'match', '杯末持久化总结': 'persisted at cup end', '移植': 'ported', '本地影子': 'local shadow', '帧切换': 'frame changes', '插件写入': 'plugin writes', '置信中位': 'confidence median', '决策': 'decisions', '校准素材，非增益裁判': 'calibration material, not a gain verdict', '离线训练乐观口径': 'offline-training optimistic bound', '中止杯不给研磨建议': 'No grind advice for aborted cups', '平台 + 供水': 'plateau + refill' });
   function t(k) { try { return (typeof lang !== 'undefined' && lang === 'en' && EN[k]) ? EN[k] : (window.t ? window.t(k) : k); } catch (_) { return k; } }
   const $ = (id) => document.getElementById(id);
@@ -561,12 +561,52 @@
     h += '<div class="sum-hero-row">';
     h += '<div class="sum-stages">' + stageRow('stage1', m) + stageRow('stage2', m) + stageRow('stage3', m) + '</div>';
     h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
-    h += '<div class="sum-side right" id="sumGrindSec"><div class="k">' + t('研磨') + '</div><div class="v">' + (g && g.available ? esc(g.status || '—') + ' · ' + esc(g.label || g.detail || '—') : '—') + '</div><div class="s">' + (g && g.available ? t('置信') + ' ' + esc(g.confidence || '—') : t('数据不足')) + '</div></div>';
+    h += '<div class="sum-side right" id="sumGrindSec"><div class="k">' + t('研磨调整建议') + '</div><div class="v">' + (g && g.available ? esc(g.status || '—') + ' · ' + esc(g.label || g.detail || '—') : '—') + '</div></div>';
     h += '</div>';
     h += '<div class="sum-inputrow"><div class="sum-dialfield"><span class="lbl">' + t('TDS %（目标 3.5）') + '</span><div class="sum-dial' + (hasTds ? '' : ' idle') + '" id="sumDialTds"><span class="dv">' + tdsV.toFixed(2) + '</span></div><button type="button" class="sum-recalc' + (canRecalc ? '' : ' off') + '" id="sumRecalc"' + (canRecalc ? '' : ' disabled') + '>' + (simpleConfirmed ? t('已重算') : t('确认重算')) + '</button></div><span class="gap"></span><div class="sum-dialfield"><span class="lbl">' + t('研磨度格数') + '</span><div class="sum-dial' + (tds && tds.grind != null ? '' : ' idle') + '" id="sumDialGr"><span class="dv">' + String(Math.round(grV)).padStart(3, '0') + '</span></div></div></div>';
     h += '<button type="button" class="sum-again" id="sumAgain">' + t('再来一杯') + '</button>';
     h += '</div></div></div>';
     return h;
+  }
+  // ---- 自定义数字键盘（用户 11-19：点数字弹系统键盘、点键盘外连弹窗一起关 → 改弹窗内键盘，不切系统输入）----
+  // 完成＝提交；点键盘外＝取消本次输入（弹窗不关）；竖滑拨号照旧。
+  let kpOutside = null;
+  function closeKeypad() { const w = $('sumKpWrap'); if (w) w.remove(); if (kpOutside) { document.removeEventListener('pointerdown', kpOutside, true); kpOutside = null; } }
+  function openKeypad(o) {
+    const d = $('sumDim'); if (!d) return;
+    closeKeypad();
+    let buf = '';
+    const wrap = document.createElement('div');
+    wrap.id = 'sumKpWrap'; wrap.className = 'sum-kp-wrap';
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', o.dec ? '.' : '', '0', '⌫'];
+    let h = '<div class="sum-kp"><div class="kp-n ph">' + o.fmt(o.cur) + '</div><div class="kp-grid">';
+    for (const k of keys) h += k === '' ? '<span class="kp-key blank"></span>' : '<button type="button" class="kp-key" data-k="' + k + '">' + k + '</button>';
+    h += '</div><button type="button" class="kp-done">' + t('完成') + '</button></div>';
+    wrap.innerHTML = h;
+    d.appendChild(wrap);
+    const n = wrap.querySelector('.kp-n');
+    const paint = () => { n.textContent = buf || o.fmt(o.cur); n.classList.toggle('ph', !buf); };
+    const finish = (save) => {
+      closeKeypad();
+      if (!save || !buf) return;
+      const nv = parseFloat(buf);
+      if (Number.isFinite(nv)) o.onCommit(Math.min(o.max, Math.max(o.min, nv)));
+    };
+    kpOutside = (e) => { if (!wrap.contains(e.target)) finish(false); };
+    document.addEventListener('pointerdown', kpOutside, true);
+    wrap.addEventListener('click', (e) => {
+      const b = e.target.closest('.kp-key');
+      if (b) {
+        const k = b.dataset.k;
+        if (k === '⌫') buf = buf.slice(0, -1);
+        else if (k === '.') { if (buf.indexOf('.') < 0) buf += '.'; }
+        else if ((buf + k).length <= (o.dec ? 5 : 3)) buf += k;
+        paint();
+        return;
+      }
+      if (e.target.closest('.kp-done')) finish(true);
+    });
+    paint();
   }
   function bindSumDial(id, fmt, step, min, max, onCommit) {
     const el = $(id); if (!el) return;
@@ -578,13 +618,7 @@
     el.addEventListener('pointerup', () => {
       drag = false;
       if (moved) { onCommit(val); return; }
-      const inp = document.createElement('input');
-      inp.className = 'dv-in'; inp.value = fmt(val);
-      dv.replaceWith(inp); inp.focus(); inp.select();
-      let finished = false;
-      const done = (save) => { if (finished) return; finished = true; if (save) { const nv = parseFloat(inp.value); if (Number.isFinite(nv)) val = Math.min(max, Math.max(min, nv)); } inp.replaceWith(dv); dv.textContent = fmt(val); if (save) onCommit(val); };
-      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') done(true); if (ev.key === 'Escape') done(false); });
-      inp.addEventListener('blur', () => done(true));
+      openKeypad({ dec: step < 1, min, max, fmt, cur: val, onCommit: (nv) => { val = nv; dv.textContent = fmt(val); onCommit(val); } });
     });
   }
   function animateHero(from, to, w0, w1, ms) {
@@ -596,6 +630,7 @@
   }
   function render() {
     if (!model || openId == null) return;
+    closeKeypad();
     const m = model;
     tdsRec(openId).then((tds) => {
       if (openId !== m.runId) return;
@@ -633,7 +668,7 @@
         if (morphFrom != null) { animateHero(morphFrom, lastShown, 700, 800, 240); morphFrom = null; }
         else if (enteredRunId !== openId) { enteredRunId = openId; animateHero(0, lastShown, 600, 700, 400); }
         bindSumDial('sumDialTds', (v) => v.toFixed(2), 0.01, 0, 15, async (v) => { await tdsSave(openId, { tds: v }); render(); });
-        bindSumDial('sumDialGr', (v) => String(Math.round(v)).padStart(3, '0'), 1, 0, 999, async (v) => { await tdsSave(openId, { grind: v }); const el = $('sumDialGr'); if (el) el.classList.remove('idle'); });
+        bindSumDial('sumDialGr', (v) => String(Math.round(v)).padStart(3, '0'), 1, 0, 999, async (v) => { await tdsSave(openId, { grind: v }); if (window.HxControl._attachInput) window.HxControl._attachInput(openId, { grindInput: Math.round(v) }); const el = $('sumDialGr'); if (el) el.classList.remove('idle'); });
       }
       const ga = $('sumAgain');
       if (ga) ga.addEventListener('click', close);
@@ -673,7 +708,7 @@
   }
   function open(runId, m) { if (cdActive) { cdQueued = [runId, m]; return; } doOpen(runId, m); }
   function doOpen(runId, m) { stopCountdown(); simpleConfirmed = false; morphFrom = null; model = m; openId = runId; model.runId = runId; render(); updateTag(); }
-  function close() { stopCountdown(); fetchSeq++; const d = $('sumDim'); if (d) { d.hidden = true; d.innerHTML = ''; } openId = null; }
+  function close() { stopCountdown(); fetchSeq++; closeKeypad(); const d = $('sumDim'); if (d) { d.hidden = true; d.innerHTML = ''; } openId = null; }
   function updateTag() {
     if (!tagEl) return;
     const st = ctrl();
@@ -720,9 +755,7 @@
       tagEl.addEventListener('click', review);
       host.appendChild(tagEl);
     }
-    const d = $('sumDim');
-    if (d) d.addEventListener('click', (e) => { if (e.target === d) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && d && !d.hidden) close(); });
+    // 杯末弹窗只按关闭按钮（✕/再来一杯）关闭；点空白/Esc 不关（用户 11-19）
   }
   window.HxSummary = {
     onCupEnd, onExtracting, review, close, setEnabled, setLevel, onLang, init,

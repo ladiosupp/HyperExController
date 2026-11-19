@@ -366,6 +366,14 @@
     saveArchive();
     return true;
   }
+  // 杯末弹窗用户输入（研磨度格数）落归档记录：只记录不参与计算（用户 11-19）；顶层字段经 cleanSummary 合并/导出保留
+  function attachInput(rid, patch) {
+    const sh = ((archive && archive.shots) || []).find((x) => x && x.runId === rid);
+    if (!sh) return false;
+    Object.assign(sh, patch);
+    saveArchive();
+    return true;
+  }
   function scaleTsSec(v) {
     if (v == null || v === '') return null;
     if (typeof v === 'string') { const n = Number(v); if (Number.isFinite(n)) return scaleTsSec(n); const d = Date.parse(v); return Number.isFinite(d) ? d / 1000 : null; }
@@ -1472,6 +1480,7 @@
     setCurveWidth: function (i) { curveW = CURVE_W[Math.max(0, Math.min(4, i | 0))]; drawCharts(); },
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _attachSummary: attachSummary,
+    _attachInput: attachInput,
     _injectMachine: onMachineSnapshot,
     _injectScale: onScaleSnapshot,
     _samples: function () { return run ? run.samples.slice(-6) : []; },
