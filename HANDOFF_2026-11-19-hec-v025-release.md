@@ -46,5 +46,5 @@
 ## 6. 协作 / 接力
 
 - 统筹：**01a1ef1c-40c3-7490-bcc4-b7043ebc1800**（hostId local；旧 01a1ee1f 作废）；状态真源 HEC_COORDINATOR_STATE.md；完成批回叫（轮名/key 数字/交接 MD/待拍板），纯确认不回叫。
-- **接力对话 ID：待接力第一批回填**（UI8 发版后 create_thread 建，prompt 以本份为起点）。
+- **接力对话 ID：01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c**（UI9「HEC UI9 接力（v0.25 后）」，hostId local；UI8 发版后 create_thread 建，prompt 以本份为起点）。
 - 示意稿 mocks/hec-popup-simple/（v7 锁稿）；取证 review/hec-ui5/（gitignore）。
