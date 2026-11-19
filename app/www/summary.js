@@ -679,6 +679,7 @@
     const st = ctrl();
     tagEl.hidden = !(lastRunId && st.mode === 'control');
     tagEl.textContent = t('本杯总结');
+    tagEl.className = 'curvetag sum lv' + level; // 底色编码颗粒度三档：lv0 蓝／lv1 琥珀／lv2 绿
   }
   async function review() {
     if (!lastRunId) return;
@@ -704,11 +705,11 @@
   }
   function onExtracting() { close(); }
   function setEnabled(v) { enabled = !!v; if (!enabled) { stopCountdown(); fetchSeq++; } updateTag(); }
-  function setLevel(v) { level = clamp(Number(v) || 0, 0, 2); if (openId != null) render(); }
+  function setLevel(v) { level = clamp(Number(v) || 0, 0, 2); if (openId != null) render(); updateTag(); }
   function onLang() { if (openId != null) render(); updateTag(); }
   function init() {
     dbGet('hecShotSummary').then((v) => { enabled = v !== 0; updateTag(); });
-    dbGet('hecShotSummaryLevel').then((v) => { level = Number.isInteger(v) && v >= 0 && v <= 2 ? v : 1; });
+    dbGet('hecShotSummaryLevel').then((v) => { level = Number.isInteger(v) && v >= 0 && v <= 2 ? v : 1; updateTag(); });
     dbGet('hecSumLastRunId').then((v) => { if (v) { lastRunId = v; updateTag(); } });
     const host = document.querySelector('.curvetags');
     if (host) {
