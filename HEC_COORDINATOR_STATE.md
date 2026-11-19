@@ -11,7 +11,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 | 角色 | threadId | 状态 |
 |---|---|---|
-| 统筹（现） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | active |
+| 统筹（退位中） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | 接力退位（后继 01a1f239-4de7-7213-bca0-f947b70c0c1b 已建，待接手同步） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已发（统筹远端核过）／待用户装机测杯 |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 12 完成（2.2.51 验证通过）／待命下一杯 |
 | UI 入口（UI9，接 UI8） | 01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c | v0.25 已发；UI 批用户直管（统筹不派单不接回叫） |
@@ -96,3 +96,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：2.2.52 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=1663e24/tag v2.2.52=4bca7ef；Release 450818275 asset 518062 uploaded；本地 zip SHA256 B7D8B394…7922 一致；851/851）→§2 基线推 2.2.52、§1/§4 闭环；待用户装机测杯核 cutoff 新诊断字段（取证陪杯已通知）；④ 用户直管 UI8。
 - 11-19：APK v0.25 发版回叫＋统筹独立远端核过（ls-remote main=10d8634/tag v0.25=f528168；Release 450832733 asset 6736189 uploaded；本地 APK SHA256 3751E226…B3AA 一致；summary 46/46＋boot 8＋targetline 14）→§2 基线推 v0.25（简单档 v7＋倒计时 5s）；**v0.25 未含评分解析修复 fix1+2+4**（total 仍 null，§4 ⑥ 待批/UI9 直管）；UI8 退位→UI9 01a1f1cd 接 UI 批（§1）。
 - 11-19：用户点名统筹范围（HEC＋插件＋用户交代；UI 有关不回叫统筹，UI9 用户直管）→§5 协议＋AGENTS §1.13；统筹 01a1ef1c 上下文重，写接力交接 MD（HANDOFF_2026-11-19-hec-coordinator-relay-3.md）准备接力。
+- 11-19：用户授权建后继统筹对话→create_thread 建出 01a1f239-4de7-7213-bca0-f947b70c0c1b（hostId local，项目 decent 相关，delegation 指向活文档＋relay-3 交接＋范围口径 UI 不回叫）；01a1ef1c 接力退位，后继接手同步（更 §1/AGENTS §1.8 ID＋通知执行对话除 UI9＋报到）由其首回合执行。
