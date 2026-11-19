@@ -11,7 +11,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 | 角色 | threadId | 状态 |
 |---|---|---|
-| 统筹（现） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | active（11-19 relay-3 接手同步完成） |
+| 统筹（退位中） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | 接力退位（后继 01a1f379-3282-7681-8ec5-86443b43708b 已建，待接手同步） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 交接完成停下（HANDOFF_2026-11-19-D1-6-impl-relay.md，统筹核过） |
 | 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 发版＋资产替换闭环／杯 15 首测完成／晚段评估闭环／2.2.54 发版闭环（统筹远端核过）／待用户装机测杯（reload 冷启动验 O1）／Q2 否平滑度优先维持 |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 14/15 完成（2 杯收敛 HIT，①④已验）／待命下一杯（base 3.9375 验 D2 暖机） |
@@ -143,3 +143,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：O1 实施回叫（aa93338，2.2.54 候选，6 文件）＋统筹独立复核全过：verify_v02254 880/880 复跑 EXIT=0／sim-regression 5/5／__d16-o1-replay 探针复跑（cold 恢复杯 15 feed-forward-k 4.0625/gm HIGH 3.875 后备/flood 7.3125，warm priorUnchanged）／代码抽查（restoreDiagnosticLastFromPersistentFile 4178 调用 4152、完整 fingerprint＋basket＋trustedAdaptiveRun 门、只读）／控制律零改 diff 扫描无命中／技能 §22.3 末补注审过（只加不改）／manifest 2.2.54 descLen 275／README 置顶顺序修／git 父 966e3c7 无 tag 别人 WIP 未碰→§4 O1 改码完成待发版批、§1/§6；**2.2.54 发版批呈用户待批**；发版后测杯 reload 冷启动首杯验 O1（restored＋controlSource＋base≈3.8–4.0），D1/D2 清锚仍待专门杯。
 - 11-19：用户批 2.2.54 发版（「2.2.54 发版」）＋批本地 5 个未推统筹批推送→派实施 01a1f274 全 SOP（tag v2.2.54/push auto-hyperex＋tag VPN 57890/Release/夸克/推平板 zip ls 核字节不代装/回执＋push/回叫 key）；统筹批 8266994/8dc27a1/bfc6410 已随 UI9 v0.30 push 携带至 0444cb4，616087c/783f91b＋本回执直推 origin/main，父仓指针同步随推，两仓 ahead 空；UI9 v0.30 git 证据补记 §2/§1（Release 451147860 双机 30 回归 69+8，统筹未独立远端核）；2.2.54 回执后统筹远端核＋基线推＋通知取证 reload 冷启动首杯验 O1。
 - 11-19：2.2.54 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=812b6bb/tag v2.2.54=aa93338；Release 451186657 asset 767238441 uploaded 534760；本地 zip SHA256 A0440E2C…02A1 复算一致、包内 manifest 2.2.54 descLen 275；平板 ls 534760@18:27 mDNS；包内 880/880）→§2 基线推 2.2.54（O1 估计载体暖机、控制律零改、§22.13 维持）、§1/§4 闭环；待用户 Decaid 自装 reload 冷启动首杯验 O1（restored＋controlSource＋base≈3.8–4.0）＋暖机对照，取证陪杯已通知；D1/D2 清锚/D3 大缺口场景杯仍待用户配合；APK 同步债 O1＋D1–D4 合并 hec 里程碑。
+- 11-19：统筹 01a1f239 上下文重，用户指示接力（「你自己写接力对话了，你很长了」）→写 relay-4 自包含交接（HANDOFF_2026-11-19-hec-coordinator-relay-4.md，未跟踪）＋create_thread 建后继 01a1f379-3282-7681-8ec5-86443b43708b（delegation 指活文档＋relay-4＋范围口径 UI 不回叫）；§1 退位中；后继接手同步（AGENTS §1.8 ID＋§1 现＋回叫转移通知 6 对话除 UI9＋报到）由其首回合执行；本地未推 af322dc＋本批 push 待用户批。
