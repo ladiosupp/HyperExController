@@ -11,7 +11,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 | 角色 | threadId | 状态 |
 |---|---|---|
-| 统筹（现） | 01a1f379-3282-7681-8ec5-86443b43708b | relay-4 接手同步完成（11-19；旧 01a1f239 退位，回叫转移已通知） |
+| 统筹（退位中） | 01a1f379-3282-7681-8ec5-86443b43708b | 接力退位（后继 01a1f631-b436-7a20-b951-76d8d16b3a52 已建，待接手同步） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 交接完成停下（HANDOFF_2026-11-19-D1-6-impl-relay.md，统筹核过） |
 | 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 发版＋资产替换闭环／杯 15 首测完成／晚段评估闭环／2.2.54 发版闭环／待用户装机测杯／杯 16 d 路径评估完成（统筹复跑核过）／2.2.55=Va+Vb3+Vd15 发版闭环（aca12a0/19f43c3，统筹远端核过，平板 ls 取证补核✓）／杯 17 合并验完成（O1/Va/Vb3✓ Vd15 零误触）／估计质量两素材只读评估批在途（FF k 偏低＋observed-tail 短 S2 门）／Q2 否平滑度优先维持 |
 | 取证接力（陪杯/导出） | 01a1f3dc-bbc7-7f81-b217-d60602ffb352 | 杯 19 完成＋子形 B 归类更正执行（通道事件 B 接受；少杯收敛达成 tail 3.97% cv 0.54 最佳＋hit-anchor，observed-tail 首次消费✓，Vb3 二次触发✓）／待命下一杯（base 3.5625 adaptive、autoApply ON、mode full）；通道准则即日生效（子形 A uneven＋子形 B even-puck 用户已批系数 1.1、tail 带 coast 8%）／杯 17 标记排除完成／平板 zip 542182 补核✓ |
@@ -21,7 +21,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
-退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c / 01a1f239；旧取证 01a1e685／01a1eec0（接力 1）；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）；UI9 01a1f1cd（v0.29 后接力 UI10）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
+退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c / 01a1f239 / 01a1f379（relay-5→01a1f631）；旧取证 01a1e685／01a1eec0（接力 1）；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）；UI9 01a1f1cd（v0.29 后接力 UI10）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
 
 ## 2 基线（统筹远端核过）
 
@@ -189,3 +189,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-20：取证杯 19 回执回叫（1795130086821-3 @07:14，base 3.8125 干粉正常操作）＋统筹独立复跑核过（__relay-cup19-verify/deep/gate3：红线全 PASS sent 0 全 23 杯 audit []；峰 53.2% 破线 raw 7.658 签名 3/4＝正常操作首个 even-puck 突破样本（杯17 同形态重跑）；tail +3.97% cv 0.54 全杯最佳＋hit-anchor；学习 g3 r→1.4659 HIGH observedR1.398 base→3.5625，干粉 r 稳 1.398–1.4134 3.5625×1.398≈5 少杯收敛达成；regime g2→g3 首杯 NEAR 注记固有代价；observed-tail 首次消费 sourceRunIds=[杯18] gate3 onset 修剪 fresh24/24=1.0 门分歧解决（gatecmp 0.76 未修剪近似）；Va r2×8 全拒零污染；Vb3 二次触发 instCross5.814；Vd15 正确未触发）→§3 杯 19 裁决（适应＋少杯收敛达成、峰破线旗标保持子形 B 待裁、无逻辑问题）；子形 B 重新呈批（正常样本已到，统筹推荐加＋系数暂定 1.15 偏紧实证）；observed-tail 门分歧解决落 §4；快笔台账积 7；下一杯 base 3.5625（3.8125 系杯 19 前旧态更正）；§1/§3/§4/§8。
 - 11-20：用户批通道子形 B（「加子形 B；安全系数保持 1.1」）→even-puck 延迟润湿突破纳入通道接受准则子形 B（签名平重≥1s＋dw 尖峰≥1.1×target＋存水≥8ml＋grindAdvice≠uneven；峰≤泵最大×1.1 用户保持 1.1（统筹原推荐 1.15 未采，余量 0.3–0.5% 偏紧注记攒样本标定）＋tail coast 8%＋分类计数）；杯 19 按子形 B 归类通道事件接受（峰 7.658≤7.7 tail 3.97%✓，取证更正 §20 旗标转通道事件）；正常杯 40% 不动、重跑杯独立异常类别（杯17）不混；AGENTS §1.14 两子形（A uneven/B even-puck）落规矩；§1/§3/§4/§8。
 - 11-20：取证 §20 更正执行回执（子形 B 用户批已执行）：杯 19 改归类通道事件子形 B 接受（B 签名 4/4 平重 2.13s/尖峰 12.77/存水 14.9ml/flow-high≠uneven，峰 7.658≤7.7✓ tail +3.97% coast✓），设计目的裁决不变；计数通道 A 1（杯16 tail +12.09% coast 带外注记＝tail 条件标定素材，pre-Vd15 热尾）/B 1（杯19）/重跑异常 1（杯17）；取证交接 §3 准则更两子形；此后逐杯两子形旗标阈值攒样本标定；下一杯 base 3.5625 待命 pre-cup 先捕；§1/§4/§8。
+- 11-20：统筹 01a1f379 上下文重，用户指示接力（「本地7个推，你自己写交接，建统筹接力对话」）→写 relay-5 自包含交接（HANDOFF_2026-11-20-hec-coordinator-relay-5.md，未跟踪）＋create_thread 建后继 01a1f631-b436-7a20-b951-76d8d16b3a52（delegation 指活文档＋relay-5＋范围口径 UI 不回叫）；§1 退位中；后继接手同步（AGENTS §1.8 ID＋§1 现＋回叫转移通知 6 对话除 UI10＋报到）由其首回合执行；本地未推 8 批＋本接力批用户批推送随批上远端。
