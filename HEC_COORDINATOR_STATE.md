@@ -40,7 +40,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 - 在途：插件接力 01a1ee30 **A 修复批进行中**（用户 11-19 授权选项 1+2：读取侧成熟度门＋baseBand 路由；升 2.2.51＋新 verify＋回归＋杯 6–11 回放；改码不发版，发版另问）。核码 MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md。取证接力杯 11 完成、待命下一杯；研磨调粗已用户确认（grinderSetting 字段未同步；调粗几格取证侧已问、可选记工况表）。出杯前复冒烟照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）；秤休眠须唤醒复测才放行；autoApply ON 不再拦放行。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。两仓 origin ahead 空（统筹批随 UI8 push 上远端）。
-- 待拍板：**发版**（A 代码完成＋验证全绿后问用户：2.2.51 Release＋夸克＋推平板 Download/，用户自装→叫用户测杯 12，取证接力陪杯）；**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）。已拍板：A=1+2 先行（用户 11-19「修复按默认排，A 完成以后叫我测杯」）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
+- 待拍板：**发版**（A 代码完成＋验证全绿后问用户：2.2.51 Release＋夸克＋推平板 Download/，用户自装→叫用户测杯 12，取证接力陪杯）；**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）；**③ 诊断页 S2/S1 无「算法学习/ADAPTIVE」选项**（用户 11-19 发现，统筹核码证实：stageTestRow 只给 keep〔仅已 adaptive/retained 时〕/ORIGINAL/LUT/MANUAL；save handler mode=auto→origin=original、manual→origin=manual，无直选 adaptive 路径，adaptive 仅 autoApply 写出。manual 后回学习只有间接路：选 ORIGINAL/LUT 清锚→下一杯 autoApply 学回 adaptive；autoApply OFF 则断。与「稳定后回 auto 主流」意图相悖。修复＝S1/S2 下拉加 ADAPTIVE 选项〔清 manual＋立即应用最新合格学习建议，无则清锚 armed 学习〕，插件侧 UI〔plugin.js stageTestRow＋save handler〕，待用户批，独立小批或随 A 同发 2.2.51）。已拍板：A=1+2 先行（用户 11-19「修复按默认排，A 完成以后叫我测杯」）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
 - 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选；**插件算法→APK 移植版同步**（用户 11-19 点名）：full→hec 切换时做一次，同步债＝A 批 2.2.51 平台律（读取侧成熟度门＋baseBand 路由）＋后续插件批，hec 切换批一并移植（AGENTS §1.12）。
 
 ## 5 回叫与接力协议
@@ -76,3 +76,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户授权 A=选项 1+2 先行（「修复按默认排，A 完成以后叫我测杯」）→派插件接力修复批（升 2.2.51，改码不发版、发版另问）；B 回放后另批、杯 12 先修后验、改名另批按默认。
 - 11-19：UI8 v0.24 四批合发回叫落档（用户直管全链；Release 450739200／asset 765634999／夸克 3d836dc0／子模块 85f8964／父 ff7ea13 已推，统筹批随 push 上远端；§2 基线推 v0.24、§1/§4 UI8 闭环）。
 - 11-19：用户点名常设规矩——插件算法改动须同步 APK 移植版，时机＝full→hec 切换做一次；落 AGENTS §1.12＋活文档 §4/§5，A 批平台律记入同步债，派单补充令插件交接标注 APK 移植同步点。
+- 11-19：用户发现诊断页 S2 没法选回算法学习→统筹核码证实（stageTestRow 无 ADAPTIVE 选项，mode=auto→origin=original，manual→adaptive 仅 autoApply 间接路、OFF 则断）；记 §4 待拍板 ③，修复待用户批（插件侧 UI，独立小批或随 A 同发）。
