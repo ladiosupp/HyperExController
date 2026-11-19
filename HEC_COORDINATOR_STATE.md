@@ -12,7 +12,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 角色 | threadId | 状态 |
 |---|---|---|
 | 统筹（现） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | active |
-| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.51 已发；2.2.52 发版进行中（用户授权全 SOP，4bca7ef） |
+| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已发（统筹远端核过）／待用户装机测杯 |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 12 完成（2.2.51 验证通过）／待命下一杯 |
 | UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | v0.24 已发；弹窗批 ④ v0.25 用户直管（示意图 v3＋评分修复，统筹不派单） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
@@ -24,7 +24,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 ## 2 基线（统筹远端核过）
 
-- 插件 **2.2.51**（A 平台路由加固＋③ 诊断页回学习入口，用户授权合并发，11-19；统筹远端独立核过 ls-remote/Release API/zip SHA256）：代码 a07dc30＋回执 07159d9（branch auto-hyperex，自 e734f1e 快进），tag v2.2.51=a07dc30；Release 450771204／asset RA_kwDOVO5zXc4tpLJQ（state uploaded）；zip 516564 B SHA256 87A471D53B8D2CE3D29C6611FBD2729C82DDF1FA1B17919575839FE9E7F83A34（本地 release/ zip 复算一致）；夸克 dbd3d84950124c479e76f81b4bd1f3ca；平板 Download/ 已推 ls 核 516564（09:37 mDNS）、**用户 Decaid 自装**。verify_v02251 846/846（837 基线＋A6＋③3）；闭环＋污染 immature 带行注入峰≤40%/rise≤1.5s/maxCmd≥7/两段 complete。杯 6–12 决策级回放平台 before→after：杯8 4.375→4.25（门）/杯10 4.3125→4.125（路由）/杯11 5.25→3.875（精确复现旧律 gain0.9524/flood8 并修掉）/杯12 预测 4.375→4.125（降温）；杯6/7/9 不变。A① 消费端成熟度门（bandN<3/provisional→overall r，local 不受压）② 选行带改 baseBand（effectiveBand 降诊断、删 stage 级陈旧带回退）③ S1/S2 加 ADAPTIVE 选项 mode=adaptive 立即应用最新合格学习值/无则清锚。§22.11/§22.18 不动。交接 decenthyperexplugin.reaplugin/HANDOFF_v02251.md（§5 APK 移植同步点）。前版 2.2.50（930ce25/e734f1e，Release 449845323，837/837）。
+- 插件 **2.2.52**（⑤ 非控制律小批：c cutoff 诊断字段加固＋§22.18 近似界文案＋③ 编辑 UX 歧义修，用户授权发，11-19；统筹远端独立核过 ls-remote/Release API/zip SHA256）：代码 4bca7ef＋回执 1663e24（branch auto-hyperex，自 07159d9 快进），tag v2.2.52=4bca7ef；Release 450818275／asset RA_kwDOVO5zXc4tp4Ch（uploaded）；zip 518062 B SHA256 B7D8B394FE935E0AF92FE8FF2678DCC222BFD549430EAD486F7D5312D5147922（本地 release/ zip 复算一致）；夸克 6410d17dccdd472ab942abdd3ba6578b；平板 Download/ 已推 ls 核 518062（10:49 mDNS）、**用户 Decaid 自装**。verify_v02252 851/851（846 基线＋5）。(c) cutoff 加 estHistory 快照(slope/stamp/r2)/margin=rawGS−backstop/firingTickMs/firingObservedGS＋refill check 斜率序列（rawGS/predictedGS/predictedCappedGS/accelGS2/backstopGS/startupStatus，补 tick 时序取证缺口，additive）；③ 按钮 APPLY SELECTED MODES & COMMANDS/应用所选模式与指令＋ADAPTIVE 输入置灰＋adaptiveModePreview 草稿预览（学习值或清回 LUT），test-command-set adaptive 语义不动；§22.18 补近似界注。控制律/记忆/灌水律/LUT/硬包线/单一写者/两段收口/manual 锚全不动。交接 HANDOFF_v02252.md（§4 APK 同步：c 诊断 shadow 可镜像、③ UX 不复用，无新增控制律同步项）。前版 2.2.51（a07dc30/07159d9，Release 450771204，846/846，A 平台路由＋③ 回学习入口，杯 12 验证通过）。
 - APK **v0.24**（UI8 四批合发，用户已批全链，11-19）：沉浸全屏 immersive sticky＋去 HX 侧栏指令卡 hecBox（接管提示保留）＋控制中心样式 1/2 拆 HX/非HX 独立存盘（hecChartStyleByType、旧键迁移）＋杯末总结全屏 3s 倒计时/去控制分大数字（小字行保留控制/TDS/加权）。tag v0.24=5167bb0；Release 450739200／asset 765634999；APK 6,732,561 B SHA256 2824AFEFA7DC756E600108555BD99B3BAFE8A84378747FF4FC864315210FCBCC（本地 app-debug.apk 字节数与 asset 一致）；夸克 3d836dc013fb4326b80f60ed43f611a6；平板＋模拟器 versionCode 24 冒烟过；回归 summary 35/35＋拆分 6/6＋m10 20/20＋targetline 14/14＋flowcard 6/6＋boot 8/8。子模块 main **85f8964**（v0.24 交接；commits 0020b1d/e924d8b/148d519/5167bb0/85f8964）；父仓 main **ff7ea13**（指针同步 85f8964）。交接 HANDOFF_2026-11-19-hec-v024-release.md。规矩 251 行／155 条。
 - 两仓 origin ahead 空（11-19 UI8 v0.24 全链 push 后本地核：子模块 origin/main=85f8964、父仓=ff7ea13；统筹批 b48ee50…715279d 随 UI8 main 推送一并上远端，统筹未单独 push）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2，Release 450011833）、v0.24=四批合发。
 
@@ -40,10 +40,10 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 ## 4 在途与待拍板
 
-- 在途：插件接力 01a1ee30 **2.2.52 发版进行中**（用户 11-19「2.2.52发版吧」授权全 SOP：tag v2.2.52=4bca7ef/Release/夸克/推平板 Download/，verify 851/851 统筹核过；发完统筹远端核→叫用户装机测杯核 cutoff 新诊断字段 estHistory/margin/firingTickMs/firingObservedGS＋refill check 斜率序列）。2.2.51 已发＋杯 12 验证＋观察核码闭环（杯 13 平台 3.875）。B/改名/backstop 控制律加固另批。
+- 在途：插件接力 01a1ee30 **2.2.52 已发版闭环**（⑤ 非控制律小批，统筹远端独立核过；平板 Download/ 已推、用户 Decaid 自装→测杯核 cutoff 新诊断字段 estHistory/margin/firingTickMs/firingObservedGS＋refill check 斜率序列，取证陪杯；杯 13 平台预测 3.875 gain-memory g2 base 带成熟）。B（选项 3 FF k）/改名/backstop 控制律加固另批。
 - 在途（弹窗）：杯末弹窗评估 01a1ebd1 **排查完成，根因统筹复跑证实**（__sum-eval-diag.js：phases 是数组、现状解析 total=null/修正 total=85；strict TypeError 复现；portModel 真数据杯8=31/杯9=70/杯10=82/杯11=48；APK 直写归档无 commands＋trace 无分类→port=null；persisted null 遮蔽 port；回归 GOOD_DIAG 镜像断言 35/35 绿真机恒 null 违 §3.13）。**根因＝summary.js collect 把 controlReview.phases 数组当对象索引**（非缺数据）。零插件改动修复 fix1（collect 数组 find＋writes 映射＋trace 分类＋startedAt ~25 行）/fix2（persisted.total==null fall through port ~6 行）/fix3 可选（control.js archiveRun 补 commands 快照 ~8 行）/fix4（回归 mock 真形状＋真数据交叉＋在线 total≠null 断言 ~30 行）。MD HANDOFF_2026-11-19-hec-popup-score-eval.md。**UI8 简单档示意图 v3 待用户审**（popup-simple-v3.png；用户直管迭代 v1→v2→v3：hero 128px、简单档去下一杯 S2 提示〔标准/完整保留建议表〕、顶栏仅标题+✕、TDS％+确认重算与研磨度录入移评分左侧〔仅 TDS 触发重算/研磨度只记录〕、研磨建议右列、再来一杯居中短按钮；实现只 www summary.js＋index.html CSS、研磨度 hecShotTds 同款、不需 control.js 钩子）。修复＋重构待用户批并入 UI8 v0.25 批。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。两仓 origin ahead 空（统筹批随 UI8 push 上远端）。
-- 待拍板：**B＝选项 3 FF k 入平台**（另批）；**改名** holdingReference.sourceRunId（另批）；backstop 控制律加固（提前量/密检）留待破 40% 另批。已拍板闭环：A=1+2＋③ 合并发 2.2.51（杯 12 验证通过）；**⑤ 2.2.52 发版授权**（用户「2.2.52发版吧」，全 SOP 进行中）；**④ APK 弹窗批 v0.25 用户直管 UI8**（用户「apk的我在它那边告诉它」，统筹不派单；评分修复 fix1+2+4＋fix3／简单档 v3／TDS 确认重算／研磨度，弹窗评估 HANDOFF_2026-11-19-hec-popup-score-eval.md 供 UI8 参考）；杯 12 观察①冷启动预期不动；杯 13 先验（平台 3.875）；① manual 不延伸；选项 4 不做、原 D 已否；历史杯分数三期。
+- 待拍板：**B＝选项 3 FF k 入平台**（另批）；**改名** holdingReference.sourceRunId（另批）；backstop 控制律加固（提前量/密检）留待破 40% 另批。已拍板闭环：A=1+2＋③ 合并发 2.2.51（杯 12 验证通过）；**⑤ 2.2.52 已发**（c 诊断＋§22.18 文案＋③ UX，统筹远端核过，待用户装机测杯核诊断字段）；**④ APK 弹窗批 v0.25 用户直管 UI8**（统筹不派单，弹窗评估 HANDOFF_2026-11-19-hec-popup-score-eval.md 供参考）；杯 12 观察①冷启动预期不动；杯 13 先验（平台 3.875）；① manual 不延伸；选项 4 不做、原 D 已否；历史杯分数三期。
 - 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选；**插件算法→APK 移植版同步**（用户 11-19 点名）：full→hec 切换时做一次，同步债＝A 平台律（gain-memory band 记忆＋baseBand 路由＋成熟度门，APK shadow/arbiter 当前无对应物＝hec 切换需新增移植，HANDOFF_v02251 §5）＋③ 清 manual 入口（APK 走 external-flow 不复用 test-command-set，hec 若需按③语义新增）＋后续插件批，full→hec 里程碑一并移植（AGENTS §1.12）。
 
 ## 5 回叫与接力协议
@@ -92,3 +92,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户批 ⑤ 插件小批（「派插件接力做」）→派插件接力改码（c cutoff 诊断字段加固＋§22.18 近似界文案＋③ UX 应用按钮歧义修，2.2.52 候选，改码不发版、发版另问）；§1/§4 状态。
 - 11-19：⑤ 小批改码完成＋统筹独立核过（4bca7ef 本地未推/无 tag、6 文件 plugin.js 18 行非控制律、verify_v02252 851/851 复跑通过、§22.18 近似界文案补、③ UX 按钮改名＋ADAPTIVE 置灰预览）；2.2.52 发版待用户批（§4）。
 - 11-19：用户批 2.2.52 发版（「2.2.52发版吧」）→派插件接力全 SOP（tag/Release/夸克/推平板）；APK 弹窗批 ④ v0.25 用户直管 UI8（「apk的我在它那边告诉它」，统筹不派单，弹窗评估 MD 供参考）；§1/§4 状态。
+- 11-19：2.2.52 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=1663e24/tag v2.2.52=4bca7ef；Release 450818275 asset 518062 uploaded；本地 zip SHA256 B7D8B394…7922 一致；851/851）→§2 基线推 2.2.52、§1/§4 闭环；待用户装机测杯核 cutoff 新诊断字段（取证陪杯已通知）；④ 用户直管 UI8。
