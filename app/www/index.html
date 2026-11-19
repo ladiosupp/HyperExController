@@ -215,26 +215,50 @@ h1{cursor:pointer}
 .lrn-dec .cmd{flex:1;text-align:right;color:#aab2bf}
 /* ---- 杯末总结弹窗（示意稿 hec-shot-summary 定稿 2026-11-18）---- */
 .scoreline{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sum-modal .lrn-body{display:flex;flex-direction:column;overflow:hidden;padding:14px 18px 16px;flex:1;min-height:0}
 .sum-simple{display:flex;flex-direction:column;gap:14px;height:100%}
 .sum-hero-row{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch;flex:1}
-.sum-inputs{display:flex;flex-direction:column;gap:12px;justify-content:center;align-items:flex-start;padding:10px 12px;min-width:0}
-.sum-input{display:flex;align-items:center;gap:10px}
-.sum-input .lbl{font-size:11.5px;color:#8b93a1;white-space:nowrap}
-.sum-recalc{border:1px solid #e8833a;color:#f5c078;background:rgba(232,131,58,.12);border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;white-space:nowrap}
-.sum-recalc.off,.sum-recalc:disabled{opacity:.4;border-color:#333a44;color:#8b93a1;background:none}
-.sum-side{background:none;border:0;padding:10px 12px;display:flex;flex-direction:column;gap:5px;justify-content:center;min-width:0}
+.sum-stages{display:grid;grid-template-rows:repeat(3,24px);gap:8px;align-content:center;padding:10px 12px;min-width:0}
+.strow{display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(6px);animation:rowin .3s ease-out forwards}
+.strow .k{font-size:11.5px;color:#8b93a1;font-weight:700;width:22px;flex:none}
+.strow .err{font-size:11px;color:#76828D;font-family:'SF Mono',Menlo,Consolas,ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.sum-stages .strow:nth-child(1){animation-delay:.06s}
+.sum-stages .strow:nth-child(2){animation-delay:.12s}
+.sum-stages .strow:nth-child(3){animation-delay:.18s}
+.sum-side{background:none;border:0;padding:10px 12px;display:grid;grid-template-rows:repeat(3,24px);gap:8px;align-content:center;min-width:0}
+.sum-side>*{opacity:0;transform:translateY(6px);animation:rowin .3s ease-out forwards}
+.sum-side>*:nth-child(1){animation-delay:.06s}
+.sum-side>*:nth-child(2){animation-delay:.12s}
+.sum-side>*:nth-child(3){animation-delay:.18s}
 .sum-side.right{text-align:right}
-.sum-side .k{font-size:11px;color:#8b93a1;letter-spacing:.04em}
-.sum-side .v{font-size:13.5px;font-weight:700;color:#e8eaee;font-variant-numeric:tabular-nums}
-.sum-side .s{font-size:11px;color:#6b7380}
-.sum-hero{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:6px 30px}
-.sum-dial{position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center;flex:none}
-.sumarc{position:absolute;inset:0;width:100%;height:100%}
-.sum-hero .n{position:relative;font-family:'Orbitron','Segoe UI',ui-monospace,monospace;font-size:128px;font-weight:700;line-height:1}
-.sum-hero .n.good{color:#8fe0b0}.sum-hero .n.warn{color:#f5c078}.sum-hero .n.bad{color:#f2a0aa}.sum-hero .n.mute{color:#8b93a1}
-.sum-hero .lb{position:relative;font-size:12.5px;color:#aab2bf;font-weight:700;display:flex;align-items:center;gap:8px}
-.sum-hero .meta{position:relative;font-size:11px;color:#6b7380;font-variant-numeric:tabular-nums}
+.sum-side .k{font-size:11px;color:#8b93a1;letter-spacing:.04em;display:flex;align-items:center;justify-content:flex-end}
+.sum-side .v{font-size:13.5px;font-weight:700;color:#e8eaee;display:flex;align-items:center;justify-content:flex-end}
+.sum-side .s{font-size:11px;color:#6b7380;display:flex;align-items:center;justify-content:flex-end}
+.sum-hero{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:6px 30px}
+.sum-hero .n{font-family:var(--tech);font-size:192px;font-weight:600;line-height:1}
+.sum-hero .n.good{color:#8fe0b0;text-shadow:0 0 32px rgba(143,224,176,.28)}
+.sum-hero .n.warn{color:#f5c078;text-shadow:0 0 32px rgba(245,192,120,.28)}
+.sum-hero .n.bad{color:#f2a0aa;text-shadow:0 0 32px rgba(242,160,170,.28)}
+.sum-hero .n.mute{color:#8b93a1}
+.sum-hero .lb{font-size:12.5px;color:#aab2bf;font-weight:700;display:flex;align-items:center;gap:8px}
+.sum-hero .meta{font-size:11px;color:#6b7380;font-variant-numeric:tabular-nums}
+.sum-inputrow{display:flex;align-items:center;gap:10px;justify-content:center;flex:none}
+.sum-inputrow .lbl{font-size:11.5px;color:#8b93a1;white-space:nowrap;font-family:'Orbitron','Microsoft YaHei',-apple-system,sans-serif;letter-spacing:.04em}
+.sum-inputrow .gap{width:22px}
+.sum-dialfield{display:flex;align-items:center;gap:10px}
+.sum-dial{min-width:86px;text-align:left;cursor:ns-resize;touch-action:none;padding:2px 6px;border-radius:8px;transition:background .12s;white-space:nowrap}
+.sum-dial:active{background:#222732}
+.sum-dial.idle{opacity:.55}
+.sum-dial .dv{display:inline-block;font-family:var(--tech);font-weight:700;font-size:26px;line-height:1.15;color:#dceaff;font-variant-numeric:tabular-nums;letter-spacing:.02em;text-shadow:0 0 12px rgba(110,168,254,.35)}
+.sum-dial .dv.bump{animation:dvbump .18s ease-out}
+@keyframes dvbump{0%{transform:scale(1.12)}100%{transform:scale(1)}}
+.dv-in{width:110px;background:#0e1116;border:1px solid #33507e;border-radius:8px;color:#dceaff;font-family:var(--tech);font-weight:700;font-size:26px;padding:2px 6px;outline:none}
+.sum-recalc{border:1px solid #33507e;color:#9cc0ff;background:rgba(110,168,254,.12);border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.sum-recalc.off,.sum-recalc:disabled{opacity:.4;border-color:#333a44;color:#8b93a1;background:none}
 .sum-again{align-self:center;width:auto;border-radius:10px;padding:11px 64px;font-size:14px;font-weight:700;background:#e8833a;color:#1a1208;text-align:center;border:0;flex:none}
+@keyframes rowin{to{opacity:1;transform:none}}
+.lrn-modal.no-anim .strow,.lrn-modal.no-anim .sum-side>*{animation:none;opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){.strow,.sum-side>*{animation:none;opacity:1;transform:none}}
 #sumCount[hidden]{display:none}
 .sumcount{position:relative;width:220px;height:220px;display:flex;align-items:center;justify-content:center}
 .sumcount svg{position:absolute;inset:0;transform:rotate(-90deg)}
