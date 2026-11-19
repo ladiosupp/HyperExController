@@ -81,8 +81,10 @@ function applyLang() {
 
 // ---- IndexedDB ----
 let db = null;
+let dbReady = null; // 记忆化：summary.js 等 init 在 boot await openDb() 之前就 dbGet，必须等开库完成，否则落默认值
 function openDb() {
-  return new Promise((resolve, reject) => {
+  if (dbReady) return dbReady;
+  dbReady = new Promise((resolve, reject) => {
     const req = indexedDB.open('hx-replay', 2);
     req.onupgradeneeded = () => {
       const d = req.result;
@@ -93,62 +95,63 @@ function openDb() {
     req.onsuccess = () => { db = req.result; resolve(); };
     req.onerror = () => reject(req.error);
   });
+  return dbReady;
 }
 function dbGet(key) {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const tx = db.transaction('kv', 'readonly').objectStore('kv').get(key);
     tx.onsuccess = () => resolve(tx.result);
     tx.onerror = () => reject(tx.error);
-  });
+  }));
 }
 function dbSet(key, val) {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const tx = db.transaction('kv', 'readwrite');
     tx.objectStore('kv').put(val, key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-  });
+  }));
 }
 // HEC 影子 per-cup 存储助手（修复批1 M1；shadow.js 经 window.dbCup* 调用，旧沙箱无此助手时回退 kv 路径）。
 function dbCupPut(rec) {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const tx = db.transaction('hecShadowCups', 'readwrite');
     tx.objectStore('hecShadowCups').put(rec);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-  });
+  }));
 }
 function dbCupAll() {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 function dbCupKeys() {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').getAllKeys();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 function dbCupDel(runId) {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const tx = db.transaction('hecShadowCups', 'readwrite');
     tx.objectStore('hecShadowCups').delete(runId);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-  });
+  }));
 }
 function dbCupGet(runId) {
-  return new Promise((resolve, reject) => {
+  return openDb().then(() => new Promise((resolve, reject) => {
     const req = db.transaction('hecShadowCups', 'readonly').objectStore('hecShadowCups').get(runId);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 
 let archive = null;
