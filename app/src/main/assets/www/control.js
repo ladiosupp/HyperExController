@@ -110,7 +110,8 @@
   let favs = [null, null, null, null, null, null];   // 常用曲线位（存本机 hecFavCurves，按标题）
   let sideCollapsed = false;
   let sideAutoHide = true;      // 侧栏自动隐藏（控制中心·UI 设置，默认开）
-  let chartStyle = 1;           // 实时曲线样式（控制中心·UI 设置，默认 1；2=合并图）
+  let chartStyle = 1;           // 生效样式（随当前曲线类型；2=合并图）
+  let styleByType = { hx: 1, non: 1 }; // HX/非HX 各自选样式 1/2（用户 2026-11-19），存 hecChartStyleByType
   const seriesOff = new Set();  // 样式 2 图例点击隐藏的曲线（仅内存，不存盘）
   let autoExpandTimer = 0;
   let curves = [];                 // {id,title,hx,profile}
@@ -673,6 +674,7 @@
     $('connLb').textContent = baseUrl ? baseUrl.replace(/^https?:\/\//, '') : '—';
   }
   function renderCurveBtn() {
+    syncChartStyle();
     const lb = $('curveLb'), tag = $('curveTag');
     if (!lb) return;
     const title = (liveProfile && liveProfile.title) || (selectedCurve && selectedCurve.title) || t('无曲线');
@@ -1112,6 +1114,7 @@
     if (hx) vecArrows(ctx, checks.filter((ck) => (ck.dc >= 0 ? on('vec') : on('vecdn'))), pL, w, h, xMax, 0, 10);
     if (run) nowLine(ctx, w, h, pL, xMax, runT());
   }
+  function syncChartStyle() { const v = isHxSelected() ? styleByType.hx : styleByType.non; if (v !== chartStyle) { chartStyle = v; applyChartStyle(); } }
   function applyChartStyle() {
     const merge = chartStyle === 2;
     $('boxFlow').hidden = merge;
@@ -1409,7 +1412,7 @@
       try { const sf = await dbGet('hecFavCurves'); if (Array.isArray(sf)) favs = sf.slice(0, 6).concat([null, null, null, null, null, null]).slice(0, 6); } catch (_) {}
       try { sideCollapsed = (await dbGet('hecSideCollapsed')) === 1; } catch (_) {}
       try { sideAutoHide = (await dbGet('hecSideAutoHide')) !== 0; } catch (_) {}
-      try { chartStyle = (await dbGet('hecChartStyle')) === 2 ? 2 : 1; } catch (_) {}
+      try { const bt = await dbGet('hecChartStyleByType'); if (bt && (bt.hx === 1 || bt.hx === 2) && (bt.non === 1 || bt.non === 2)) styleByType = { hx: bt.hx, non: bt.non }; else { const old = (await dbGet('hecChartStyle')) === 2 ? 2 : 1; styleByType = { hx: old, non: old }; } chartStyle = isHxSelected() ? styleByType.hx : styleByType.non; } catch (_) {}
       try { const cw = await dbGet('hecCurveWidth'); curveW = CURVE_W[Number.isInteger(cw) && cw >= 0 && cw <= 4 ? cw : 2]; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
@@ -1463,7 +1466,9 @@
       if (st && st.ok && st.state) { machineStateStr = st.state; if (mode === 'control') renderHeaderState(); }
     },
     setSideAutoHide: function (v) { sideAutoHide = !!v; if (!sideAutoHide) { clearTimeout(autoExpandTimer); autoExpandTimer = 0; } },
-    setChartStyle: function (v) { chartStyle = v === 2 ? 2 : 1; applyChartStyle(); drawCharts(); },
+    setChartStyle: function (v) { window.HxControl.setChartStyleFor(isHxSelected() ? 'hx' : 'non', v); },
+    setChartStyleFor: function (k, v) { styleByType[k === 'hx' ? 'hx' : 'non'] = v === 2 ? 2 : 1; try { dbSet('hecChartStyleByType', styleByType); } catch (_) {} syncChartStyle(); applyChartStyle(); drawCharts(); },
+    getChartStyles: function () { return { hx: styleByType.hx, non: styleByType.non }; },
     setCurveWidth: function (i) { curveW = CURVE_W[Math.max(0, Math.min(4, i | 0))]; drawCharts(); },
     // 供联调/回归脚本注入快照（模拟器无真机时）
     _attachSummary: attachSummary,
