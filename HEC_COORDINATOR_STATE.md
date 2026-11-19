@@ -16,7 +16,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 11 完成／待命下一杯 |
 | UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | v0.24 已发（用户直管全链） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
-| 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | idle |
+| 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 派单（评分排查＋TDS 重算按钮需求，只读） |
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
@@ -39,8 +39,9 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 ## 4 在途与待拍板
 
 - 在途：插件接力 01a1ee30 **A＋③ 合并修复批进行中**（用户 11-19 授权合并发 2.2.51：A＝读取侧成熟度门＋baseBand 路由；③＝S1/S2 下拉加 ADAPTIVE 选项、立即应用最新合格学习值；verify_v02251 覆盖两者＋回归＋杯 6–11 回放；**发版全 SOP 已授权**〔Release＋夸克＋推平板 zip，用户自装〕，发完叫用户测杯 12）。核码 MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md。取证接力杯 11 完成、待命下一杯；研磨调粗已用户确认（grinderSetting 字段未同步；调粗几格取证侧已问、可选记工况表）。出杯前复冒烟照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）；秤休眠须唤醒复测才放行；autoApply ON 不再拦放行。
+- 在途（弹窗）：杯末弹窗评估 01a1ebd1 **只读排查已派**（用户反馈总「缺数据不评分」：summary.js total=null 根因＋能打分条件清单；＋TDS 确认重算按钮方案〔现 change 自动重算无按钮〕）。统筹已定位锚点：scoreSec(~400)/四路源 collect online·portModel·compactModel·persisted/stageQuality 门(~130-167)/TDS change→tdsSave＋render(~549)。修复待批（可能 UI8 弹窗批，或牵涉 control.js 杯末持久化钩子/插件 /diagnostics 就绪时机）。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。两仓 origin ahead 空（统筹批随 UI8 push 上远端）。
-- 待拍板：**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）。已拍板：A=1+2＋③ 诊断页 ADAPTIVE 选项**合并发 2.2.51**（用户 11-19「修，合并一起发2.2.51，偏好立即应用最新学习值」；③ 语义＝选 ADAPTIVE 立即应用最新合格学习建议 origin=adaptive、无则清锚 armed）；**发版 2.2.51 全 SOP 已授权**（Release＋夸克＋推平板 zip，用户自装→叫用户测杯 12）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
+- 待拍板：**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）；**④ 杯末弹窗评分修复＋TDS 确认重算按钮**（用户 11-19：总「缺数据不评分」查根因＋补录 TDS 后按钮重算一次加权分〔非无 TDS 自动补算〕；弹窗评估 01a1ebd1 只读排查中，修复待批，可能并入 UI8 弹窗批）。已拍板：A=1+2＋③ 诊断页 ADAPTIVE 选项**合并发 2.2.51**（用户 11-19「修，合并一起发2.2.51，偏好立即应用最新学习值」；③ 语义＝选 ADAPTIVE 立即应用最新合格学习建议 origin=adaptive、无则清锚 armed）；**发版 2.2.51 全 SOP 已授权**（Release＋夸克＋推平板 zip，用户自装→叫用户测杯 12）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
 - 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选；**插件算法→APK 移植版同步**（用户 11-19 点名）：full→hec 切换时做一次，同步债＝A 批 2.2.51 平台律（读取侧成熟度门＋baseBand 路由）＋后续插件批，hec 切换批一并移植（AGENTS §1.12）。
 
 ## 5 回叫与接力协议
@@ -78,3 +79,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户点名常设规矩——插件算法改动须同步 APK 移植版，时机＝full→hec 切换做一次；落 AGENTS §1.12＋活文档 §4/§5，A 批平台律记入同步债，派单补充令插件交接标注 APK 移植同步点。
 - 11-19：用户发现诊断页 S2 没法选回算法学习→统筹核码证实（stageTestRow 无 ADAPTIVE 选项，mode=auto→origin=original，manual→adaptive 仅 autoApply 间接路、OFF 则断）；记 §4 待拍板 ③，修复待用户批（插件侧 UI，独立小批或随 A 同发）。
 - 11-19：用户批 ③ 修复＋合并 A 发 2.2.51（偏好立即应用最新学习值）→③ 语义定（选 ADAPTIVE 立即应用最新合格学习建议 origin=adaptive、无则清锚 armed）；发版 2.2.51 全 SOP 授权（Release＋夸克＋推平板 zip，用户自装→测杯 12）；派单补充转插件接力（A＋③ 合并、解除发版暂停）。
+- 11-19：用户反馈杯末弹窗总「缺数据不评分」＋要求补录 TDS 后确认重算按钮（重算一次加权分，非无 TDS 自动补算）→统筹定位 summary.js（total=null 四路源／stageQuality 门／TDS change 自动重算无按钮／weighted total=null→null），派弹窗评估 01a1ebd1 只读排查根因＋按钮方案；修复待批（§4 ④）。
