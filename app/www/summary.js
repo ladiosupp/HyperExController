@@ -341,37 +341,43 @@
     if (seq !== fetchSeq) return;
     if (!body) return openOffline(ctx, seq);
     const cr = body.controlReview || {};
-    const phases = cr.phases || {};
+    // 插件 controlReview.phases 是数组（{phase,output,writes:数字,…}）：按阶段名 find；writes 走 trace 分类（port 同口径，公式 v2 只数常规+救急）
+    const phaseRows = Array.isArray(cr.phases) ? cr.phases : [];
+    const trimRun = { liveFlowTrim: body.liveFlowTrim || null };
     const stages = {}; let wsum = 0, ssum = 0;
     for (const ph of ['stage1', 'stage2', 'stage3']) {
-      const p = phases[ph] || {};
+      const p = phaseRows.find((x) => x && x.phase === ph) || {};
       const q = p.output || null;
-      const ws = p.writes || { total: 0, startup: 0, normal: 0, rescue: 0, reversals: p.directionReversals || 0 };
-      if (ws.reversals == null) ws.reversals = p.directionReversals || 0;
+      const ws = writeStats(trimRun, ph);
       const floodPct = ph === 'stage2' && body.stage2Startup ? num(body.stage2Startup.overshootPct) : null;
       const sc = W[ph] > 0 ? stageScore(q, ws, floodPct) : null;
-      const vst = (body[ph] && body[ph].validationStatus) || (phases[ph] && phases[ph].validationStatus) || null;
+      const vst = (body[ph] && body[ph].validationStatus) || null;
       stages[ph] = { quality: q, writes: ws, score: sc, floodPct, validationStatus: vst };
       if (sc) { wsum += W[ph]; ssum += W[ph] * sc.score; }
     }
     const total = wsum ? Math.round(ssum / wsum) : null;
     const writesSum = ['stage1', 'stage2', 'stage3'].reduce((s, p) => s + (stages[p].writes ? stages[p].writes.normal + stages[p].writes.rescue : 0), 0);
-    let cal = null;
-    const rc = await window.HxControl.httpJson('GET', DP + '/calibration-status');
-    if (rc && rc.ok) cal = rc.body || null;
     let arb = null;
     if (window.HxShadow && window.HxShadow.latestCup) { try { arb = arbBlock(await window.HxShadow.latestCup()); } catch (_) {} }
     const prevTotal = await prevTotalOf(ctx.runId);
     const m = {
-      source: 'online', runId: ctx.runId, stages, total, weightsUsed: wsum, lex: { band: band(total), writes: writesSum },
+      source: 'online', runId: ctx.runId, startedAt: body.startedAt || null, stages, total, weightsUsed: wsum, lex: { band: band(total), writes: writesSum },
       validation: { stage2: stages.stage2.validationStatus && { status: stages.stage2.validationStatus, errorPct: stages.stage2.quality && stages.stage2.quality.wholePhaseErrorPct }, stage3: stages.stage3.validationStatus && { status: stages.stage3.validationStatus, errorPct: stages.stage3.quality && stages.stage3.quality.wholePhaseErrorPct } },
       grind: body.grindAdvice || null, next: body.nextShotAdaptive || null,
-      auto: cal ? { enabled: cal.autoApplyNextShot !== false, status: cal.autoApplyLastStatus && cal.autoApplyLastStatus.status, at: cal.autoApplyLastStatus && cal.autoApplyLastStatus.at, flows: cal.autoApplyLastStatus && cal.autoApplyLastStatus.commandFlows } : null,
-      arb, supp: suppBuild(ctx.run && ctx.run.samples, cr, body.grindAdvice, cal && cal.gainMemory, prevTotal, total),
+      auto: null,
+      arb, supp: suppBuild(ctx.run && ctx.run.samples, cr, body.grindAdvice, null, prevTotal, total),
       finalWeightG: (ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null).length ? Math.max(...(ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null)) : null,
       fault: (body.result && !/completed/i.test(String(body.result))) ? String(body.result) : null,
     };
     if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m);
+    open(ctx.runId, m);
+    // autoApply 状态不挡弹窗：calibration-status 异步补进同一 m（弹窗前到就随渲染，后到就重渲染；3s 刷新照旧兜底）
+    window.HxControl.httpJson('GET', DP + '/calibration-status').then((rc) => {
+      if (seq !== fetchSeq || !(rc && rc.ok && rc.body)) return;
+      const cal = rc.body;
+      m.auto = { enabled: cal.autoApplyNextShot !== false, status: cal.autoApplyLastStatus && cal.autoApplyLastStatus.status, at: cal.autoApplyLastStatus && cal.autoApplyLastStatus.at, flows: cal.autoApplyLastStatus && cal.autoApplyLastStatus.commandFlows };
+      if (model === m && openId === ctx.runId) render();
+    });
     // autoApply finalize→applying→applied：3s 后刷新一次
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async () => {
@@ -382,13 +388,12 @@
         if (openId === ctx.runId) render();
       }
     }, 3000);
-    open(ctx.runId, m);
   }
   async function openOffline(ctx, seq) {
     const shot = await archiveShot(ctx.runId);
     if (seq !== fetchSeq) return;
     let m = null;
-    if (shot && shot.summary) m = Object.assign({}, shot.summary, { source: 'persisted' });
+    if (shot && shot.summary && (shot.summary.total != null || shot.summary.fault)) m = Object.assign({}, shot.summary, { source: 'persisted' });
     if (!m && shot) m = portModel(shot);
     if (!m && shot) m = compactModel(shot);
     if (!m) m = { source: 'compact', stages: null, total: null, compact: true, validation: null, grind: null, next: null, auto: null, arb: null, supp: null, fault: null };
@@ -647,7 +652,7 @@
     cdActive = true; cdEnd = Date.now() + CD_MS;
     const d = $('sumCount'); if (!d) { collect(ctx); return; }
     d.hidden = false;
-    d.innerHTML = '<div class="sumcount"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="54"/><circle class="fg" id="sumCountRing" cx="60" cy="60" r="54"/></svg><div class="n" id="sumCountN">3</div><div class="lb" id="sumCountLb">' + t('本杯总结') + '</div></div>';
+    d.innerHTML = '<div class="sumcount"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="54"/><circle class="fg" id="sumCountRing" cx="60" cy="60" r="54"/></svg><div class="n" id="sumCountN">5</div><div class="lb" id="sumCountLb">' + t('本杯总结') + '</div></div>';
     const tick = () => {
       if (!cdActive) return;
       const rem = cdEnd - Date.now();
@@ -655,8 +660,9 @@
       if (ring) { ring.style.strokeDasharray = String(CD_CIRC); ring.style.strokeDashoffset = String(CD_CIRC * Math.max(0, rem) / CD_MS); }
       if (rem <= 0) {
         if (cdQueued) { const q = cdQueued; stopCountdown(); doOpen(q[0], q[1]); return; }
-        // 数据未就绪：停 1 脉冲等待（环近满），数据一到 open() 拨 cdEnd=now 收零弹窗；无圈后 limbo
-        cdEnd = Date.now() + 400;
+        // 数据未就绪：圈停满、数字 1 平滑脉冲等待；open() 排队后下一 tick 即弹（无圈后 limbo）
+        if (ring) ring.style.strokeDashoffset = '0';
+        if (nEl) { nEl.textContent = '1'; nEl.classList.add('wait'); }
         cdTimer = setTimeout(tick, 200);
         return;
       }
@@ -679,7 +685,7 @@
   async function review() {
     if (!lastRunId) return;
     const shot = await archiveShot(lastRunId);
-    let m = shot && shot.summary ? Object.assign({}, shot.summary, { source: 'persisted' }) : null;
+    let m = shot && shot.summary && (shot.summary.total != null || shot.summary.fault) ? Object.assign({}, shot.summary, { source: 'persisted' }) : null;
     if (!m && shot) m = portModel(shot);
     if (!m && shot) m = compactModel(shot);
     if (!m) m = { source: 'compact', stages: null, total: null, compact: true, validation: null, grind: null, next: null, auto: null, arb: null, supp: null, fault: null };
