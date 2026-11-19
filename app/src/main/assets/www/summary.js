@@ -677,7 +677,7 @@
   function updateTag() {
     if (!tagEl) return;
     const st = ctrl();
-    tagEl.hidden = !(lastRunId && st.mode === 'control');
+    tagEl.hidden = !(enabled && lastRunId && st.mode === 'control'); // 总开关关＝胶囊整颗隐藏（用户 11-19）；纯显示门，不碰模型/算法
     tagEl.textContent = t('本杯总结');
     tagEl.className = 'curvetag sum lv' + level; // 底色编码颗粒度三档：lv0 蓝／lv1 琥珀／lv2 绿
   }
