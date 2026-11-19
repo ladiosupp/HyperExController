@@ -12,8 +12,8 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 角色 | threadId | 状态 |
 |---|---|---|
 | 统筹（现） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | active（11-19 relay-3 接手同步完成） |
-| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已发（统筹远端核过）／待用户装机测杯 |
-| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 12 完成（2.2.51 验证通过）／待命下一杯 |
+| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 2.2.52 已装杯 13 已出／杯 13 两项只读核码在途（c 诊断语义） |
+| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 13 完成（2.2.52 首杯，清锚代价如预期）／待命下一杯（base 3.125 adaptive） |
 | UI 入口（UI9，接 UI8） | 01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c | v0.28 已发（git 证据，见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
 | 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 排查完成（根因证实）／评分修复 git 证据已随 UI9 直管 v0.26 发（§4 ⑥） |
@@ -29,19 +29,26 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 - **UI9 直管后续批（git 本地证据，统筹未独立远端核 Release/SHA256；UI 批用户直管、统筹不追踪细节）**：v0.26＝杯末打分恢复（phases 数组解析＋writes trace 分类＋startedAt）＋倒计时等待态平滑（bc5e422/d0d5a24，交接 c3e1d5d）；v0.27＝冷 boot 读盘竞态修＋弹窗顶栏全档仅标题＋✕（0ccdc67/ac3479b/5e12140，交接 0e557c3）；v0.28＝本杯总结胶囊底色编码颗粒度三档（c45679e/06d73c2，交接 a50ff5e：Release 450906878／asset 766327414／夸克 f2870f51／平板 28 冒烟／回归 55+8）。**⑥ 评分解析修复 git 证据已随 v0.26 发**（fix3 是否含未核，以 UI9 交接为准）。
 - 推送状态（11-19 relay-3 接手同步本地核）：两仓 origin ahead 空——子模块 origin/main=a50ff5e（v0.28 交接；统筹退位批 1de404b 随 UI9 push 上远端），父仓 origin/main=ee4501f（指针=a50ff5e 一致）；本接手同步批为本地新提交，push 待用户批。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2，Release 450011833）、v0.24=四批合发。
 
-## 3 真机最新裁决（杯 12＝2.2.51 首杯 1795053602320-1，11-19 09:59；统筹独立复跑核实）
+## 3 真机最新裁决（杯 13＝2.2.52 首杯 1795059672017-1，11-19 11:41；统筹独立复跑核实）
+
+**杯 13（2.2.52 首杯，APK v0.25 versionCode 25；统筹独立复跑核实）**：**用户经 ③ 入口清掉 manual 锚**——切换时无合格立即学习值（前杯 HOLD）→清锚回 LUT（③ 语义），commands.stage2 2.5 auto/original（=LUT 2.507 snap）、stage1 1.313 auto/original，本杯按空粉碗 base 2.5 跑。质量＝**清锚预期代价，非 bug**：S2 whole NEAR −12.7%（raw 4.363/5、R² 0.99839）／tail −15.56%（tailP95 19.52、rippleCV 4.25），live trim 段内爬 2.5→2.75→3→4 仍偏低；S3 HIT +3.1%／tail +2.75%。峰 7.5%（flood 5，retained-water 峰 5.374@return+1.3s）很安全；收口走 holdMs 4000ms 定时路径（boost 5→bleed 0.875→return 2.5→complete，driver-ack），**cutoff 未触发**（cutoff 对象空）。Decaid apiStop 102.0g dose 19 targetYield 0；grindAdvice flow-low（p/q +0.5%）。
+**平台与学习（auto 主流环重启）**：plan profile-base fallback、controlGain 2（=5/2.5）、base/return 2.5、flood 5 adaptive、sourceRunIds=[]、diagnosticLast null——杯 12 预测 gain-memory 3.875 被清锚改变前提（base 变 LUT 2.5），非路由失效，冷启动 fallback 机制同杯 12 闭环。s2 updated r1.3076/n13/observedR 1.351/deviation 6.9%/alpha 0.5/HIGH（S2 steady tail、commandBand 2.0-3.0、window 40-100%）；adaptiveDecision.s2 ADJUST/role=base/applied=true（g2 maps 5→3.8125，damped 2.5→3.125；live-learning 数值路径 coverage<70%/<4 样本被拒、gain-memory relaxed guard 放行）；杯后 autoApply applied@03:42:54Z stage2 3.125 adaptive／stage1 1.375 adaptive／s3 shape 0.563/0.813/0.813，audit differences=[] matchesExpected=true。**下一杯 base 3.125 阻尼爬升（目标 3.8125），流量收敛前仍偏低——预期代价，逐杯跟踪**。
+**红线全 PASS**：峰 7.5%≤40；sent 0（全 17 杯）；writes 全 plugin（12=8write+4frame-change）；两段 complete（定时路径）；audit []；base 检查 N/A（manual 已清）。影子 685 样本/32 决策（hold 21/algo 6/model 5）、pred 29/32、rescue 0、realized 20、matched 0（modelWrites 5 未等值执行）、resp 31/32、inc 1、纯净 22/污染 9/inc 1；regime g2（signature 0.4376、压力 1.212/machineFlow 2.782）。
+**① 2.2.52c 新诊断字段本杯未验到，两项核码已派插件接力只读**：estHistory/margin/firingTickMs/firingObservedGS 因 cutoff 未触发而缺（合理）；refill check 带新 schema（startupStatus=boosting/backstopGS 4.25，17/22 条）但 boosting 期 rawGS/predictedGS/predictedCappedGS/accelGS2 全 null（首个非 null rawGS 在 complete 后 handover check@24483=3.517）——(a) boosting 期 null 是预期（估计只在触发附近产生）还是 c 接线缺口 (b) estHistory 是否仅 firing 记录；需一杯正常触发 cutoff 的杯复核。③ UX 预览「清回 LUT」显示问题取证已直问用户、待答（记取证 MD §12）。无新用户拍板项。
+
+**杯 12（2.2.51 首杯 1795053602320-1，09:59；历史裁决，统筹独立复跑核实）**
 
 **2.2.51 修复真机验证通过，质量大幅回升**：S2 whole HIT +0.2%（raw 5.009/5、R² 0.99454）／tail −6.73%（带内 HIT anchor，晚段走低 trim +1 步到 3.9375）；S3 HIT −0.7%／tail −2.63%（杯 11 是 +19.8/+18.93）。平台路由：plan controlSource=profile-base、controlGain 1.2903、controlBase/return 3.875（＝manual base）、flood 7（离开硬包线 8）、commandBasis「base fallback (no observed tail)」、sourceRunIds=[]——**污染高带 r（杯 11 0.9524→5.25）不再被消费**；实盘 base fallback 与回放预测 4.125（g3 baseBand r1.2078）有差异，交核码①。regime 回 g2（signature 0.4312，return 窗压力 1.672/机器流量 3.828）——杯 11 g3 内生于平台假说再加一证。
 红线全 PASS：峰 39.1%≤40（余量薄，峰顶 6.955@22.4s）；两段收口 complete（boost 7→trim 5.125→bleed 1.375→return 3.875）；base 3.875 manual 保住＋manual-anchor 第二次实证（HOLD/applied=false）；sent 0（16 杯）；writes 全 plugin（13=9write+4frame-change）；audit differences=[]；杯后 autoApply stage2=3.875/manual 未覆盖（S1 学习 3.125→3.063、S3 shape 0.625/0.813/0.813）。101.80 g apiStop（Decaid 102.8g）；影子 674 样本/33 决策、matched 1（S3 EARLY model 0.625 执行 resp 1.733 但帧切换污染窗 matchedPure 0）。
 **两项观察核码闭环（插件接力只读，统筹复跑探针证实；非紧急、峰绊线成立）**：① 冷启动 profile-base fallback＝预期安全默认（reload 后 diagnosticLast 空→gain-memory/observed-tail 门均 null→落用户曲线指令 3.875，同杯 10 机制，非 LUT 饿死）；杯 13 gain-memory 恢复消费 g2 baseBand r1.2802 bandN7 HIGH→平台/return **3.875**（snap(5/1.2802)=3.875 探针实证，派单≈3.9375 修正）、flood 7；暖机恢复 diagnosticLast 可选另批、建议不动。② cutoff rawGS 4.517>backstop 4.25＝250ms tick 离散 artifact（predicted 主判先触发，rawGS 是触发当刻 0.75s 回归斜率、超约一个 tick 升幅）；§22.18「≤4.25」是近似界（≤4.25＋tick 裕量）；**峰余量薄主因 retained-water 物理非 backstop 迟到**（峰 6.955@return+0.5s）。建议 c+d：(c) 诊断字段加固小批（refill check 记 rawGS/predicted 序列＋cutoff estHistory/firingTickMs/margin，非控制律低风险）＋(d) 暂不动控制律（监控破 40% 再凭回放评估 a 降 backstop 0.80/b 密检 100ms）＋§22.18 文案澄清近似界。
-③ 回学习入口用户未试（仍 manual）；s2 no-observation 预期、s3 updated r1.8372/n10。
+③ 回学习入口杯 12 时用户未试（仍 manual）；s2 no-observation 预期、s3 updated r1.8372/n10。**杯 13 更新：用户已经 ③ 清 manual 锚回 auto（见上杯 13 裁决）；③ UX 预览问题待用户答**。
 口径裁定（续）：autoApply ON＋manual base 允许；manual 不学习＝no-observation；role 章在建议侧；§22.18 manual 尊重只覆盖杯间建议侧（用户 11-19 裁定不延伸杯内平台，§4）。
 杯 11（2.2.50 缺陷杯，11-19 早）：峰 38.8%、S2 tail +18.93% NEAR、平台 5.25（污染 band r0.9562），2.2.51 已修。杯 10（2.2.50 首杯）：峰 20.3%、tail −0.63% HIT、return 3.875。
-导出：APK .tools/__rectify-tablet-shadow-export-live-2026-11-19T1004.json（16 杯）＋history-8/shots-9/audit-2026-11-19b/workflow-51/status-51；复核 __relay-cup12-verify.cjs／extra.cjs／ev.cjs（统筹复跑：质量/红线核过，cutoff rawGS>backstop 旗标证实）。
+导出：杯 12 APK .tools/__rectify-tablet-shadow-export-live-2026-11-19T1004.json（16 杯）＋history-8/shots-9/audit-2026-11-19b/workflow-51/status-51；复核 __relay-cup12-verify.cjs／extra.cjs／ev.cjs（统筹复跑：质量/红线核过，cutoff rawGS>backstop 旗标证实）。杯 13 .tools/__rectify-tablet-shadow-export-live-2026-11-19T1144.json（17 杯、1,683,452 B）＋history-9/shots-10/audit-2026-11-19c/workflow-52/status-52；复核 __relay-cup13-verify.cjs／ev.cjs（统筹复跑：红线/质量/平台/学习核过，cutoff 未触发诊断缺属预期）。取证轮次细节 HANDOFF_2026-11-18-hec-live-cups-relay.md §12。
 
 ## 4 在途与待拍板
 
-- 在途：插件接力 01a1ee30 **2.2.52 已发版闭环**（⑤ 非控制律小批，统筹远端独立核过；平板 Download/ 已推、用户 Decaid 自装→测杯核 cutoff 新诊断字段 estHistory/margin/firingTickMs/firingObservedGS＋refill check 斜率序列，取证陪杯；杯 13 平台预测 3.875 gain-memory g2 base 带成熟）。B（选项 3 FF k）/改名/backstop 控制律加固另批。
+- 在途：插件接力 01a1ee30 **2.2.52 已装、杯 13 已出**（统筹复跑核实）；杯 13 cutoff 未触发（holdMs 定时路径）新诊断字段未验到→**两项只读核码已派**（boosting 期斜率 null 语义／estHistory 是否仅 firing 记录），需 cutoff 触发杯复核；用户经 ③ 清 manual 锚，下一杯 base 3.125 adaptive 阻尼爬升（取证待命陪杯）。B（选项 3 FF k）/改名/backstop 控制律加固另批。
 - 在途（弹窗）：杯末弹窗评估 01a1ebd1 排查完成（根因＝collect 把 controlReview.phases 数组当对象索引→total 恒 null，统筹复跑证实；fix1+2+4＋fix3 方案见 HANDOFF_2026-11-19-hec-popup-score-eval.md）。简单档 UI 已随 v0.25 发版（v7 锁稿，用户直管 UI8→UI9）；**评分解析修复 git 证据已随 UI9 直管 v0.26 发版**（bc5e422 phases 数组解析＋writes trace 分类＋startedAt，回归 50+8、真数据交叉 85/91/80；fix3 是否含未核），UI 批用户直管、统筹不追踪（§4 ⑥）。
 - 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。UI9 后续直管 v0.25–v0.28（见 §2 注），统筹不追踪细节。
 - 待拍板：**B＝选项 3 FF k 入平台**（另批）；**改名** holdingReference.sourceRunId（另批）；backstop 控制律加固留待破 40% 另批。已拍板闭环：A=1+2＋③ 合并发 2.2.51（杯 12 验证通过）；⑤ 2.2.52 已发（c 诊断＋§22.18 文案＋③ UX，统筹核过）；**④ 简单档 UI v0.25 已发**（v7 锁稿＋倒计时 5s，用户直管 UI8 全链，统筹远端核过）；**⑥ 评分解析修复 git 证据已随 UI9 直管 v0.26 发**（bc5e422/d0d5a24，统筹未独立远端核、UI 批不追踪；fix3 是否含以 UI9 交接为准）；杯 12 观察①冷启动预期不动；杯 13 先验（平台 3.875）；① manual 不延伸；选项 4 不做、原 D 已否；历史杯分数三期。
@@ -99,3 +106,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户点名统筹范围（HEC＋插件＋用户交代；UI 有关不回叫统筹，UI9 用户直管）→§5 协议＋AGENTS §1.13；统筹 01a1ef1c 上下文重，写接力交接 MD（HANDOFF_2026-11-19-hec-coordinator-relay-3.md）准备接力。
 - 11-19：用户授权建后继统筹对话→create_thread 建出 01a1f239-4de7-7213-bca0-f947b70c0c1b（hostId local，项目 decent 相关，delegation 指向活文档＋relay-3 交接＋范围口径 UI 不回叫）；01a1ef1c 接力退位，后继接手同步（更 §1/AGENTS §1.8 ID＋通知执行对话除 UI9＋报到）由其首回合执行。
 - 11-19：统筹接力 01a1ef1c → 01a1f239（relay-3，活文档制）接手同步完成：§1 线程表（01a1ef1c 退位）＋AGENTS §1.8 ID 更新；回叫转移通知发 6 个执行对话（插件/取证/弹窗评估/规矩/离线/审计，UI9 不发）；git 四件事发现 UI9 直管 v0.26–v0.28 已发已推（含 ⑥ 评分恢复 bc5e422；退位批 1de404b 随 UI9 push 上远端），§2/§4 按 git 证据标注（统筹未独立远端核、UI 不追踪）；本同步批 push 待用户批。
+- 11-19：取证补发杯 13 回执（2.2.52 首杯 1795059672017-1，11:41，APK v0.25；接力间隙落盘补发）＋统筹独立复跑核实（__relay-cup13-verify/ev：红线全 PASS 峰 7.5%、sent 0 全 17 杯、writes 全 plugin、S2 NEAR −12.7%/tail −15.56%＝清锚预期代价、cutoff 未触发、autoApply stage2 3.125 adaptive、audit []）→§3 杯 13 裁决、§1/§4 状态；用户经 ③ 清 manual 锚（切换时无合格学习值→清回 LUT），杯 12 预测 3.875 前提作废；两项核码派插件接力只读（boosting null 语义/estHistory 记录时机）；③ UX 预览问题取证直问用户待答；无新拍板项。
