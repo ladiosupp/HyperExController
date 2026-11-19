@@ -6,8 +6,8 @@ android {
         applicationId "com.ladios.hxcontroller"
         minSdk 26
         targetSdk 34
-        versionCode 24
-        versionName "0.24"
+        versionCode 25
+        versionName "0.25"
     }
     buildTypes { release { minifyEnabled false } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
