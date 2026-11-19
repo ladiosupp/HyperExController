@@ -599,11 +599,9 @@
     const m = model;
     tdsRec(openId).then((tds) => {
       if (openId !== m.runId) return;
-      const rid = String(m.runId || '');
-      const when = m.startedAt ? new Date(m.startedAt) : null;
       let h;
       if (level === 0) { h = simpleView(m, tds); } else {
-      h = '<div class="modal lrn-modal" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><span class="rid">…' + esc(rid.slice(-6)) + '</span>' + (when ? '<span class="at">' + (when.getMonth() + 1) + '-' + when.getDate() + ' ' + when.toTimeString().slice(0, 5) + '</span>' : '') + '<button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody">';
+      h = '<div class="modal lrn-modal" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody">';
       h += scoreSec(m, tds);
       h += nextSec(m);
       h += arbSec(m);
