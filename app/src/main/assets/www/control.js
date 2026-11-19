@@ -819,9 +819,8 @@
     } else toast(t('去皮失败') + (r.status ? ': HTTP ' + r.status : ''));
   }
   function renderHecBox() {
-    const box = $('hecBox'), tb = $('takeoverBox');
+    const tb = $('takeoverBox');
     const taken = !!(ext && ext.takeover);
-    box.hidden = taken || !isHxSelected();
     tb.hidden = !taken;
     $('takeoverBanner').hidden = !taken;
     if (taken) {
@@ -829,15 +828,6 @@
       const at = ext.takeover.atMs;
       $('kvTakeAt').textContent = at && run ? ((at - run.startedAt) / 1000).toFixed(1) + ' s' : '—';
       $('kvTakeCmd').textContent = (ext.lastCommandMlS != null ? ext.lastCommandMlS.toFixed(2) : '—') + '（' + t('插件') + '）';
-    } else {
-      $('kvVer').textContent = pluginVersion || '—';
-      const lf = ext && ext.logicalFrame;
-      $('kvFrame').textContent = lf == null ? '—' : lf + ' · ' + phaseName(ext.phase);
-      $('kvCmd').textContent = ext ? ((ext.baseCommandMlS != null ? ext.baseCommandMlS.toFixed(2) : '—') + ' / ' + (ext.lastCommandMlS != null ? ext.lastCommandMlS.toFixed(2) : '—')) : '—';
-      $('kvTarget').textContent = ext && ext.targetGS != null ? ext.targetGS + ' g/s' : '—';
-      $('kvLimiter').textContent = ext && ext.limiterBar != null ? ext.limiterBar + ' bar' : '—';
-      $('kvBudget').textContent = ext ? (ext.writes || 0) + ' / ' + (ext.maxWrites || 0) : '—';
-      $('kvRejects').textContent = ext && ext.heartbeat ? String(ext.heartbeat.externalRejects || 0) : '—';
     }
   }
   function renderAll() {
