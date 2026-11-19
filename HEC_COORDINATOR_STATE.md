@@ -12,9 +12,9 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 角色 | threadId | 状态 |
 |---|---|---|
 | 统筹（现） | 01a1ef1c-40c3-7490-bcc4-b7043ebc1800 | active |
-| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 核码完成／修复待用户授权 |
+| 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | A 修复批进行中（1+2，用户 11-19 授权） |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 11 完成／待命下一杯 |
-| UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | 新批 0020b1d／用户直接对接（统筹不催） |
+| UI 入口（UI8） | 01a1eeac-1f2d-77d2-8b80-568d0821aa27 | v0.24 已发（用户直管全链） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
 | 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | idle |
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
@@ -25,22 +25,22 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 ## 2 基线（统筹远端核过）
 
 - 插件 **2.2.50**：代码 930ce25＋回执 e734f1e（branch auto-hyperex），tag v2.2.50；Release 449845323／asset RA_kwDOVO5zXc4teoab；zip 510796 B SHA256 2C3B7378F86D8E67200508043F2B11190D8B564C9E857B9523D92600DEE4D863；夸克 22cb7d9183be426c94d7444be269b95d；平板 Download/ 已推、**用户自装**。verify_v02250 837/837（统筹独立复跑）。五项：cutoff 背 stop 0.85＋accel 中位滤波＋predicted 显示 sanity（shaping 未封顶）＋manual 锚＋regimeChange 排除 manual＋删重复 push；§22.18 记录过冲约束峰≤40%。
-- APK **v0.23**：tag v0.23=94803be；Release 450011833／asset 763474919；APK 6,731,125 B SHA256 EDB2F5A14C18C5659C0C07C62E1D2705CF435C4C5CA0D181351DF1577DEB4AD5；夸克 8c7f7e47378b426a9df5bf2e45ce3afb；平板＋模拟器 versionCode 23 冒烟过。子模块 main **ab8d7a8**（统筹活文档设立批）；父仓 main **344ab2c**（指针同步 ab8d7a8）。规矩 251 行／155 条。
-- 两仓 origin ahead 空（11-18 晚 push 后旧统筹远端核过；新统筹接力时本地 origin/main 一致复核）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2）。
+- APK **v0.24**（UI8 四批合发，用户已批全链，11-19）：沉浸全屏 immersive sticky＋去 HX 侧栏指令卡 hecBox（接管提示保留）＋控制中心样式 1/2 拆 HX/非HX 独立存盘（hecChartStyleByType、旧键迁移）＋杯末总结全屏 3s 倒计时/去控制分大数字（小字行保留控制/TDS/加权）。tag v0.24=5167bb0；Release 450739200／asset 765634999；APK 6,732,561 B SHA256 2824AFEFA7DC756E600108555BD99B3BAFE8A84378747FF4FC864315210FCBCC（本地 app-debug.apk 字节数与 asset 一致）；夸克 3d836dc013fb4326b80f60ed43f611a6；平板＋模拟器 versionCode 24 冒烟过；回归 summary 35/35＋拆分 6/6＋m10 20/20＋targetline 14/14＋flowcard 6/6＋boot 8/8。子模块 main **85f8964**（v0.24 交接；commits 0020b1d/e924d8b/148d519/5167bb0/85f8964）；父仓 main **ff7ea13**（指针同步 85f8964）。交接 HANDOFF_2026-11-19-hec-v024-release.md。规矩 251 行／155 条。
+- 两仓 origin ahead 空（11-19 UI8 v0.24 全链 push 后本地核：子模块 origin/main=85f8964、父仓=ff7ea13；统筹批 b48ee50…715279d 随 UI8 main 推送一并上远端，统筹未单独 push）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2，Release 450011833）、v0.24=四批合发。
 
 ## 3 真机最新裁决（杯 11＝1795046308506-2，11-19 07:58；统筹独立复跑核实）
 
 红线全 PASS：峰秤流 **38.8%**≤40% 绊线（峰顶 6.941@21.5s，return 后 retained-water 峰；余量薄）；cutoff rawGS 3.535≤backstop 4.25（basis predicted）；两段收口 complete（boost 8→bleed 1.8125→return 5.25，本杯无 trim 步）；base 3.875 manual 保住；sent 0（15 杯逐杯核）；writes 全 plugin；audit differences=[]；杯后 autoApply 未覆盖 manual。**manual-anchor 章首次真机实证**（建议侧 action=HOLD／role=manual-anchor／applied=false）。101.5 g apiStop；影子 660 样本／34 决策。
-**质量回退＋估计器冲突（待拍板见 §4）**：S2 whole NEAR +19.8%／tail +18.93% 非 HIT（rippleCV 0.38% 平直偏高＝系统性增益不匹配）；S3 HIT −5.7%。**工况（用户确认）**：两杯间研磨调粗（grinderSetting 字段未同步仍 20、dose 19，以用户实际为准）→tail 回退双因素：粉饼变粗（同指令增益升高）＋平台被 band r 0.95 抬高；band r 离群与研磨无关（细粉历史 band 4–5 杯 -7 r≈1.24／-8 r≈1.30 也对不上 0.95）。机制：s2StartupPlan controlSource=gain-memory、controlGain 0.9524（杯 10 profile-base 1.2903）→平台/return 5.25（＝targetGS 5/0.9524，≠manual base 3.875）→flood adaptive 1.8×5.25 夹硬包线 8。同杯 feed-forward k=1.257（spread 5.5%、9 样本、eligible）／实测尾段 k≈1.22／建议侧 observedR 1.3179 三路一致 1.2–1.3，plan 的 band r=0.95 离群（baseBand 3.0-4.0 vs commandBand 4.0-5.0 路由待核；§22.11 已警告高命令档 r 含爬升暂态污染，0.88 例同形状）。regime g2→g3（signature 0.3725 vs 0.4836）疑内生于平台 5.25。插件接力只读核码闭环（统筹独立复跑 eval×3＋代码抽查核实；MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md）：**缺陷＝杯内读取侧无成熟度门＋band 路由按 effective/commandBand 而非 base**——g2「4.0-5.0」r0.9562（n=2，饱和杯 -4 暂态种 0.9174＋杯 6 1.2405 EMA）经 plan(3031)/trim 中心(8769) 无 bandN<3 门驱动平台（P0-2 门只守建议侧 4406/4449）；选行 effectiveBand||stateRow.commandBand(1676-1677)，baseBand 只做 crossBand 旗标(1694)。自强化环实证闭合：杯 10 return 窗 1 样本→late60 签名 0.3906→g2→plateauStart 23394>23195→band 回退陈旧「4.0-5.0」→trim 上写 4.125→杯 11 plan 再取 0.9562→平台 5.25/flood 夹 8。regime g2→g3 内生于平台（machineFlow +35% 主导）。**auto 主流同受害**：g3「>=5.0」n=1 r1.1401 将驱动杯 12 平台 4.375（与 origin 无关）。修复选项待用户另批（§4）；原 D「manual 平台尊重」按裁定作废。
+**质量回退＋估计器冲突（待拍板见 §4）**：S2 whole NEAR +19.8%／tail +18.93% 非 HIT（rippleCV 0.38% 平直偏高＝系统性增益不匹配）；S3 HIT −5.7%。**工况（用户确认）**：两杯间研磨调粗（grinderSetting 字段未同步仍 20、dose 19，以用户实际为准）→tail 回退双因素：粉饼变粗（同指令增益升高）＋平台被 band r 0.95 抬高；band r 离群与研磨无关（细粉历史 band 4–5 杯 -7 r≈1.24／-8 r≈1.30 也对不上 0.95）。机制：s2StartupPlan controlSource=gain-memory、controlGain 0.9524（杯 10 profile-base 1.2903）→平台/return 5.25（＝targetGS 5/0.9524，≠manual base 3.875）→flood adaptive 1.8×5.25 夹硬包线 8。同杯 feed-forward k=1.257（spread 5.5%、9 样本、eligible）／实测尾段 k≈1.22／建议侧 observedR 1.3179 三路一致 1.2–1.3，plan 的 band r=0.95 离群（baseBand 3.0-4.0 vs commandBand 4.0-5.0 路由待核；§22.11 已警告高命令档 r 含爬升暂态污染，0.88 例同形状）。regime g2→g3（signature 0.3725 vs 0.4836）疑内生于平台 5.25。插件接力只读核码闭环（统筹独立复跑 eval×3＋代码抽查核实；MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md）：**缺陷＝杯内读取侧无成熟度门＋band 路由按 effective/commandBand 而非 base**——g2「4.0-5.0」r0.9562（n=2，饱和杯 -4 暂态种 0.9174＋杯 6 1.2405 EMA）经 plan(3031)/trim 中心(8769) 无 bandN<3 门驱动平台（P0-2 门只守建议侧 4406/4449）；选行 effectiveBand||stateRow.commandBand(1676-1677)，baseBand 只做 crossBand 旗标(1694)。自强化环实证闭合：杯 10 return 窗 1 样本→late60 签名 0.3906→g2→plateauStart 23394>23195→band 回退陈旧「4.0-5.0」→trim 上写 4.125→杯 11 plan 再取 0.9562→平台 5.25/flood 夹 8。regime g2→g3 内生于平台（machineFlow +35% 主导）。**auto 主流同受害**：g3「>=5.0」n=1 r1.1401 将驱动杯 12 平台 4.375（与 origin 无关）。修复 A=1+2 用户 11-19 已授权、B 另批（§4）；原 D「manual 平台尊重」按裁定作废。
 口径裁定（续）：2.2.50 后 **autoApply ON＋manual base 允许**；manual 杯不学习＝no-observation 预期；role 章在**建议侧** adaptiveDecision.s2.gainMemory.role；影子 writes 台账漏快笔→收口序列以插件 trace 为准（minor 候选）。**§22.18 manual 尊重现只覆盖杯间建议侧，杯内平台律未动**（本杯冲突即此缺口）。**11-19 用户裁定：manual 尊重不延伸杯内平台**——设计意图（原话）「稳定后尽量不要 manual，手动调参只是给少量高阶用户的，绝大部分还是以插件、apk 自动控流」；manual 是临时手段、主流 auto，杯内平台律维持不动；杯 11 离群 r 归 auto 主流路径的估计路由修复议题（②，核码中）。
 杯 10（2.2.50 首杯，11-18，对照基线）：峰 20.3%、S2 tail −0.63% HIT、return 3.875＝manual base、profile-base 1.2903；导出 __rectify-tablet-shadow-export-live-2026-11-18T2056.json（14 杯）。
 导出：APK .tools/__rectify-tablet-shadow-export-live-2026-11-19T0811.json（15 杯）＋history-7/shots-8/audit-2026-11-19a/workflow-2026-11-19a/status-2026-11-19a；复核脚本 __relay-cup11-verify.cjs／__relay-cup11-extra.cjs（统筹 11-19 复跑全 PASS）。
 
 ## 4 在途与待拍板
 
-- 在途：插件接力 01a1ee30 **只读核码完成**（三点证实＋形态修正，统筹复跑核实；MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md），修复待用户另批（未改码）。取证接力杯 11 完成、待命下一杯；研磨调粗已用户确认（grinderSetting 字段未同步；调粗几格取证侧已问、可选记工况表）。出杯前复冒烟照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）；秤休眠须唤醒复测才放行；autoApply ON 不再拦放行。
-- 在途（UI）：UI8 新批 **0020b1d 已提交**（沉浸全屏 immersive sticky＋去 HX 侧栏指令卡 hecBox、接管提示保留；www/assets 同步，回归 3+8+14 全绿），回叫未到、发版未拍板。子模块本地待推＝统筹批（b48ee50／9ee9664／本补记）＋UI8 此批，push 待用户拍板（推则同推，父仓指针随之）。**UI8 由用户直接对接**（11-19 用户：「UI8那边我单独跟它说就行」），统筹不派单不催回叫。
-- 待拍板（修复批，全控制律敏感须用户另批，插件侧）：**A＝选项 1+2 同批先行**（统筹荐：成熟度门延伸读取侧 3031/8769＋band 路由改 baseBand 1676-1677，镜像 P0-2/P1-3/P1-4，不动数据，diff 小/中，auto/manual 同受益）；**B＝选项 3 接 eligible FF k**（估计器升级跟研磨，唯一解 band r 冻住 vs k 更新，diff 最大，建议 A 落地＋杯 6–11 决策级回放后另批；若做需定 k 优先级/±25%·0.35 阻尼/带同质性门）；选项 4 稳态窗硬化/legacy 重标不推荐（修不了本例＋记忆红线）；原 D manual 平台尊重已否。**杯 12 预警**：修复前 g3 n=1 驱动平台 4.375 仍偏热（峰余量好于杯 11）——先修 A 让杯 12 当验证杯（统筹荐），或先观察杯 12 证实预测再修，用户定。**holdingReference.sourceRunId 改名**（存桶 ID 误导，纯诊断）：需先核 APK/取证脚本/协议消费方，建议另批或仅文档注明，不盲搭车。① manual 不延伸已闭环（§3）。
+- 在途：插件接力 01a1ee30 **A 修复批进行中**（用户 11-19 授权选项 1+2：读取侧成熟度门＋baseBand 路由；升 2.2.51＋新 verify＋回归＋杯 6–11 回放；改码不发版，发版另问）。核码 MD decenthyperexplugin/HANDOFF_2026-11-19-cup11-platform-estimator-eval.md。取证接力杯 11 完成、待命下一杯；研磨调粗已用户确认（grinderSetting 字段未同步；调粗几格取证侧已问、可选记工况表）。出杯前复冒烟照旧（版本/心跳/mode=full/秤遥测几百 ms/胶囊亮/前台亮屏，逐杯导出）；秤休眠须唤醒复测才放行；autoApply ON 不再拦放行。
+- 在途（UI）：**UI8 v0.24 已发版闭环**（用户直管全链，11-19；四批合发，详见 §2／交接 HANDOFF_2026-11-19-hec-v024-release.md），统筹不介入。两仓 origin ahead 空（统筹批随 UI8 push 上远端）。
+- 待拍板：**发版**（A 代码完成＋验证全绿后问用户：2.2.51 Release＋夸克＋推平板 Download/，用户自装→叫用户测杯 12，取证接力陪杯）；**B＝选项 3 接 eligible FF k**（A 落地＋杯 6–11 回放后另批；k 优先级/±25%·0.35 阻尼/带同质性门细则）；**改名** holdingReference.sourceRunId（核 APK/取证/协议消费方后另批或仅文档注明）。已拍板：A=1+2 先行（用户 11-19「修复按默认排，A 完成以后叫我测杯」）；杯 12 先修后验；① manual 不延伸（§3）；选项 4 不做、原 D 已否。
 - 常设待办：功能设置/其他其余内容等用户定义；二期回放页逐杯回看；三期插件提案①compact 持久化 5 指标②summary 轻量端点③TDS 集成（另批授权）；非 HX profileFrame 色带真杯验证；校准杯验证随缘；backstop 0.85/accel 历史 4/predicted cap 1.6 真机后可调（另批）；影子快笔台账 minor 候选。
 
 ## 5 回叫与接力协议
@@ -72,3 +72,5 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：取证补充杯 11 工况（用户确认研磨调粗）→双因素归因落 §3、§4 ① 注（base 偏旧／k 跟研磨）；核码三项不变，补充已转插件接力。
 - 11-19：用户拍板 ① manual 尊重不延伸杯内平台（设计意图：稳定后尽量 auto、manual 仅少量高阶）→§3 口径裁定、§4 ① 闭环；② 估计路由修复仍待核码＋另批（服务 auto 主流）。UI8 由用户直接对接。技能 §22.18 补裁定注。
 - 11-19：插件接力核码闭环（三点证实＋形态修正：缺陷在读取侧无成熟度门＋band 路由，自强化环实证，auto 同受害；统筹复跑 eval×3＋代码抽查核实）；修复选项 A=1+2／B=3 待用户另批，杯 12 预警平台 4.375（§3／§4）；§6 补插件代码实体路径。
+- 11-19：用户授权 A=选项 1+2 先行（「修复按默认排，A 完成以后叫我测杯」）→派插件接力修复批（升 2.2.51，改码不发版、发版另问）；B 回放后另批、杯 12 先修后验、改名另批按默认。
+- 11-19：UI8 v0.24 四批合发回叫落档（用户直管全链；Release 450739200／asset 765634999／夸克 3d836dc0／子模块 85f8964／父 ff7ea13 已推，统筹批随 push 上远端；§2 基线推 v0.24、§1/§4 UI8 闭环）。
