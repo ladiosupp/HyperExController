@@ -329,15 +329,16 @@
     const st = ctrl();
     if (!st.baseUrl) return openOffline(ctx, seq);
     let body = null;
-    // 提速（用户 11-19）：400ms 密轮询（旧 1s 格把就绪时刻量化到整秒，圈满后白等~1s）；12 次覆盖窗与旧 6 次相当
-    for (let i = 0; i < 12; i++) {
+    // 提速（用户 11-19 二轮）：首请求放宽 3s（插件前 3s 算不完新杯，避免空请求），其后 200ms 密轮询；就绪晚于圈时量化≤200ms
+    await new Promise((res) => setTimeout(res, 3000));
+    for (let i = 0; i < 16; i++) {
       if (seq !== fetchSeq) return;
       const r = await window.HxControl.httpJson('GET', DP + '/diagnostics');
       const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
       const cr = b && b.controlReview;
       const rid = cr && (cr.runId || b.runId);
       if (cr && (rid == null || rid === ctx.runId)) { body = b; break; }
-      if (i < 11) await new Promise((res) => setTimeout(res, 400));
+      if (i < 15) await new Promise((res) => setTimeout(res, 200));
     }
     if (seq !== fetchSeq) return;
     if (!body) return openOffline(ctx, seq);
@@ -558,7 +559,7 @@
     else if (simpleConfirmed && w != null) { meta = t('控制') + ' ' + total + ' · TDS ' + round(tdsScore(tds.tds), 1) + ' · ' + t('加权') + ' ' + w; lb = t('加权分') + ' ' + pill('warn', t('加权 · 提案待确认')); }
     else if (hasTds) { meta = t('控制') + ' ' + total + ' · TDS ' + tdsV.toFixed(2); lb = t('控制分') + ' ' + pill('warn', t('待确认重算')); }
     else { meta = t('控制') + ' ' + total + ' · ' + t('TDS 未录'); lb = t('控制分') + ' ' + pill('mute', t('TDS 未录')); }
-    let h = '<div class="modal lrn-modal sum-modal' + (enteredRunId === m.runId ? ' no-anim' : '') + '" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody"><div class="sum-simple">';
+    let h = '<div class="modal lrn-modal sum-modal sum-notop' + (enteredRunId === m.runId ? ' no-anim' : '') + '" id="sumModal"><div class="lrn-body" id="sumBody"><div class="sum-simple">';
     h += '<div class="sum-hero-row">';
     h += '<div class="sum-stages">' + stageRow('stage1', m) + stageRow('stage2', m) + stageRow('stage3', m) + '</div>';
     h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
@@ -650,7 +651,7 @@
       const d = $('sumDim');
       d.innerHTML = h;
       d.hidden = false;
-      $('sumX').addEventListener('click', close);
+      const xb = $('sumX'); if (xb) xb.addEventListener('click', close); // 简单档采纳 B 无顶栏✕，仅「再来一杯」关；标准/完整保留✕
       const ti = $('sumTds');
       if (ti) ti.addEventListener('change', async function () {
         const v = this.value === '' ? null : clamp(Number(this.value), 0, 15);
