@@ -14,14 +14,14 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 | 统筹（现） | 01a1f379-3282-7681-8ec5-86443b43708b | relay-4 接手同步完成（11-19；旧 01a1f239 退位，回叫转移已通知） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 交接完成停下（HANDOFF_2026-11-19-D1-6-impl-relay.md，统筹核过） |
 | 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 发版＋资产替换闭环／杯 15 首测完成／晚段评估闭环／2.2.54 发版闭环／待用户装机测杯／杯 16 d 路径评估完成（统筹复跑核过）／2.2.55=Va+Vb3+Vd15 改码完成 aca12a0 统筹复核全过（892/892）／发版 SOP 已派（用户批「并入本次发版」）／Q2 否平滑度优先维持 |
-| 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 16 紧急回执（峰 102.7% 破线）／待命下一杯（base 3.5625）；通道接受准则用户批准已转即日生效（暂定阈值待标定）／2.2.55（Va+Vb3+Vd15）发版后装机陪杯验 O1＋Vb3＋Vd15 |
+| 取证接力（陪杯/导出） | 01a1f3dc-bbc7-7f81-b217-d60602ffb352 | relay-2 接手同步完成（11-19；旧 01a1eec0 退位）／待命下一杯（base 3.5625 adaptive、autoApply ON、mode full）；通道接受准则即日生效（暂定阈值待标定）／2.2.55（Va+Vb3+Vd15）装机后陪杯验 O1＋Va/Vb3＋Vd15（录 decayException 诊断＋Vb3 instCross 字段供标定） |
 | UI 入口（UI10，接 UI9） | 01a1f310-1125-73e3-b3fd-30e8729dd2b1 | v0.30 已发（UI10，git 证据见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
 | 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 排查完成（根因证实）／评分修复 git 证据已随 UI9 直管 v0.26 发（§4 ⑥） |
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
-退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c / 01a1f239；旧取证 01a1e685；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）；UI9 01a1f1cd（v0.29 后接力 UI10）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
+退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c / 01a1f239；旧取证 01a1e685／01a1eec0（接力 1）；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）；UI9 01a1f1cd（v0.29 后接力 UI10）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
 
 ## 2 基线（统筹远端核过）
 
@@ -161,3 +161,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：用户拍板（「Vd15 衰减例外并入本次发版；通道事件接受准则我批准」）→Vd15 合并改码批派插件实施 01a1f274（2.2.55=Va+Vb3+Vd15；滞回退出 raw<1.2×target＋最大例外笔数保守默认＋诊断字段须加，再回放含退出逻辑（正常零误触/冷尾过调有界）＋杯 16 真机交叉；静默 1200/小步≤2/Q2 常态机制/硬包线 8 不动；发版批准含在「并入本次发版」，改码完成统筹复核后派全 SOP 不再另问）；通道接受准则批准落 AGENTS §1.14＋活文档（正常 40% 不变/签名合取/物理上限×1.1/tail 收敛/计数反馈；阈值暂定待多杯标定）＋转取证即日生效（陪杯录 decayException 诊断供标定）；APK 同步债补 Vd15；§1/§4/§8。
 - 11-19：插件实施 Vd15 合并改码完成回叫（aca12a0，2.2.55=Va+Vb3+Vd15，5 文件）＋统筹独立复核全过（verify_v02255 892/892 复跑／sim 5/5／__d16-vd-replay 复跑首笔早 500ms 滞回退出冷尾有界／b1-replay 合并码通道 102.6 正常不变／diff 审 43 行仅 Vd15＋常量＋双退出＋诊断 Va/Vb3/静默/Q2 零改／MAX_WRITES=4 审过累计≤0.5ml/s 真机标定／技能 §22.18 补注审过只加不改／manifest 275／git 父 7751806 无 tag）→发版 SOP 派插件实施（用户批「并入本次发版」，tag/push VPN/zip/Release/夸克/推平板 ls 不代装/回执 push/回叫 key）；回执后统筹远端核＋基线推＋通知取证装机陪杯验 O1+Va/Vb3+Vd15；§1/§4/§8。
 - 11-19：用户批推送（「HEC 仓本地未推的 10 个推送」）→已执行：子模块 10 批 af322dc/6966941/d9f2b35/26eff35/5585aab/62c76f8/55b3199/f94ad7c/44237f2/830a5b5 走 VPN 57890 直推 origin/main（0fa5b0d..830a5b5，ls-remote 核过），父仓指针同步 74219d7→830a5b5 随批推（60edf60..74219d7，ls-remote 核过）；两仓 ahead 空核过；父仓 .git 沙箱只读提权写入（仅指针，别人未跟踪不碰）；本回执批随下批推；§2 推送状态/§8。
+- 11-19：取证接力 01a1eec0 → 01a1f3dc（relay-2，交接 HANDOFF_2026-11-19-hec-live-cups-relay-2.md）接手同步完成：§1 线程表（旧取证退位）＋本日志；读活文档＋AGENTS §1.14/§1.8/§6/§8＋relay-2 交接；git 四件事核过（子模块 HEAD d5bbd40，别人未跟踪不碰）；只读 git 证据：插件仓 HEAD 19f43c3＝2.2.55 发版回执（Release 451325193／包 542182 B／平板 Download/ 核 542182 @20:36／tag v2.2.55=aca12a0），待统筹远端核＋基线推；待命陪杯（下一杯 base 3.5625 adaptive、autoApply ON、mode full）＋2.2.55 装机合并验 O1＋Va/Vb3＋Vd15（录 decayException 诊断供标定）；本批 push 待用户批。
