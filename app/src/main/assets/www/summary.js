@@ -4,7 +4,7 @@
 // 红线：不碰影子发送/仲裁/温度链路/HX 液重；TDS 仅本地展示，不喂增益记忆。
 (function () {
   'use strict';
-  const EN = { '本杯总结': 'Shot summary', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末总结弹窗': 'Shot summary popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '收集数据': 'Collecting data', '加权': 'Weighted' };
+  const EN = { '本杯总结': 'Shot summary', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末总结弹窗': 'Shot summary popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data' };
   Object.assign(EN, { '控制': 'Control', '分带': 'band', '写入': 'writes', '供水': 'refill', '常规': 'normal', '救急': 'rescue', '反转': 'reversals', '平台过冲': 'plateau over', '过冲': 'overshoot', '平台': 'plateau', '长段': 'long stage', '启动': 'startup', '整段': 'whole', '尾均': 'tail mean', '尾': 'tail', '扣分': 'deductions', '原始': 'raw', '整杯': 'whole cup', '中位': 'med', '峰': 'peak', '限压命中': 'limit hits', '滚动回归口径': 'rolling regression', '桶中心': 'bucket centre', '平滑': 'smoothed', '置信': 'conf', '分': 'pts', '匹配': 'match', '杯末持久化总结': 'persisted at cup end', '移植': 'ported', '本地影子': 'local shadow', '帧切换': 'frame changes', '插件写入': 'plugin writes', '置信中位': 'confidence median', '决策': 'decisions', '校准素材，非增益裁判': 'calibration material, not a gain verdict', '离线训练乐观口径': 'offline-training optimistic bound', '中止杯不给研磨建议': 'No grind advice for aborted cups', '平台 + 供水': 'plateau + refill' });
   function t(k) { try { return (typeof lang !== 'undefined' && lang === 'en' && EN[k]) ? EN[k] : (window.t ? window.t(k) : k); } catch (_) { return k; } }
   const $ = (id) => document.getElementById(id);
@@ -525,6 +525,40 @@
     const txt = m.source === 'online' ? t('在线') + ' · /diagnostics controlReview · runId ' + esc(String(m.runId || '').slice(-6)) + ' ' + t('匹配') : m.source === 'persisted' ? t('离线归档') + ' · ' + t('杯末持久化总结') : m.source === 'port' ? t('离线归档') + ' · fullRecord ' + t('移植') : t('插件数据未就绪') + ' · ' + t('本地影子') + ' + ' + t('离线归档') + ' compact';
     return '<div class="srcrow" id="sumSrc">' + txt + ' · ' + t('仲裁块本地影子') + '</div>';
   }
+  // ---- 简单档=仪表弧视图（用户 11-19 锁卡 Instrument Arc）：刻度弧+hero 数字居中，左补录组右研磨，底部再来一杯；视图过滤非删功能 ----
+  let simpleConfirmed = false;
+  function arcSvg(frac, color) {
+    const P = (a, r) => { const rad = (a * Math.PI) / 180; return (100 + r * Math.cos(rad)).toFixed(1) + ' ' + (100 + r * Math.sin(rad)).toFixed(1); };
+    let ticks = '';
+    for (let i = 0; i <= 10; i++) { const a = 135 + i * 27; ticks += '<line x1="' + P(a, 80).split(' ')[0] + '" y1="' + P(a, 80).split(' ')[1] + '" x2="' + P(a, 86).split(' ')[0] + '" y2="' + P(a, 86).split(' ')[1] + '" stroke="#2a2f38" stroke-width="2"/>'; }
+    const f = Math.max(0, Math.min(1, frac || 0));
+    return '<svg class="sumarc" viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="88" fill="none" stroke="#232830" stroke-width="6" pathLength="100" stroke-dasharray="75 25" transform="rotate(135 100 100)" stroke-linecap="round"/>' + (f > 0 ? '<circle cx="100" cy="100" r="88" fill="none" stroke="' + color + '" stroke-width="6" pathLength="100" stroke-dasharray="' + (75 * f).toFixed(1) + ' 100" transform="rotate(135 100 100)" stroke-linecap="round"/>' : '') + ticks + '</svg>';
+  }
+  function simpleView(m, tds) {
+    const total = m.total;
+    const w = weighted(total, tds && tds.tds);
+    const shown = simpleConfirmed && w != null ? w : total;
+    const col = shown == null ? '#8b93a1' : (shown >= 80 ? '#8fe0b0' : shown >= 60 ? '#f5c078' : '#f2a0aa');
+    const g = m.grind;
+    const tdsV = tds && tds.tds != null ? tds.tds : '';
+    const grV = tds && tds.grind != null ? tds.grind : '';
+    const canRecalc = total != null && tdsV !== '';
+    let meta;
+    if (total == null) meta = m.fault ? t('异常中止 · 不评分') : t('不评分 · 5 指标缺');
+    else if (w != null && simpleConfirmed) meta = t('控制') + ' ' + total + ' · TDS ' + round(tdsScore(tds.tds), 1) + ' · ' + t('加权') + ' ' + w;
+    else if (w != null) meta = t('控制') + ' ' + total + ' · TDS ' + tdsV;
+    else meta = t('控制') + ' ' + total + ' · ' + t('TDS 未录');
+    const lb = total == null ? t('不评分') + ' ' + pill('mute', m.fault ? t('异常中止 · 不评分') : t('缺数据')) : (simpleConfirmed && w != null ? t('加权分') + ' ' + pill('warn', t('加权 · 提案待确认')) : t('控制分') + (w == null ? ' ' + pill('mute', t('TDS 未录')) : ''));
+    let h = '<div class="modal lrn-modal" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody"><div class="sum-simple">';
+    h += '<div class="sum-hero-row">';
+    h += '<div class="sum-inputs"><div class="sum-input"><span class="lbl">' + t('TDS %（目标 3.5）') + '</span><input class="tdsbox" id="sumTds" type="number" min="0" max="15" step="0.1" value="' + tdsV + '"><button type="button" class="sum-recalc' + (canRecalc ? '' : ' off') + '" id="sumRecalc"' + (canRecalc ? '' : ' disabled') + '>' + t('确认重算') + '</button></div><div class="sum-input"><span class="lbl">' + t('研磨度格数') + '</span><input class="tdsbox" id="sumGrind" type="number" min="0" max="60" step="1" value="' + grV + '"></div></div>';
+    h += '<div class="sum-hero"><div class="sum-dial">' + arcSvg(shown == null ? 0 : shown / 100, col) + '<div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div></div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
+    h += '<div class="sum-side right" id="sumGrindSec"><div class="k">' + t('研磨') + '</div><div class="v">' + (g && g.available ? esc(g.status || '—') + ' · ' + esc(g.label || g.detail || '—') : '—') + '</div><div class="s">' + (g && g.available ? t('置信') + ' ' + esc(g.confidence || '—') : t('数据不足')) + '</div></div>';
+    h += '</div>';
+    h += '<button type="button" class="sum-again" id="sumAgain">' + t('再来一杯') + '</button>';
+    h += '</div></div></div>';
+    return h;
+  }
   function render() {
     if (!model || openId == null) return;
     const m = model;
@@ -532,7 +566,9 @@
       if (openId !== m.runId) return;
       const rid = String(m.runId || '');
       const when = m.startedAt ? new Date(m.startedAt) : null;
-      let h = '<div class="modal lrn-modal" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><span class="rid">…' + esc(rid.slice(-6)) + '</span>' + (when ? '<span class="at">' + (when.getMonth() + 1) + '-' + when.getDate() + ' ' + when.toTimeString().slice(0, 5) + '</span>' : '') + '<button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody">';
+      let h;
+      if (level === 0) { h = simpleView(m, tds); } else {
+      h = '<div class="modal lrn-modal" id="sumModal"><div class="lrn-top"><h3>' + t('本杯总结') + '</h3><span class="rid">…' + esc(rid.slice(-6)) + '</span>' + (when ? '<span class="at">' + (when.getMonth() + 1) + '-' + when.getDate() + ' ' + when.toTimeString().slice(0, 5) + '</span>' : '') + '<button type="button" class="lrn-x" id="sumX">✕</button></div><div class="lrn-body" id="sumBody">';
       h += scoreSec(m, tds);
       h += nextSec(m);
       h += arbSec(m);
@@ -541,6 +577,7 @@
       h += suppSec(m);
       h += srcSec(m);
       h += '</div></div>';
+      }
       const d = $('sumDim');
       d.innerHTML = h;
       d.hidden = false;
@@ -557,9 +594,18 @@
         await tdsSave(openId, { dose: v });
         render();
       });
+      const rc = $('sumRecalc');
+      if (rc) rc.addEventListener('click', () => { simpleConfirmed = true; render(); });
+      const ga = $('sumAgain');
+      if (ga) ga.addEventListener('click', close);
+      const gi = $('sumGrind');
+      if (gi) gi.addEventListener('change', async function () {
+        const v = this.value === '' ? null : clamp(Number(this.value), 0, 60);
+        await tdsSave(openId, { grind: v });
+      });
     });
   }
-  // ---- 杯末全屏倒计时（用户 2026-11-19 定）：3s 大数字+进度环，收集并行；到点就绪即弹，未就绪停留等数据；新杯/关总开关取消 ----
+  // ---- 杯末全屏倒计时（用户 11-19 二段定）：覆盖停杯→可弹窗整个等待；+100ms 起收集并行；数据早到收零即弹，未就绪停 1 脉冲等到即弹；新杯/关总开关取消 ----
   let cdTimer = 0, cdEnd = 0, cdActive = false, cdQueued = null;
   const CD_MS = 3000, CD_CIRC = 2 * Math.PI * 54;
   function stopCountdown() { cdActive = false; cdQueued = null; clearTimeout(cdTimer); cdTimer = 0; const d = $('sumCount'); if (d) { d.hidden = true; d.innerHTML = ''; } }
@@ -577,8 +623,8 @@
       if (ring) { ring.style.strokeDasharray = String(CD_CIRC); ring.style.strokeDashoffset = String(CD_CIRC * Math.max(0, rem) / CD_MS); }
       if (rem <= 0) {
         if (cdQueued) { const q = cdQueued; stopCountdown(); doOpen(q[0], q[1]); return; }
-        if (nEl) nEl.textContent = '·';
-        if (lb) lb.textContent = t('收集数据');
+        // 数据未就绪：停 1 脉冲等待（环近满），数据一到 open() 拨 cdEnd=now 收零弹窗；无圈后 limbo
+        cdEnd = Date.now() + 400;
         cdTimer = setTimeout(tick, 200);
         return;
       }
@@ -587,10 +633,10 @@
       cdTimer = setTimeout(tick, 100);
     };
     tick();
-    setTimeout(() => { if (seq === fetchSeq && cdActive) collect(ctx); }, 1000);
+    setTimeout(() => { if (seq === fetchSeq && cdActive) collect(ctx); }, 100);
   }
-  function open(runId, m) { if (cdActive) { cdQueued = [runId, m]; return; } doOpen(runId, m); }
-  function doOpen(runId, m) { stopCountdown(); model = m; openId = runId; model.runId = runId; render(); updateTag(); }
+  function open(runId, m) { if (cdActive) { cdQueued = [runId, m]; cdEnd = Date.now(); return; } doOpen(runId, m); }
+  function doOpen(runId, m) { stopCountdown(); simpleConfirmed = false; model = m; openId = runId; model.runId = runId; render(); updateTag(); }
   function close() { stopCountdown(); fetchSeq++; const d = $('sumDim'); if (d) { d.hidden = true; d.innerHTML = ''; } openId = null; }
   function updateTag() {
     if (!tagEl) return;
