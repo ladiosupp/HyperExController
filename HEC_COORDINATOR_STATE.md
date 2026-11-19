@@ -11,23 +11,23 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 
 | 角色 | threadId | 状态 |
 |---|---|---|
-| 统筹（退位中） | 01a1f239-4de7-7213-bca0-f947b70c0c1b | 接力退位（后继 01a1f379-3282-7681-8ec5-86443b43708b 已建，待接手同步） |
+| 统筹（现） | 01a1f379-3282-7681-8ec5-86443b43708b | relay-4 接手同步完成（11-19；旧 01a1f239 退位，回叫转移已通知） |
 | 插件接力（2.2.50 发版＋核码） | 01a1ee30-8d3c-7b23-a455-0d3793534e58 | 交接完成停下（HANDOFF_2026-11-19-D1-6-impl-relay.md，统筹核过） |
 | 插件实施接力（D1–D6＋改名，2.2.53） | 01a1f274-3bd5-7360-b81c-6783610e3b93 | 2.2.53 发版＋资产替换闭环／杯 15 首测完成／晚段评估闭环／2.2.54 发版闭环／待用户装机测杯／杯 16 d 路径回放评估在途（紧急）／Q2 否平滑度优先维持 |
 | 取证接力（陪杯/导出） | 01a1eec0-d9b7-7703-8793-a4d9168accfb | 杯 16 紧急回执（峰 102.7% 破线）／待命下一杯（base 3.5625）＋2.2.54 O1 测杯 |
-| UI 入口（UI9，接 UI8） | 01a1f1cd-d4c7-7241-a1ea-b96ddcd48a3c | v0.30 已发（git 证据，见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
+| UI 入口（UI10，接 UI9） | 01a1f310-1125-73e3-b3fd-30e8729dd2b1 | v0.30 已发（UI10，git 证据见 §2 注）；UI 批用户直管（统筹不派单不接回叫） |
 | 规矩整理 | 01a1e6c9-2d1f-7100-a059-25c9c20d6b87 | idle |
 | 杯末弹窗评估 | 01a1ebd1-6605-7ca0-b952-bd6fa2c81723 | 排查完成（根因证实）／评分修复 git 证据已随 UI9 直管 v0.26 发（§4 ⑥） |
 | 离线验证 | 01a1e911-f0bd-7cb3-ace3-bfc591a27582 | idle（三轮到顶） |
 | 审计修复发版 | 01a1e98a-1064-75e1-8706-32658810d676 | idle（34 项闭环） |
 
-退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c；旧取证 01a1e685；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
+退位/归档：旧统筹 01a1dcec / 01a1e44a / 01a1e90d / 01a1eb9b / 01a1ee1f / 01a1ef1c / 01a1f239；旧取证 01a1e685；旧修复批 01a1ebac；旧 UI7 01a1e8e3；UI 接力 01a1eeaa（已归档）；UI8 01a1eeac（v0.25 后接力 UI9）；UI9 01a1f1cd（v0.29 后接力 UI10）。create_thread 用嵌套 target:{type:"project",projectId,environment:{type:"local"}}（AGENTS 22，拍平必报错）。
 
 ## 2 基线（统筹远端核过）
 
 - 插件 **2.2.54**（O1 估计载体暖机：reload 恢复最近合格杯 diagnosticLast、冷启动消费 gain-memory/FF k，控制律零改，用户批改码＋发版，11-19；统筹独立远端核过 ls-remote/Release API/zip SHA256/平板 ls）：代码 aa93338＋回执 812b6bb（branch auto-hyperex，自 966e3c7 快进），tag v2.2.54=aa93338（lightweight）；Release 451186657／asset 767238441（RA_kwDOVO5zXc4tuyEp，HyperExPulseFilter_v2.2.54.zip，uploaded，--latest，notes-v2.2.54.md）；zip 534760 B SHA256 A0440E2CA4AC3A5D13ABB130DC976642362875EED7010B1DB55360B043F102A1（本地 release/ zip 复算一致，包内 manifest 2.2.54 descLen 275）；夸克 b89cb2fe7ce74e93bc1cd2d14f087794；平板 Download/ 已推 ls 核 534760（18:27 mDNS）、**用户 Decaid 自装**。verify_v02254 880/880（870＋O1 10）统筹复跑＋包内复跑；sim-regression 5/5；O1 冷启动回放统筹探针复跑（before profile-base 2.5/gm null→after 恢复杯 15 feed-forward-k 4.0625（k1.2308，gm HIGH r1.2821→3.875 后备），flood 7.3125；暖机对照 priorUnchanged 逐字相同）。信任门＝完整 fingerprint 相等（校准身份＋LUT 点＋targets＋weights/limits＋release＋温度，设置变更即拒）＋basket＋学习合格＋completed＋full samples 最近 4 杯＋trustedAdaptiveRun；只读（记忆/LUT/机器指令/autoApply 不触发）；控制律零改统筹 diff 扫描证实（coast/up-hold/治理链/死区/静默不动，§22.13 平滑度优先维持，Q2 用户否 O2/O3）。技能 §22.3 末补注（只加不改）。交接 HANDOFF_v02254.md（§5 APK 同步债：O1＋D1–D4 合并 full→hec 里程碑同信任门移植）。前版 2.2.53（48c58e8／54ffbc0 短简介／966e3c7，Release 451046769 资产替换短简介包 534524/2940958E…，870/870，D1–D6＋sourceBucketId 改名，杯 14/15 时代）。
 - APK **v0.25**（杯末弹窗简单档 v7 锁稿＋倒计时 5s 宽裕窗＋简单档撑满居中修，用户直管 UI8 全链批，11-19；统筹远端独立核过 ls-remote/Release API/APK SHA256）：tag v0.25=f528168；Release 450832733／asset 766011665（HyperExController_v0.25.apk，uploaded）；APK 6,736,189 B SHA256 3751E226B24CA8E73340CC540CFC72513A156E71918DBE215CCC12C88658B3AA（本地 app-debug.apk 复算一致）；夸克 c9917f98871040aaace4830d6aedd8ff；平板＋模拟器 versionCode 25 冒烟过；回归 summary 46/46＋boot 8/8＋targetline 14/14。子模块 main **10d8634**（v0.25 交接；commits e42c98a/a647f40/f528168/10d8634）；父仓 main **5841b1f**（指针同步）。简单档 v7：中央 192px tier 色数字（未确认=控制分/确认重算后=加权分）＋S1/S2/S3 匹配度三行右对齐研磨＋拨号式 TDS3.50/研磨000 滑+点输＋蓝重算按钮＋动效一次编排＋缺分降级「—」；倒计时 CD_MS=5000 圈转完弹有数据窗。**注：v0.25 只含简单档 UI，评分解析根因修复 fix1+2+4 未含**（total 仍 null、简单档显缺分降级；修复另批见 §4 ⑥，弹窗评估 MD 供 UI9 参考）。交接 HANDOFF_2026-11-19-hec-v025-release.md。UI8 退位→UI9 01a1f1cd 接 UI 批。前版 v0.24（5167bb0，Release 450739200，四批合发）。
-- **UI9 直管后续批（git 本地证据，统筹未独立远端核 Release/SHA256；UI 批用户直管、统筹不追踪细节）**：v0.26＝杯末打分恢复（phases 数组解析＋writes trace 分类＋startedAt）＋倒计时等待态平滑（bc5e422/d0d5a24，交接 c3e1d5d）；v0.27＝冷 boot 读盘竞态修＋弹窗顶栏全档仅标题＋✕（0ccdc67/ac3479b/5e12140，交接 0e557c3）；v0.28＝本杯总结胶囊底色编码颗粒度三档（c45679e/06d73c2，交接 a50ff5e：Release 450906878／asset 766327414／夸克 f2870f51／平板 28 冒烟／回归 55+8）；v0.29（交接 9059caf：Release 451045472／asset 766854496／夸克 66ab0ded／平板 29 冒烟／回归 59+8）；v0.30（弹窗键盘／仅按钮关／研磨落记录／右侧建议版式，交接 0444cb4：Release 451147860／asset 767125100／夸克 b06e1d72／双机 30／回归 69+8，git 证据统筹未独立远端核）。**⑥ 评分解析修复 git 证据已随 v0.26 发**（fix3 是否含未核，以 UI9 交接为准）。
+- **UI 直管后续批（git 本地证据，统筹未独立远端核 Release/SHA256；UI 批用户直管、统筹不追踪细节；v0.26–v0.29＝UI9，v0.30＝UI10）**：v0.26＝杯末打分恢复（phases 数组解析＋writes trace 分类＋startedAt）＋倒计时等待态平滑（bc5e422/d0d5a24，交接 c3e1d5d）；v0.27＝冷 boot 读盘竞态修＋弹窗顶栏全档仅标题＋✕（0ccdc67/ac3479b/5e12140，交接 0e557c3）；v0.28＝本杯总结胶囊底色编码颗粒度三档（c45679e/06d73c2，交接 a50ff5e：Release 450906878／asset 766327414／夸克 f2870f51／平板 28 冒烟／回归 55+8）；v0.29（交接 9059caf：Release 451045472／asset 766854496／夸克 66ab0ded／平板 29 冒烟／回归 59+8）；v0.30（UI10，弹窗键盘／仅按钮关／研磨落记录／右侧建议版式，交接 0444cb4：Release 451147860／asset 767125100／夸克 b06e1d72／双机 30／回归 69+8，git 证据统筹未独立远端核）。**⑥ 评分解析修复 git 证据已随 v0.26 发**（fix3 是否含未核，以 UI9 交接为准）。
 - 推送状态（11-19 用户批「本地 5 个未推推送」，已执行两仓 ahead 空）：子模块 5 批全部上远端——8266994/8dc27a1/bfc6410 随 UI9 v0.30 push 携带至 0444cb4，616087c/783f91b＋本回执批走 VPN 代理 127.0.0.1:57890 直推 origin/main；父仓指针同步 commit＋push 随批。前态：子模块 origin/main=0444cb4（UI9 v0.30 回执）、父仓 origin/main=8cd8d58（指针 0444cb4）。v0.21=杯末总结弹窗、v0.22=样式 1 目标线、v0.23=目标杯流历史化（样式 1+2，Release 450011833）、v0.24=四批合发。
 
 ## 3 真机最新裁决（杯 16＝2.2.53 暖机杯 1795084966454-2，11-19 18:42；峰 102.7% 破 40% 绊线；统筹独立复跑核实）
@@ -80,7 +80,7 @@ AGENTS 20 改代码/发版/推送/装机/开闭环先问（当次授权只对当
 - 执行接力：上下文重→写自包含轮次交接 MD＋回叫停下；统筹开后继线程读交接续做。
 - 统筹接力：新统筹第一动作读**本活文档**＋AGENTS＋§22；更新 §1 线程表＋AGENTS §1.8 ID 行（用户已授权常规同步）；给执行对话发回叫转移通知。
 - 插件→APK 算法同步（用户 11-19 点名「改完插件要同步到 apk 里面的算法里头」）：插件控制律/估计改动须同步 APK 移植版（shadow/arbiter 同口径）；时机＝插件不用 full 可 hec 时**做一次**（full→hec 里程碑，阶段 D），期间改动记 §4 同步债；插件批交接 MD 标注 APK 移植同步点。A 批只改插件，APK 同步留 hec 切换批。
-- 统筹范围（用户 11-19 点名）：负责 HEC（APK 控制/取证/协议）＋插件＋用户交代的事；**UI 有关不回叫统筹**（UI9 01a1f1cd 用户直管，统筹不派单不催不追踪 UI 批）。其余执行对话回叫照旧。
+- 统筹范围（用户 11-19 点名）：负责 HEC（APK 控制/取证/协议）＋插件＋用户交代的事；**UI 有关不回叫统筹**（UI 批用户直管，现 UI10 01a1f310 接 UI9；统筹不派单不催不追踪 UI 批）。其余执行对话回叫照旧。
 - 批准链：用户当次批准→统筹转执行对话→执行回执 key 数字→统筹远端抽查（ls-remote／Release API／父仓 ahead）→落本文件§2/§8。
 - 验杯/算法回叫口径（用户 11-19 点名，AGENTS §1.14）：回执主验设计目的达成（扰动下杯内/少杯数收敛达标）＋算法优化方向＋真实参数逻辑/设计方向问题；偏移数值与因素归因是证据不是结论。取证裁决节/插件评估提案/统筹裁决同口径。
 - manifest description 写法（用户 11-19 点名，AGENTS §1.15）：固定短产品简介＋只记重大功能改动更新（如 hec 可联动写一句），不堆叠每版 changelog/Retains 历史段；版本细节归 release/notes-vX.md 与 Release body。基线文案＝HANDOFF_2026-11-19-manifest-description-shorten.md §3（用户确认 275 字符）。
@@ -152,3 +152,4 @@ adb=D:/android-dev/sdk/platform-tools/adb.exe；平板 mDNS adb-haf6uwvcqcdujzin
 - 11-19：2.2.54 发版回叫＋统筹独立远端核过（ls-remote auto-hyperex=812b6bb/tag v2.2.54=aa93338；Release 451186657 asset 767238441 uploaded 534760；本地 zip SHA256 A0440E2C…02A1 复算一致、包内 manifest 2.2.54 descLen 275；平板 ls 534760@18:27 mDNS；包内 880/880）→§2 基线推 2.2.54（O1 估计载体暖机、控制律零改、§22.13 维持）、§1/§4 闭环；待用户 Decaid 自装 reload 冷启动首杯验 O1（restored＋controlSource＋base≈3.8–4.0）＋暖机对照，取证陪杯已通知；D1/D2 清锚/D3 大缺口场景杯仍待用户配合；APK 同步债 O1＋D1–D4 合并 hec 里程碑。
 - 11-19：统筹 01a1f239 上下文重，用户指示接力（「你自己写接力对话了，你很长了」）→写 relay-4 自包含交接（HANDOFF_2026-11-19-hec-coordinator-relay-4.md，未跟踪）＋create_thread 建后继 01a1f379-3282-7681-8ec5-86443b43708b（delegation 指活文档＋relay-4＋范围口径 UI 不回叫）；§1 退位中；后继接手同步（AGENTS §1.8 ID＋§1 现＋回叫转移通知 6 对话除 UI9＋报到）由其首回合执行；本地未推 af322dc＋本批 push 待用户批。
 - 11-19：取证紧急回叫杯 16（1795084966454-2，2.2.53 暖机杯，APK v0.30，18:42）峰 102.7% 破 40% 绊线（杯 9 后首次）＋统筹复跑 __relay-cup16-verify/deep 证实（estHistory slope 0 r2=1 ×3 退化拟合被接受＝逻辑缺口；cutoff@21290 rawGS 5.402 滞后 0.75s 窗瞬时已 ~10；retained-water 峰 10.134@22054；衰减期 raw 8–10 ~2s dec=hold 首笔 trim@24257；whole MISS +33.5%；plan 正常 gain-memory 3.875 flood 7 D2 暖机✓；学习正确 g3 absorbed base 下拉 3.5625；影子红线全过 sent 0 全 20 杯）→§3 杯 16 裁决；**d 路径触发条件成立**→派插件实施只读回放评估（(a) 退化拟合拒收 (b) backstop 0.80/100ms＋瞬时交叉核/boost 限时 (c) 衰减 hold 证据呈用户 Q2 不推翻）；控制律加固须用户另授权（结果呈批）；O1 与本问题无关；下一杯 base 3.5625 取证待命；§1/§3/§4/§8。
+- 11-19：统筹接力 01a1f239 → 01a1f379（relay-4，活文档制）接手同步完成：§1 线程表（01a1f239 退位）＋AGENTS §1.8 ID 更新；git 证据补正 UI 入口＝UI10 01a1f310（b1d846e/88466a5 接力、e3fbc91/c0f279e/0444cb4 v0.30 系 UI10 发，§1/§2/§5 更正旧 UI9 标注）；回叫转移通知发 6 个执行对话（插件实施/取证/弹窗评估/规矩/离线/审计，UI10 不发）；接力间隙旧统筹已处理杯 16 紧急裁决（d9f2b35：峰 102.7% 破 40% 绊线、d 路径回放评估派插件实施在途）——新统筹按活文档 §3/§4 续管，控制律加固待回放结果呈用户批；2.2.54 装机 reload 冷启动验 O1 照常待用户；本地未推 af322dc/6966941/d9f2b35＋本批 push 待用户批。
