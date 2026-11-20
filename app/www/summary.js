@@ -719,7 +719,7 @@
       const e = READY_MS + CD_MS - rem;
       const brown = $('sumScBrown'), hec = $('sumScHec'), rd = $('sumCountReady'), box = $('sumCountBox');
       const nEl = $('sumCountN'), ring = $('sumCountRing'), lb = $('sumCountLb');
-      // 开场（用户 11-20 定稿）：0–0.7s 棕扩满窗＋HEC 连字淡入；0.7–1.0s 字与棕底同淡出；0.9–2s READY 大字最上层；2s 起黑底倒数
+      // 开场（用户 11-20 定稿，READY 入场再定 1.0s）：0–0.7s 棕扩满窗＋HEC 连字淡入；0.7–1.0s 字与棕底同淡出；1.0–2s READY 大字最上层（HEC 完全淡出后进，无交叠）；2s 起黑底倒数
       if (RM()) {
         if (brown) brown.style.opacity = '0';
         if (hec) hec.style.opacity = '0';
@@ -732,7 +732,7 @@
           else brown.style.opacity = '0';
         }
         if (hec) hec.style.opacity = e < 700 ? String(e / 700) : (e < 1000 ? String(1 - (e - 700) / 300) : '0');
-        if (rd) rd.style.opacity = (e >= 900 && e < READY_MS) ? '1' : '0';
+        if (rd) rd.style.opacity = (e >= 1000 && e < READY_MS) ? '1' : '0';
         if (box) box.style.opacity = e >= READY_MS ? '1' : '0';
       }
       if (rem > CD_MS) { cdTimer = setTimeout(tick, 50); return; }
