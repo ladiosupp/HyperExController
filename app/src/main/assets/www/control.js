@@ -60,7 +60,7 @@
     '机器不在待机状态': 'Machine is not idle; try again after this shot.',
     '无法获取机器状态': 'Cannot read machine state.', '知道了': 'OK',
     '取消': 'Cancel', '连接': 'Connect', '连接失败': 'Connect failed', '选择曲线': 'Select curve',
-    'HyperEx': 'HyperEx', '非HyperEx': 'Non-HyperEx', '非 HyperEx · 只读': 'Non-HyperEx · read-only', 'HyperEx · 插件接管': 'HyperEx · takeover',
+    'HyperEx': 'HyperEx', '非HyperEx': 'Non-HyperEx', '非 HyperEx · 只读': 'Non-HyperEx · read-only', 'HyperEx · 插件接管': 'HyperEx · takeover', 'HyperEx · 插件全控': 'HyperEx · plugin control', 'HyperEx · 只读': 'HyperEx · read-only',
     '预算': 'Budget', '拒绝': 'Rejects', '调流·写入': 'Trim·write', '检测': 'Check', '相位切换': 'Phase',
     'decaid 杯流': 'decaid flow', '目标杯流': 'Target flow', '目标压力': 'Target pressure', '目标机器流量': 'Target machine flow', '矢量·增': 'Vector up', '矢量·减': 'Vector down',
     '机器流量': 'Machine flow', '目标指令': 'Target cmd', 'APK 指令': 'APK cmd',
@@ -701,7 +701,11 @@
     lb.textContent = title;
     const hx = isHxSelected();
     const taken = !!(ext && ext.takeover);
-    tag.textContent = taken ? t('HyperEx · 插件接管') : hx ? 'HyperEx · HEC' : t('非 HyperEx · 只读');
+    // 胶囊按插件实际档位 ext.mode（full/hec/off）取标签；takeover 仅 hec 档心跳保险接管锁存（full 档恒 null），旧逻辑只看 takeover 致 full 档恒显 HEC（用户 11-20 报 bug，统筹修）。
+    const im = ext && ext.mode;
+    tag.textContent = taken ? t('HyperEx · 插件接管')
+      : hx ? (im === 'full' ? t('HyperEx · 插件全控') : im === 'hec' ? 'HyperEx · HEC' : im === 'off' ? t('HyperEx · 只读') : 'HyperEx')
+      : t('非 HyperEx · 只读');
     tag.className = 'curvetag' + (hx && !taken ? '' : ' plain');
     const lock = $('curveLock');
     if (lock) lock.hidden = !(hx && !taken);
