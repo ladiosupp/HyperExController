@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const EN = {
     'UI 设置': 'UI Settings', '功能设置': 'Function Settings', '其他': 'Other', '侧栏自动隐藏': 'Auto-hide sidebar', 'HX 曲线样式 2': 'HX curves · style 2', '非 HX 曲线样式 2': 'Non-HX curves · style 2', '实时曲线宽度': 'Chart line width',
-    '学习中心': 'Learning', '控制中心': 'Control center', '内容待定': 'Content coming soon', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter', '杯末总结弹窗': 'Shot summary popup', '显示颗粒度': 'Display granularity', '简单': 'Simple', '标准': 'Standard', '完整': 'Full',
+    '学习中心': 'Learning', '控制中心': 'Control center', '内容待定': 'Content coming soon', '算法学习': 'Adaptive', '决策模型': 'Policy model', '仲裁模型': 'Arbiter', '杯末评分弹窗': 'Shot score popup', '显示颗粒度': 'Display granularity', '简单': 'Simple', '标准': 'Standard', '完整': 'Full',
     '插件杯间学习成果': 'plugin shot-to-shot learning', '影子推理 bc_v0': 'shadow inference bc_v0', '规则仲裁 v0': 'rule arbitration v0',
     '下一杯指令': 'Next-shot commands', '增益记忆': 'Gain memory', '最近一杯判定': 'Last-shot verdict', '历史概览': 'History overview',
     '阶段': 'Stage', '目标 g/s': 'Target g/s', 'LUT 基础': 'LUT base', '学习后': 'Adapted', '来源': 'Origin',
@@ -296,7 +296,7 @@
         '</div></div>' +
         '<div class="lrn-sec"><h4>' + t('功能设置') + '</h4>' +
         '<div class="setrow">' +
-        '<label class="rawtoggle"><input type="checkbox" id="shotSummaryOn"><span class="sw"></span>' + t('杯末总结弹窗') + '</label>' +
+        '<label class="rawtoggle"><input type="checkbox" id="shotSummaryOn"><span class="sw"></span>' + t('杯末评分弹窗') + '</label>' +
         '<label class="widthctl"><span>' + t('显示颗粒度') + '</span><input type="range" id="shotSummaryLevel" min="0" max="2" step="1"><b id="shotSummaryLevelV">' + t('标准') + '</b></label>' +
         '</div></div>' +
         '<div class="lrn-sec"><h4>' + t('其他') + '</h4></div>';
