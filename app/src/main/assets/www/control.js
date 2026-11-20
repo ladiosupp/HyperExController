@@ -234,6 +234,7 @@
     helloOk = !!(ext.heartbeat && ext.heartbeat.ok);
     hecMode = ext.mode === 'hec';
     noteExternal(ext);
+    if (run && !runEnded && window.HxSummary && window.HxSummary.prefetch) window.HxSummary.prefetch(runId); // 杯内预取打分子集写本地（用户 11-20）
     renderAll();
   }
   function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.11'; } catch (_) { return '0.11'; } }
