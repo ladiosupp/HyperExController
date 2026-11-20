@@ -59,5 +59,5 @@
 
 - 统筹：**01a1f239-4de7-7213-bca0-f947b70c0c1b**（hostId local，relay-3 活文档制）；**UI 批不回叫**（§1.13）。
 - 卸任 UI10：**01a1f310-1125-73e3-b3fd-30e8729dd2b1**。
-- **接力对话 ID：待接力第一批回填**（UI11；create_thread 用嵌套 target:{type:"project",projectId:"5f74cf60-4cb4-4b5c-b439-b5bdf0cde7e5",environment:{type:"local"}}，AGENTS 22 拍平必报错）。
+- **接力对话 ID：01a1f75f-93c0-7fa3-bb41-5a25d946a2a4**（UI11，2026-11-20 回填；create_thread 用嵌套 target:{type:"project",projectId:"5f74cf60-4cb4-4b5c-b439-b5bdf0cde7e5",environment:{type:"local"}}，AGENTS 22 拍平必报错）。
 - 示意稿 mocks/hec-popup-simple/（v7 锁稿＋v8 去顶栏＋ready-intro-v1；帧 3 棕底倒数已被用户改黑底，以 §1 为准）；取证 review/hec-ui5/（gitignore）。
