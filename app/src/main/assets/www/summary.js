@@ -329,16 +329,21 @@
     const st = ctrl();
     if (!st.baseUrl) return openOffline(ctx, seq);
     let body = null;
-    // 提速（用户 11-19 二轮）：首请求放宽 3s（插件前 3s 算不完新杯，避免空请求），其后 200ms 密轮询；就绪晚于圈时量化≤200ms
+    // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 2s race 超时（原生桥回调可能不回来，httpJson 无超时→collect 卡死圈满干等）；总 deadline 8.5s 到点必离线兜底弹
+    const deadline = Date.now() + 8500;
     await new Promise((res) => setTimeout(res, 3000));
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 40; i++) {
       if (seq !== fetchSeq) return;
-      const r = await window.HxControl.httpJson('GET', DP + '/diagnostics');
+      if (Date.now() > deadline) break;
+      const r = await Promise.race([
+        window.HxControl.httpJson('GET', DP + '/diagnostics'),
+        new Promise((res) => setTimeout(() => res(null), 2000)),
+      ]);
       const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
       const cr = b && b.controlReview;
       const rid = cr && (cr.runId || b.runId);
       if (cr && (rid == null || rid === ctx.runId)) { body = b; break; }
-      if (i < 15) await new Promise((res) => setTimeout(res, 200));
+      if (i < 39) await new Promise((res) => setTimeout(res, 200));
     }
     if (seq !== fetchSeq) return;
     if (!body) return openOffline(ctx, seq);
@@ -679,19 +684,38 @@
   }
   // ---- 杯末全屏倒计时（用户 11-19 三段定）：5s 宽裕窗覆盖停杯→可弹窗；+100ms 起收集并行；圈转完弹有数据窗；未就绪停 1 等到即弹；新杯/关总开关取消 ----
   let cdTimer = 0, cdEnd = 0, cdActive = false, cdQueued = null;
-  const CD_MS = 5000, CD_CIRC = 2 * Math.PI * 54;
+  const READY_MS = 2000, CD_MS = 5000, CD_CIRC = 2 * Math.PI * 54; // 用户 11-20 定稿：2s「准备好了吗/READY」开场＋5s 倒数＝7s 总窗
   function stopCountdown() { cdActive = false; cdQueued = null; clearTimeout(cdTimer); cdTimer = 0; const d = $('sumCount'); if (d) { d.hidden = true; d.innerHTML = ''; } }
   function startCountdown(ctx) {
     stopCountdown();
     const seq = ++fetchSeq;
-    cdActive = true; cdEnd = Date.now() + CD_MS;
+    cdActive = true; cdEnd = Date.now() + READY_MS + CD_MS;
     const d = $('sumCount'); if (!d) { collect(ctx); return; }
     d.hidden = false;
-    d.innerHTML = '<div class="sumcount"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="54"/><circle class="fg" id="sumCountRing" cx="60" cy="60" r="54"/></svg><div class="n" id="sumCountN">5</div><div class="lb" id="sumCountLb">' + t('本杯总结') + '</div></div>';
+    d.innerHTML = '<div class="sc-brown" id="sumScBrown"></div><div class="sc-hec" id="sumScHec"><svg viewBox="0 0 1024 1024"><path fill="#f5c078" d="M194.56 341.77L259.41 341.77L259.41 682.23L194.56 682.23ZM372.89 341.77L437.74 341.77L437.74 682.23L372.89 682.23ZM257.38 479.58L374.92 479.58L374.92 544.42L257.38 544.42ZM435.71 341.77L618.1 341.77L561.36 406.62L435.71 406.62ZM435.71 479.58L526.91 479.58L526.91 544.42L435.71 544.42ZM435.71 617.38L561.36 617.38L618.1 682.23L435.71 682.23ZM829.44 387.5A170.23 170.23 0 1 0 829.44 636.5L785.21 589.07A105.38 105.38 0 1 1 785.21 434.93Z"/></svg></div><div class="n ready" id="sumCountReady" style="opacity:0">' + t('准备好了吗') + '</div><div class="sumcount" id="sumCountBox" style="opacity:0"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="54"/><circle class="fg" id="sumCountRing" cx="60" cy="60" r="54"/></svg><div class="n" id="sumCountN">5</div><div class="lb" id="sumCountLb">' + t('本杯总结') + '</div></div>';
     const tick = () => {
       if (!cdActive) return;
       const rem = cdEnd - Date.now();
+      const e = READY_MS + CD_MS - rem;
+      const brown = $('sumScBrown'), hec = $('sumScHec'), rd = $('sumCountReady'), box = $('sumCountBox');
       const nEl = $('sumCountN'), ring = $('sumCountRing'), lb = $('sumCountLb');
+      // 开场（用户 11-20 定稿）：0–0.7s 棕扩满窗＋HEC 连字淡入；0.7–1.0s 字与棕底同淡出；0.9–2s READY 大字最上层；2s 起黑底倒数
+      if (RM()) {
+        if (brown) brown.style.opacity = '0';
+        if (hec) hec.style.opacity = '0';
+        if (rd) rd.style.opacity = e < READY_MS ? '1' : '0';
+        if (box) box.style.opacity = e >= READY_MS ? '1' : '0';
+      } else {
+        if (brown) {
+          if (e < 700) { brown.style.opacity = '1'; brown.style.clipPath = 'circle(' + Math.round(e / 700 * 120) + '% at 50% 50%)'; }
+          else if (e < 1000) { brown.style.opacity = String(1 - (e - 700) / 300); brown.style.clipPath = 'circle(120% at 50% 50%)'; }
+          else brown.style.opacity = '0';
+        }
+        if (hec) hec.style.opacity = e < 700 ? String(e / 700) : (e < 1000 ? String(1 - (e - 700) / 300) : '0');
+        if (rd) rd.style.opacity = (e >= 900 && e < READY_MS) ? '1' : '0';
+        if (box) box.style.opacity = e >= READY_MS ? '1' : '0';
+      }
+      if (rem > CD_MS) { cdTimer = setTimeout(tick, 50); return; }
       if (ring) { ring.style.strokeDasharray = String(CD_CIRC); ring.style.strokeDashoffset = String(CD_CIRC * Math.max(0, rem) / CD_MS); }
       if (rem <= 0) {
         if (cdQueued) { const q = cdQueued; stopCountdown(); doOpen(q[0], q[1]); return; }

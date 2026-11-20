@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 public class HxBridge {
     private final Context ctx;
     // m7：3 线程池——慢请求（读超时 8s）不再堵住心跳轮询（原单线程串行）。
-    private final ExecutorService net = Executors.newFixedThreadPool(3);
+    private final ExecutorService net = Executors.newFixedThreadPool(6); // 11-20：JS race 超时不取消原生任务，僵尸占槽会堵后续请求（真机圈满干等根因之一）
 
     public HxBridge(Context ctx) {
         this.ctx = ctx;
@@ -184,7 +184,7 @@ public class HxBridge {
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setRequestMethod(method == null || method.isEmpty() ? "GET" : method.toUpperCase());
                 c.setConnectTimeout(4000);
-                c.setReadTimeout(8000);
+                c.setReadTimeout(5000);
                 c.setRequestProperty("Accept", "application/json");
                 if (body != null && !body.isEmpty()) {
                     c.setDoOutput(true);
