@@ -26,10 +26,12 @@
 - __tf-realshape **8/8**：真机 2.2.56 响应 summary 喂桩，手算期望 S2=100／S3=82／总=90 全中；在线接住、二段取 next 表、已自动应用胶囊、归档 commands.desiredGS=5、summary+next 回写。
 - __tf-probe2：三请求时间线正常（PICK1 ~11ms），弹窗 next 表＋胶囊在。
 - 诊断版（__tf-debug.cjs on/off）已回退，git diff 无残留；www/assets 两份 SHA256 一致。
+- __hec-phase-check **5/5**（readypop 泄漏修）：HEC 可见 7 帧 READY computed opacity 恒 0、READY 入场≥1.0s 且 HEC 已 0、入场挂 .in 触发 pop；hec-phase.png 留档。
 
 ## 4. 待办 / 别碰
 
 - 装平板／发版／推送／父仓指针一律先问；建议 v0.34 发版链（平板现 v0.33 含 bug）。
-- 开场 READY 入场已挪 **1.0s**（用户 11-20 当轮「挪到 1.0s」）：HEC 0.7–1.0s 完全淡出后 READY 才进，无交叠；summary.js 阈值 900→1000＋口径注释同步；回归 READY 断言在 ~1.6s 检查不受影响。
+- 开场 READY 入场已挪 **1.0s**（用户 11-20 当轮「挪到 1.0s」）：HEC 0.7–1.0s 完全淡出后 READY 才进；summary.js 阈值 900→1000＋口径注释同步；回归 READY 断言改轮询落定。
+- **readypop 动画泄漏修**（用户当轮「检查 HEC 出现时是否彻底没有 READY」）：.n.ready 原带 animation:readypop .45s 插入即播，keyframes opacity 0→1 盖过 inline opacity:0 → 0–0.45s（HEC 淡入期）漏 READY，即最初「READY 在 HEC 前出现」根因。修：.n.ready 去 animation，新增 .n.ready.in 入场才触发 pop（tick e≥1000 挂 .in）；reduced-motion 下 .n.ready.in animation:none。index.html＋summary.js 同改，assets 同步。
 - 别碰：影子/仲裁发送面、温度链路、HX 液重、他人未跟踪。
 - incoming：用户下一条指令。

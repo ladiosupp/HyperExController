@@ -732,7 +732,7 @@
           else brown.style.opacity = '0';
         }
         if (hec) hec.style.opacity = e < 700 ? String(e / 700) : (e < 1000 ? String(1 - (e - 700) / 300) : '0');
-        if (rd) rd.style.opacity = (e >= 1000 && e < READY_MS) ? '1' : '0';
+        if (rd) { const on = e >= 1000 && e < READY_MS; rd.style.opacity = on ? '1' : '0'; if (on) rd.classList.add('in'); } // pop 动画入场才挂，防插入即播盖过 inline opacity:0（HEC 期间漏 READY 根因）
         if (box) box.style.opacity = e >= READY_MS ? '1' : '0';
       }
       if (rem > CD_MS) { cdTimer = setTimeout(tick, 50); return; }
