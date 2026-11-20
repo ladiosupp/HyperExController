@@ -327,23 +327,29 @@
   const PICK1 = ['summary.runId', 'summary.startedAt', 'summary.result', 'summary.controlReview', 'summary.liveFlowTrim.trace#kind=write@kind,tMs,frame,startupAction,rescue,previousMlS,commandMlS', 'summary.stage2Startup.overshootPct', 'summary.stage2Startup.targetGS', 'summary.stage2.validationStatus', 'summary.stage3.validationStatus', 'summary.grindAdvice', 'summary.shotCommands'];
   const PICK2 = ['summary.nextShotAdaptive'];
   // ---- 在线收集 ----
-  // 杯内预取（用户 11-20）：萃取期间插件还响应时把打分子集取回写本地（内存＋IDB），杯末直接本地弹窗保证倒数结束即弹；杯末只补一次校正，不密轮询（插件 2.2.56 杯末结算堵 HTTP，密轮询全超时＋僵尸占桥池）
-  let liveCache = {}, lastPrefetchAt = 0, prefetchBusy = false;
-  function prefetch(rid) {
-    if (!rid || !enabled || prefetchBusy) return;
-    const now = Date.now();
-    if (now - lastPrefetchAt < 2500) return;
-    lastPrefetchAt = now; prefetchBusy = true;
-    window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1).then((rc) => {
-      prefetchBusy = false;
-      const s = rc && rc.ok && rc.body && rc.body.summary;
-      if (s && s.runId === rid && s.controlReview && Array.isArray(s.controlReview.phases) && s.controlReview.phases.some((p) => p && p.output && p.output.available)) {
-        liveCache = {}; liveCache[rid] = s;
-        dbSet('hecLiveDiag', { runId: rid, at: now, summary: s });
-      }
-    }).catch(() => { prefetchBusy = false; });
-  }
-  async function buildModel(ctx, body) {
+  async function collect(ctx) {
+    const seq = ++fetchSeq;
+    const st = ctrl();
+    if (!st.baseUrl) return openOffline(ctx, seq);
+    let body = null;
+    // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 2s race 超时（原生桥回调可能不回来，httpJson 无超时→collect 卡死圈满干等）；总 deadline 8.5s 到点必离线兜底弹
+    const deadline = Date.now() + 8500;
+    await new Promise((res) => setTimeout(res, 3000));
+    for (let i = 0; i < 40 && Date.now() <= deadline; i++) {
+      if (seq !== fetchSeq) return;
+      if (Date.now() > deadline) break;
+      const r = await Promise.race([
+        window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1),
+        new Promise((res) => setTimeout(() => res(null), Math.min(2000, Math.max(100, deadline - Date.now())))),
+      ]);
+      const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
+      const cr = b && b.controlReview;
+      const rid = cr && (cr.runId || b.runId);
+      if (cr && (rid == null || rid === ctx.runId)) { body = b; break; }
+      if (i < 39) await new Promise((res) => setTimeout(res, 200));
+    }
+    if (seq !== fetchSeq) return;
+    if (!body) return openOffline(ctx, seq);
     const cr = body.controlReview || {};
     // 插件 controlReview.phases 是数组（{phase,output,writes:数字,…}）：按阶段名 find；writes 走 trace 分类（port 同口径，公式 v2 只数常规+救急）
     const phaseRows = Array.isArray(cr.phases) ? cr.phases : [];
@@ -364,7 +370,7 @@
     let arb = null;
     if (window.HxShadow && window.HxShadow.latestCup) { try { arb = arbBlock(await window.HxShadow.latestCup()); } catch (_) {} }
     const prevTotal = await prevTotalOf(ctx.runId);
-    return {
+    const m = {
       source: 'online', runId: ctx.runId, startedAt: body.startedAt || null, stages, total, weightsUsed: wsum, lex: { band: band(total), writes: writesSum },
       validation: { stage2: stages.stage2.validationStatus && { status: stages.stage2.validationStatus, errorPct: stages.stage2.quality && stages.stage2.quality.wholePhaseErrorPct }, stage3: stages.stage3.validationStatus && { status: stages.stage3.validationStatus, errorPct: stages.stage3.quality && stages.stage3.quality.wholePhaseErrorPct } },
       grind: body.grindAdvice || null, next: null,
@@ -373,8 +379,9 @@
       finalWeightG: (ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null).length ? Math.max(...(ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null)) : null,
       fault: (body.result && !/completed/i.test(String(body.result))) ? String(body.result) : null,
     };
-  }
-  function autoRefresh(ctx, m, seq) {
+    if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m, body.shotCommands || null);
+    open(ctx.runId, m);
+    enrich(ctx.runId, m, seq);
     // autoApply 状态不挡弹窗：calibration-status 异步补进同一 m（弹窗前到就随渲染，后到就重渲染；3s 刷新照旧兜底）
     window.HxControl.httpJson('GET', DP + '/calibration-status').then((rc) => {
       if (seq !== fetchSeq || !(rc && rc.ok && rc.body)) return;
@@ -392,62 +399,6 @@
         if (openId === ctx.runId) render();
       }
     }, 3000);
-  }
-  function openWith(ctx, m, body, seq) {
-    if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m, body.shotCommands || null);
-    open(ctx.runId, m);
-    enrich(ctx.runId, m, seq);
-    autoRefresh(ctx, m, seq);
-  }
-  // 杯末单次校正：本地缓存弹窗后补一次最终值（插件结算完才准），到点原地更新＋回写归档；不判 model===m（倒数期间 model 尚未赋值）
-  function refreshOnce(ctx, m, seq) {
-    window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1).then(async (rc) => {
-      if (seq !== fetchSeq) return;
-      const s = rc && rc.ok && rc.body && rc.body.summary;
-      if (!s || s.runId !== ctx.runId || !s.controlReview) return;
-      const m2 = await buildModel(ctx, s);
-      if (seq !== fetchSeq) return;
-      Object.assign(m, m2, { next: m.next, nextDone: m.nextDone, nextPending: m.nextPending, auto: m.auto });
-      if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m, s.shotCommands || null);
-      if (model === m && openId === ctx.runId) render();
-    });
-  }
-  async function collect(ctx) {
-    const seq = ++fetchSeq;
-    const st = ctrl();
-    if (!st.baseUrl) return openOffline(ctx, seq);
-    // 本地预取优先（用户 11-20）：杯内已写本地的打分子集直接弹窗，保证倒数结束即弹
-    let cached = liveCache[ctx.runId] || null;
-    if (!cached) { const d = await dbGet('hecLiveDiag'); if (seq !== fetchSeq) return; if (d && d.runId === ctx.runId && d.summary && d.summary.controlReview) cached = d.summary; }
-    if (cached) {
-      const m = await buildModel(ctx, cached);
-      if (seq !== fetchSeq) return;
-      openWith(ctx, m, cached, seq);
-      refreshOnce(ctx, m, seq);
-      return;
-    }
-    // 无缓存兜底：首请求 3s；200ms 密轮询；单请求 2s race；总 deadline 8.5s 硬截断到点必离线兜底弹
-    let body = null;
-    const deadline = Date.now() + 8500;
-    await new Promise((res) => setTimeout(res, 3000));
-    for (let i = 0; i < 40 && Date.now() <= deadline; i++) {
-      if (seq !== fetchSeq) return;
-      if (Date.now() > deadline) break;
-      const r = await Promise.race([
-        window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1),
-        new Promise((res) => setTimeout(() => res(null), Math.min(2000, Math.max(100, deadline - Date.now())))),
-      ]);
-      const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
-      const cr = b && b.controlReview;
-      const rid = cr && (cr.runId || b.runId);
-      if (cr && (rid == null || rid === ctx.runId)) { body = b; break; }
-      if (i < 39) await new Promise((res) => setTimeout(res, 200));
-    }
-    if (seq !== fetchSeq) return;
-    if (!body) return openOffline(ctx, seq);
-    const m = await buildModel(ctx, body);
-    if (seq !== fetchSeq) return;
-    openWith(ctx, m, body, seq);
   }
   // 第二段取（用户 11-20）：下一杯建议子集，标准/完整慢慢 LOAD；到点重渲染＋回写归档；简单档不取，切颗粒度时补
   function enrich(rid, m, seq) {
@@ -853,7 +804,7 @@
     // 杯末弹窗只按关闭按钮（✕/再来一杯）关闭；点空白/Esc 不关（用户 11-19）
   }
   window.HxSummary = {
-    onCupEnd, onExtracting, prefetch, review, close, setEnabled, setLevel, onLang, init,
+    onCupEnd, onExtracting, review, close, setEnabled, setLevel, onLang, init,
     _state: function () { return { enabled, level, openId, lastRunId, source: model && model.source }; },
     _openForTest: function (m) { open(m.runId || 'test', m); },
     _tdsScore: tdsScore, _weighted: weighted,
