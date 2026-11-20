@@ -332,7 +332,7 @@
     const st = ctrl();
     if (!st.baseUrl) return openOffline(ctx, seq);
     let body = null;
-    // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 2s race 超时（原生桥回调可能不回来，httpJson 无超时→collect 卡死圈满干等）；总 deadline 8.5s 到点必离线兜底弹
+    // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 5s race（对齐原生 readTimeout；原 2s 短于插件杯末结算延迟 3–6s 致全超时→缺5项，v0.32 引入，11-20 修）；总 deadline 8.5s 到点必离线兜底弹
     const deadline = Date.now() + 8500;
     await new Promise((res) => setTimeout(res, 3000));
     for (let i = 0; i < 40 && Date.now() <= deadline; i++) {
@@ -340,7 +340,7 @@
       if (Date.now() > deadline) break;
       const r = await Promise.race([
         window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1),
-        new Promise((res) => setTimeout(() => res(null), Math.min(2000, Math.max(100, deadline - Date.now())))),
+        new Promise((res) => setTimeout(() => res(null), Math.min(5000, Math.max(100, deadline - Date.now())))),
       ]);
       const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
       const cr = b && b.controlReview;
