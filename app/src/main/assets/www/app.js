@@ -18,7 +18,7 @@ const EN = {
   '默认 2 分钟抓一次，赶在插件裁剪全点（最新 4 杯）之前补全；装 APK 后后台也照抓。': 'Fetches every 2 min by default, before the plugin trims full data (latest 4 shots). Keeps fetching in background with the APK.',
   '本地导入': 'Local import', '选择已下载的 JSON': 'Pick downloaded JSON',
   '兼容浏览器下载到 Download 的 hyperex-history.json，也兼容归档文件。': 'Accepts hyperex-history.json downloaded to Download, and archive files.',
-  '归档': 'Archive', '导出归档 JSON': 'Export archive JSON', '清空归档': 'Clear archive', '选择杯': 'Shot', '循环': 'Loop', '研磨输入': 'Grind input',
+  '归档': 'Archive', '导出归档 JSON': 'Export archive JSON', '清空归档': 'Clear archive', '选择杯': 'Shot', '循环': 'Loop', '研磨输入': 'Grind input', '准备好了吗': 'READY',
   '杯流 (g/s)': 'Cup flow (g/s)', '秤重 (g)': 'Weight (g)', '压力 (bar) · 流量 (ml/s)': 'Pressure (bar) · Flow (ml/s)',
   '顺放 ▶': 'Play ▶', '◀ 倒放': '◀ Rev', '暂停 ⏸': 'Pause ⏸',
   '时刻': 'Time', '相位': 'Phase', '秤重': 'Weight', 'decaid 杯流': 'decaid flow', '压力': 'Pressure', '机器流量': 'Machine flow',
