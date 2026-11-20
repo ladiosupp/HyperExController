@@ -179,42 +179,114 @@ public class HxBridge {
     @JavascriptInterface
     public void httpJson(final String method, final String url, final String body, final String callback) {
         net.execute(() -> {
-            String json;
-            try {
-                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-                c.setRequestMethod(method == null || method.isEmpty() ? "GET" : method.toUpperCase());
-                c.setConnectTimeout(4000);
-                c.setReadTimeout(5000);
-                c.setRequestProperty("Accept", "application/json");
-                if (body != null && !body.isEmpty()) {
-                    c.setDoOutput(true);
-                    c.setRequestProperty("Content-Type", "application/json");
-                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-                    c.setFixedLengthStreamingMode(bytes.length);
-                    c.getOutputStream().write(bytes);
-                    c.getOutputStream().close();
-                }
-                int code = c.getResponseCode();
-                java.io.InputStream is = code >= 400 ? c.getErrorStream() : c.getInputStream();
-                StringBuilder sb = new StringBuilder();
-                if (is != null) {
-                    BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
-                    String line;
-                    while ((line = r.readLine()) != null) sb.append(line);
-                    r.close();
-                }
-                String text = sb.toString();
-                Object parsed;
-                try { parsed = new org.json.JSONTokener(text).nextValue(); } catch (Exception e) { parsed = text; }
-                json = new org.json.JSONObject().put("ok", code >= 200 && code < 300).put("status", code).put("body", parsed).toString();
-            } catch (Exception e) {
-                json = "{\"ok\":false,\"status\":0,\"error\":" + org.json.JSONObject.quote(String.valueOf(e.getMessage() == null ? e : e.getMessage())) + "}";
-            }
-            final String payload = json;
+            final String payload = fetchWrap(method, url, body).toString();
             if (ctx instanceof MainActivity) {
                 ((MainActivity) ctx).runOnWeb(jsCall(callback, payload));
             }
         });
+    }
+
+    // 11-20 两段取（用户）：原生线程提取子集再注入 JS。diagnostics 全量 447KB，整份 quote+evaluateJavascript 会堵主线程（真机倒数完干等根因）
+    @JavascriptInterface
+    public void httpJsonPick(final String method, final String url, final String body, final String callback, final String pick) {
+        net.execute(() -> {
+            org.json.JSONObject w = fetchWrap(method, url, body);
+            if (pick != null && !pick.isEmpty() && w.optBoolean("ok")) {
+                try {
+                    org.json.JSONObject b = w.optJSONObject("body");
+                    if (b != null) w.put("body", pickPaths(b, new org.json.JSONArray(pick)));
+                } catch (Exception ignored) {}
+            }
+            final String payload = w.toString();
+            if (ctx instanceof MainActivity) {
+                ((MainActivity) ctx).runOnWeb(jsCall(callback, payload));
+            }
+        });
+    }
+
+    private org.json.JSONObject fetchWrap(String method, String url, String body) {
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+            c.setRequestMethod(method == null || method.isEmpty() ? "GET" : method.toUpperCase());
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(5000);
+            c.setRequestProperty("Accept", "application/json");
+            if (body != null && !body.isEmpty()) {
+                c.setDoOutput(true);
+                c.setRequestProperty("Content-Type", "application/json");
+                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                c.setFixedLengthStreamingMode(bytes.length);
+                c.getOutputStream().write(bytes);
+                c.getOutputStream().close();
+            }
+            int code = c.getResponseCode();
+            java.io.InputStream is = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            StringBuilder sb = new StringBuilder();
+            if (is != null) {
+                BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                String line;
+                while ((line = r.readLine()) != null) sb.append(line);
+                r.close();
+            }
+            String text = sb.toString();
+            Object parsed;
+            try { parsed = new org.json.JSONTokener(text).nextValue(); } catch (Exception e) { parsed = text; }
+            return new org.json.JSONObject().put("ok", code >= 200 && code < 300).put("status", code).put("body", parsed);
+        } catch (Exception e) {
+            try {
+                return new org.json.JSONObject().put("ok", false).put("status", 0).put("error", String.valueOf(e.getMessage() == null ? e : e.getMessage()));
+            } catch (Exception ignored) {
+                return new org.json.JSONObject();
+            }
+        }
+    }
+
+    // 路径提取：a.b.c 拷贝叶值；末段 #field=value 过滤数组、@f1,f2 投影数组元素字段
+    private static org.json.JSONObject pickPaths(org.json.JSONObject src, org.json.JSONArray paths) throws org.json.JSONException {
+        org.json.JSONObject dst = new org.json.JSONObject();
+        for (int i = 0; i < paths.length(); i++) {
+            String p = paths.optString(i, "");
+            if (p.isEmpty()) continue;
+            String filterField = null, filterVal = null, fields = null;
+            int at = p.indexOf('@');
+            if (at >= 0) { fields = p.substring(at + 1); p = p.substring(0, at); }
+            int hash = p.indexOf('#');
+            if (hash >= 0) {
+                String f = p.substring(hash + 1); p = p.substring(0, hash);
+                int eq = f.indexOf('=');
+                if (eq > 0) { filterField = f.substring(0, eq); filterVal = f.substring(eq + 1); }
+            }
+            String[] segs = p.split("\\.");
+            Object cur = src;
+            for (String s : segs) { if (!(cur instanceof org.json.JSONObject)) { cur = null; break; } cur = ((org.json.JSONObject) cur).opt(s); }
+            if (cur == null) continue;
+            if (cur instanceof org.json.JSONArray) {
+                org.json.JSONArray arr = (org.json.JSONArray) cur, out = new org.json.JSONArray();
+                for (int k = 0; k < arr.length(); k++) {
+                    Object el = arr.opt(k);
+                    if (filterField != null) {
+                        if (!(el instanceof org.json.JSONObject)) continue;
+                        Object fv = ((org.json.JSONObject) el).opt(filterField);
+                        if (fv == null || !String.valueOf(fv).equals(filterVal)) continue;
+                    }
+                    if (fields != null && el instanceof org.json.JSONObject) {
+                        org.json.JSONObject pe = new org.json.JSONObject(), jo = (org.json.JSONObject) el;
+                        for (String f : fields.split(",")) if (jo.has(f)) pe.put(f, jo.opt(f));
+                        el = pe;
+                    }
+                    out.put(el);
+                }
+                cur = out;
+            }
+            org.json.JSONObject d = dst;
+            for (int j = 0; j < segs.length - 1; j++) {
+                Object nx = d.opt(segs[j]);
+                if (!(nx instanceof org.json.JSONObject)) { nx = new org.json.JSONObject(); d.put(segs[j], nx); }
+                d = (org.json.JSONObject) nx;
+            }
+            try { d.put(segs[segs.length - 1], cur); } catch (Exception ignored) {}
+        }
+        return dst;
     }
 
     private static String jsCall(String fn, String jsonArg) {

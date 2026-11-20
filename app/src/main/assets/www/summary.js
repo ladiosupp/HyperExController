@@ -4,7 +4,7 @@
 // 红线：不碰影子发送/仲裁/温度链路/HX 液重；TDS 仅本地展示，不喂增益记忆。
 (function () {
   'use strict';
-  const EN = { '本杯评分': 'Shot score', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', '研磨调整建议': 'Grind adjustment advice', '完成': 'Done', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末评分弹窗': 'Shot score popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
+  const EN = { '本杯评分': 'Shot score', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', '研磨调整建议': 'Grind adjustment advice', '完成': 'Done', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末评分弹窗': 'Shot score popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '加载中…': 'Loading…', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
   Object.assign(EN, { '控制': 'Control', '分带': 'band', '写入': 'writes', '供水': 'refill', '常规': 'normal', '救急': 'rescue', '反转': 'reversals', '平台过冲': 'plateau over', '过冲': 'overshoot', '平台': 'plateau', '长段': 'long stage', '启动': 'startup', '整段': 'whole', '尾均': 'tail mean', '尾': 'tail', '扣分': 'deductions', '原始': 'raw', '整杯': 'whole cup', '中位': 'med', '峰': 'peak', '限压命中': 'limit hits', '滚动回归口径': 'rolling regression', '桶中心': 'bucket centre', '平滑': 'smoothed', '置信': 'conf', '分': 'pts', '匹配': 'match', '杯末持久化总结': 'persisted at cup end', '移植': 'ported', '本地影子': 'local shadow', '帧切换': 'frame changes', '插件写入': 'plugin writes', '置信中位': 'confidence median', '决策': 'decisions', '校准素材，非增益裁判': 'calibration material, not a gain verdict', '离线训练乐观口径': 'offline-training optimistic bound', '中止杯不给研磨建议': 'No grind advice for aborted cups', '平台 + 供水': 'plateau + refill' });
   function t(k) { try { return (typeof lang !== 'undefined' && lang === 'en' && EN[k]) ? EN[k] : (window.t ? window.t(k) : k); } catch (_) { return k; } }
   const $ = (id) => document.getElementById(id);
@@ -323,6 +323,9 @@
     return pm ? pm.total : null;
   }
 
+  // 11-20 两段取（用户）：倒数期间只取打分子集（原生提取、几 KB 注入，保证倒数结束弹窗）；下一杯建议子集弹窗后异步取给标准/完整
+  const PICK1 = ['summary.runId', 'summary.startedAt', 'summary.result', 'summary.controlReview', 'summary.liveFlowTrim.trace#kind=write@kind,tMs,frame,startupAction,rescue,previousMlS,commandMlS', 'summary.stage2Startup.overshootPct', 'summary.stage2Startup.targetGS', 'summary.stage2.validationStatus', 'summary.stage3.validationStatus', 'summary.grindAdvice', 'summary.shotCommands'];
+  const PICK2 = ['summary.nextShotAdaptive'];
   // ---- 在线收集 ----
   async function collect(ctx) {
     const seq = ++fetchSeq;
@@ -332,12 +335,12 @@
     // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 2s race 超时（原生桥回调可能不回来，httpJson 无超时→collect 卡死圈满干等）；总 deadline 8.5s 到点必离线兜底弹
     const deadline = Date.now() + 8500;
     await new Promise((res) => setTimeout(res, 3000));
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 40 && Date.now() <= deadline; i++) {
       if (seq !== fetchSeq) return;
       if (Date.now() > deadline) break;
       const r = await Promise.race([
-        window.HxControl.httpJson('GET', DP + '/diagnostics'),
-        new Promise((res) => setTimeout(() => res(null), 2000)),
+        window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK1),
+        new Promise((res) => setTimeout(() => res(null), Math.min(2000, Math.max(100, deadline - Date.now())))),
       ]);
       const b = r && r.ok ? (r.body && r.body.summary ? r.body.summary : r.body) : null;
       const cr = b && b.controlReview;
@@ -370,14 +373,15 @@
     const m = {
       source: 'online', runId: ctx.runId, startedAt: body.startedAt || null, stages, total, weightsUsed: wsum, lex: { band: band(total), writes: writesSum },
       validation: { stage2: stages.stage2.validationStatus && { status: stages.stage2.validationStatus, errorPct: stages.stage2.quality && stages.stage2.quality.wholePhaseErrorPct }, stage3: stages.stage3.validationStatus && { status: stages.stage3.validationStatus, errorPct: stages.stage3.quality && stages.stage3.quality.wholePhaseErrorPct } },
-      grind: body.grindAdvice || null, next: body.nextShotAdaptive || null,
+      grind: body.grindAdvice || null, next: null,
       auto: null,
       arb, supp: suppBuild(ctx.run && ctx.run.samples, cr, body.grindAdvice, null, prevTotal, total),
       finalWeightG: (ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null).length ? Math.max(...(ctx.run && ctx.run.samples || []).map((s) => num(s.weight)).filter((v) => v != null)) : null,
       fault: (body.result && !/completed/i.test(String(body.result))) ? String(body.result) : null,
     };
-    if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m);
+    if (window.HxControl._attachSummary) window.HxControl._attachSummary(ctx.runId, m, body.shotCommands || null);
     open(ctx.runId, m);
+    enrich(ctx.runId, m, seq);
     // autoApply 状态不挡弹窗：calibration-status 异步补进同一 m（弹窗前到就随渲染，后到就重渲染；3s 刷新照旧兜底）
     window.HxControl.httpJson('GET', DP + '/calibration-status').then((rc) => {
       if (seq !== fetchSeq || !(rc && rc.ok && rc.body)) return;
@@ -395,6 +399,18 @@
         if (openId === ctx.runId) render();
       }
     }, 3000);
+  }
+  // 第二段取（用户 11-20）：下一杯建议子集，标准/完整慢慢 LOAD；到点重渲染＋回写归档；简单档不取，切颗粒度时补
+  function enrich(rid, m, seq) {
+    if (!m || m.next || m.nextDone || level < 1) return;
+    m.nextPending = true;
+    window.HxControl.httpJsonPick('GET', DP + '/diagnostics', null, PICK2).then((rc) => {
+      if (seq !== fetchSeq) return;
+      m.nextPending = false; m.nextDone = true;
+      const nx = rc && rc.ok && rc.body && rc.body.summary && rc.body.summary.nextShotAdaptive;
+      if (nx) { m.next = nx; if (window.HxControl._attachSummary) window.HxControl._attachSummary(rid, m); }
+      if (model === m && openId === rid) render();
+    });
   }
   async function openOffline(ctx, seq) {
     const shot = await archiveShot(ctx.runId);
@@ -461,7 +477,11 @@
     return h;
   }
   function nextSec(m) {
-    if (level < 1 || !m.next) return '';
+    if (level < 1) return '';
+    if (!m.next) {
+      if (m.source === 'online' && !m.nextDone) return '<div class="lrn-sec" id="sumNextSec"><h4>' + t('下一杯建议') + '</h4><div class="lrn-note">' + t('加载中…') + '</div></div>';
+      return '';
+    }
     const n = m.next;
     let h = '<div class="lrn-sec" id="sumNextSec"><h4>' + t('下一杯建议') + '</h4><table class="lrn-table" id="sumNextTable"><tr><th>' + t('阶段') + '</th><th>' + t('当前 ml/s') + '</th><th>' + t('建议 ml/s') + '</th><th>' + t('动作') + '</th><th>' + t('置信') + '</th></tr>';
     for (const key of ['s1', 's2', 's3']) {
@@ -766,7 +786,7 @@
   }
   function onExtracting() { close(); }
   function setEnabled(v) { enabled = !!v; if (!enabled) { stopCountdown(); fetchSeq++; } updateTag(); }
-  function setLevel(v) { level = clamp(Number(v) || 0, 0, 2); if (openId != null) render(); updateTag(); }
+  function setLevel(v) { level = clamp(Number(v) || 0, 0, 2); if (openId != null) { render(); if (model && model.source === 'online') enrich(openId, model, fetchSeq); } updateTag(); }
   function onLang() { if (openId != null) render(); updateTag(); }
   function init() {
     dbGet('hecShotSummary').then((v) => { enabled = v !== 0; updateTag(); });

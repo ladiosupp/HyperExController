@@ -159,6 +159,17 @@
       }
     });
   }
+  // 两段取子集版（用户 11-20）：原生线程提取后注入，避免 diagnostics 全量堵主线程；无桥浏览器环境回落全量
+  function httpJsonPick(method, path, body, pick) {
+    if (!(window.HxBridge && window.HxBridge.httpJsonPick)) return httpJson(method, path, body);
+    return new Promise((resolve) => {
+      const url = baseUrl + path;
+      const cb = '__hecNet' + (++netSeq);
+      netCbs[cb] = (payload) => { delete netCbs[cb]; try { resolve(JSON.parse(payload)); } catch (_) { resolve({ ok: false, status: 0, error: 'bad payload' }); } };
+      window[cb] = netCbs[cb];
+      window.HxBridge.httpJsonPick(method, url, body == null ? '' : JSON.stringify(body), cb, JSON.stringify(pick || []));
+    });
+  }
   const pluginPath = (ep) => '/api/v1/plugins/' + PLUGIN_ID + '/' + ep;
 
   // ---- 版本核对 ----
@@ -359,10 +370,11 @@
     rebuildCupList();
   }
   // 杯末总结：在线算毕把总结持久化进归档记录（回看读持久化；只加字段不改旧字段）
-  function attachSummary(rid, obj) {
+  function attachSummary(rid, obj, cmds) {
     const sh = ((archive && archive.shots) || []).find((x) => x && x.runId === rid);
     if (!sh) return false;
     sh.summary = obj;
+    if (cmds && !sh.commands) sh.commands = cmds; // 11-20：插件 shotCommands 落归档，离线 portModel 有目标流量可算分
     saveArchive();
     return true;
   }
@@ -1469,6 +1481,7 @@
     },
     // 学习中心弹窗拉在线数据用（只读 GET，走同一条桥）
     httpJson: httpJson,
+    httpJsonPick: httpJsonPick,
     onMachine: function (st) {
       // 回放页的 10s 轮询也喂控制页状态（WS 之外的兜底）
       if (st && st.ok && st.state) { machineStateStr = st.state; if (mode === 'control') renderHeaderState(); }
