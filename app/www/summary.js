@@ -655,6 +655,45 @@
     const step = (t) => { const p = Math.min(1, (t - t0) / ms); const e = 1 - Math.pow(1 - p, 3); n.textContent = Math.round(from + (to - from) * e); n.style.fontWeight = String(Math.round(w0 + (w1 - w0) * e)); if (p < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
+  // ---- 研磨建议正文均衡换行＋右锚定（UI12，用户 11-21）：块右沿与标题右沿平齐、行内左对齐、多行紧凑等长 ----
+  // 纯 JS 均衡（不依赖 text-wrap:balance，WebView 113/157 行为一致）：按列宽二分最小行宽上限、保持行数不变→最长行最短→均衡；
+  // 显式 <br> 收成收缩包裹块 .vt，.v flex 右锚定；render/resize/换语言重算（balanceGrind 幂等，读 textContent 还原全文）。
+  const GRIND_NOSTART = /[，。、；：？！）】》」』〉〕〗〙〛…．·]/;
+  function grindTokens(text) {
+    const out = []; let cur = '';
+    const cjk = (ch) => /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef\u3000-\u303f]/.test(ch);
+    for (const ch of text) {
+      if (cjk(ch)) {
+        if (cur) { out.push(cur); cur = ''; }
+        if (GRIND_NOSTART.test(ch) && out.length) out[out.length - 1] += ch;
+        else out.push(ch);
+      } else if (ch === ' ') { cur += ch; out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+  let grindCtx = null;
+  function balanceGrind() {
+    const sec = $('sumGrindSec'); if (!sec) return;
+    const v = sec.querySelector('.v'); if (!v) return;
+    const text = v.textContent; const W = v.clientWidth;
+    if (!text || W <= 0) return;
+    if (!grindCtx) grindCtx = document.createElement('canvas').getContext('2d');
+    const cs = getComputedStyle(v);
+    grindCtx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    const toks = grindTokens(text);
+    const widths = toks.map((s) => grindCtx.measureText(s).width);
+    const wrap = (L) => { const lines = []; let cur = '', w = 0; for (let i = 0; i < toks.length; i++) { const tw = widths[i]; if (w + tw > L && cur) { lines.push(cur); cur = toks[i]; w = tw; } else { cur += toks[i]; w += tw; } } if (cur) lines.push(cur); return lines; };
+    let lines = wrap(W);
+    if (lines.length > 1) {
+      const n = lines.length;
+      let lo = Math.min(W, Math.max(...widths)), hi = W;
+      for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (wrap(mid).length <= n) hi = mid; else lo = mid; }
+      lines = wrap(hi);
+    }
+    v.innerHTML = '<span class="vt">' + lines.map(esc).join('<br>') + '</span>';
+  }
   function render() {
     if (!model || openId == null) return;
     closeKeypad();
@@ -699,6 +738,7 @@
       }
       const ga = $('sumAgain');
       if (ga) ga.addEventListener('click', close);
+      balanceGrind();
 
     });
   }
@@ -802,6 +842,8 @@
       host.appendChild(tagEl);
     }
     // 杯末弹窗只按关闭按钮（✕/再来一杯）关闭；点空白/Esc 不关（用户 11-19）
+    let grindRsT = 0;
+    window.addEventListener('resize', () => { clearTimeout(grindRsT); grindRsT = setTimeout(balanceGrind, 150); });
   }
   window.HxSummary = {
     onCupEnd, onExtracting, review, close, setEnabled, setLevel, onLang, init,
