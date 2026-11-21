@@ -10,6 +10,15 @@
   const WINDOW_S = { stage2: 1.6, stage3: 3.0 };
   const MIN_INTERVAL_MS = 1200;             // 常规静默（§22.4）
   const RESCUE_INTERVAL_MS = 800;
+  // ---- Wave B 同步债基础设施（full→hec 里程碑项③；只建 schema/gate/字段，不改决策消费）----
+  const GAIN_MEMORY_SCHEMA = 1;             // 插件 gainMemory schema（2.2.59 格式，viBuckets 预留）
+  const GAIN_R_MIN = 0.2, GAIN_R_MAX = 3;
+  const GAIN_MEMORY_SIGNATURE_SAMPLES = 6, GAIN_MEMORY_BUCKET_RADIUS = 0.12, GAIN_MEMORY_MAX_BUCKETS = 12;
+  const S2_REFILL_VI_RATIO_MIN = 0.2, S2_REFILL_VI_RATIO_MAX = 0.8;
+  const S2_VI_LEARN_STORAGE_MIN = 12, S2_VI_LEARN_STORAGE_MAX = 40;
+  const S2_VI_BANDS = [[0.2, 0.4], [0.4, 0.6], [0.6, 0.8]];
+  const SCALE_SAMPLE_GATE = Object.freeze({ minGapMs: 60, monotonic: true }); // 2.2.57 同口径
+  const GAIN_MEMORY_KEY = 'hecGainMemory';  // APK 镜像 kv 键（插件主本，pre-cup 刷新；fingerprint 来源待②裁）
   const MODEL_URL = 'vendor/bc_v0.onnx';
   const ORT_URL = 'vendor/ort.wasm.min.js';
   const WASM_BASE = 'vendor/';
@@ -148,7 +157,7 @@
 
   function newCup(runId) {
     return { runId: runId || ('live-' + Date.now()), startedAt: Date.now(), samples: [], decisions: [], writes: [], lastDecisionAt: 0, lastCmd: null, lastCmdFrame: null, rescueStreak: 0, modelWrites: 0, lastPluginWriteCmd: null,
-      modeAtStart: null, fixLevel: 'r1-r5', live: null, pendingRealized: [], pendingResponse: [], s2FirstStamp: null, pluginWriteCount: 0 };
+      modeAtStart: null, fixLevel: 'r1-r5', live: null, pendingRealized: [], pendingResponse: [], s2FirstStamp: null, s2FirstT: null, pluginWriteCount: 0 };
   }
 
   // ---- R1：插件同口径预测 / 救急状态机（只读计算，不触发任何写入）----
@@ -277,6 +286,7 @@
       if (seen.has(row.stamp)) continue;
       if (window.length && (row.stamp <= window[window.length - 1].x || row.stamp - window[window.length - 1].x > 0.6 || row.weight < window[window.length - 1].y - 0.2)) window.length = 0;
       seen.add(row.stamp); window.push({ x: row.stamp, y: row.weight });
+      seen.add(row.stamp); window[window.length - 1].t = row.t; // Wave B：补记到达 t（wetLat 时基，s.t 杯内相对秒）
       while (window.length && row.stamp - window[0].x > 2.05 + 1e-9) window.shift();
       if (window.length < 4 || row.stamp - window[0].x < 0.39 || row.weight - window[0].y < 0.2 - 1e-9) continue;
       const fit = linReg(window); if (!fit || fit.r2 < 0.85 || fit.slope < threshold) continue;
@@ -284,6 +294,7 @@
       let onsetIndex = Math.max(0, rise - 1);
       while (onsetIndex > 0 && window[onsetIndex].y > window[onsetIndex - 1].y + 1e-9) onsetIndex--;
       cup.s2FirstStamp = window[onsetIndex].x;
+      cup.s2FirstT = window[onsetIndex].t != null ? window[onsetIndex].t : null; // Wave B：onset 到达 t（wetLat=onset.t−boost.t 同基；s2FirstStamp 保留供回归窗）
       return;
     }
   }
@@ -376,6 +387,119 @@
     c[key] = i;
     return i;
   }
+  // ---- Wave B：gainMemory 镜像 schema＋normalize（插件 1335–1407 同口径，含 legacy 容错）----
+  // 插件主本＋APK 镜像（统筹裁①）；本波只建存储/normalize 基础设施，pre-cup 刷新与消费 Wave C；
+  // viBuckets 预留 fpKey 字段位（完整指纹门硬依赖②fingerprint 来源，待用户裁）。记忆不删改。
+  function gmRound(v, n) { const f = Math.pow(10, n); return Math.round(v * f) / f; }
+  function gmFiniteOrNull(v) { if (v === null || v === undefined || v === '') return null; const x = Number(v); return Number.isFinite(x) ? x : null; }
+  function emptyGainMemory() {
+    return { schema: GAIN_MEMORY_SCHEMA, buckets: [], viBuckets: [], seq: 0, lastBucketId: null, updatedAt: null };
+  }
+  function normalizeGainMemory(raw) {
+    const out = emptyGainMemory();
+    out.dropped = [];
+    if (!raw || typeof raw !== 'object') return out;
+    const seen = new Set();
+    for (const row of Array.isArray(raw.buckets) ? raw.buckets : []) {
+      if (!row || typeof row !== 'object') continue;
+      const center = Number(row.center), radius = Number(row.radius);
+      if (!Number.isFinite(center) || center <= 0) continue;
+      const id = String(row.id || ''); if (!id || seen.has(id)) continue;
+      const samples = (Array.isArray(row.samples) ? row.samples : []).map(Number).filter(x => Number.isFinite(x) && x > 0).slice(-GAIN_MEMORY_SIGNATURE_SAMPLES);
+      const stages = {};
+      for (const key of ['s2', 's3']) {
+        const x = row.stages && row.stages[key];
+        const r = Number(x && x.r);
+        if (!Number.isFinite(r)) continue;
+        if (!(r >= GAIN_R_MIN && r <= GAIN_R_MAX)) {
+          out.dropped.push({ bucketId: id, stage: key, r: gmRound(r, 4), reason: 'r outside [' + GAIN_R_MIN + ',' + GAIN_R_MAX + ']' });
+          continue;
+        }
+        stages[key] = { r: gmRound(r, 4), n: Math.max(1, Math.floor(Number(x.n) || 1)),
+          lastDeviation: gmFiniteOrNull(x.lastDeviation) !== null ? gmRound(Number(x.lastDeviation), 4) : null,
+          lastObservedR: gmFiniteOrNull(x.lastObservedR) !== null ? gmRound(Number(x.lastObservedR), 4) : null,
+          lastLocalR: gmFiniteOrNull(x.lastLocalR) !== null ? gmRound(Number(x.lastLocalR), 4) : null,
+          damped: !!x.damped,
+          drift: gmFiniteOrNull(x.drift) !== null ? gmRound(Number(x.drift), 4) : null,
+          commandMlS: gmFiniteOrNull(x.commandMlS) !== null ? gmRound(Number(x.commandMlS), 4) : null,
+          commandBand: typeof x.commandBand === 'string' ? x.commandBand : null,
+          bands: (function () { const b = {}; for (const k of Object.keys(x.bands && typeof x.bands === 'object' ? x.bands : {})) { const v = x.bands[k], br = Number(v && v.r); if (!(br >= GAIN_R_MIN && br <= GAIN_R_MAX)) continue; b[k] = { r: gmRound(br, 4), n: Math.max(1, Math.floor(Number(v.n) || 1)), lastObservedR: gmFiniteOrNull(v.lastObservedR) !== null ? gmRound(Number(v.lastObservedR), 4) : null, updatedAt: v.updatedAt || null, steadyN: v.steadyN == null ? null : (Number.isFinite(Number(v.steadyN)) ? Math.max(0, Math.floor(Number(v.steadyN))) : null), provisional: v.provisional === true }; } return Object.keys(b).length ? b : null; })(),
+          lastRunId: x.lastRunId == null ? null : String(x.lastRunId), updatedAt: x.updatedAt || null };
+      }
+      // 2.2.59 d-B：A 键 g 桶 vi 行移除，Vi 存独立 ratio 带 viBuckets；旧 A 格式 vi 行容错忽略（无 live 数据不迁移）。
+      if (!Object.keys(stages).length) continue;
+      seen.add(id);
+      out.buckets.push({ id, center: gmRound(center, 4), radius: Number.isFinite(radius) && radius > 0 ? gmRound(radius, 4) : GAIN_MEMORY_BUCKET_RADIUS,
+        samples: samples.length ? samples : [gmRound(center, 4)], stages, createdAt: row.createdAt || null, updatedAt: row.updatedAt || null });
+    }
+    out.buckets = out.buckets.slice(0, GAIN_MEMORY_MAX_BUCKETS);
+    out.dropped = out.dropped.slice(-20);
+    out.seq = Math.max(Number(raw.seq) || 0, out.buckets.length);
+    out.lastBucketId = out.buckets.some(x => x.id === raw.lastBucketId) ? String(raw.lastBucketId) : null;
+    out.viBuckets = [];
+    const vseen = new Set();
+    for (const v of Array.isArray(raw.viBuckets) ? raw.viBuckets : []) {
+      if (!v || typeof v !== 'object') continue;
+      const lo = Number(v.bandLo), hi = Number(v.bandHi);
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || !(lo >= S2_REFILL_VI_RATIO_MIN && hi <= S2_REFILL_VI_RATIO_MAX && lo < hi)) continue;
+      const bk = lo + '-' + hi; if (vseen.has(bk)) continue;
+      const vv = Number(v.vi);
+      if (!(Number.isFinite(vv) && vv >= S2_VI_LEARN_STORAGE_MIN && vv <= S2_VI_LEARN_STORAGE_MAX)) {
+        if (Number.isFinite(vv)) out.dropped.push({ band: bk, stage: 'vi', vi: gmRound(vv, 2), reason: 'vi outside [' + S2_VI_LEARN_STORAGE_MIN + ',' + S2_VI_LEARN_STORAGE_MAX + ']' });
+        continue;
+      }
+      vseen.add(bk);
+      out.viBuckets.push({ bandLo: gmRound(lo, 4), bandHi: gmRound(hi, 4), vi: gmRound(vv, 2), n: Math.max(1, Math.floor(Number(v.n) || 1)),
+        lastDeviation: gmFiniteOrNull(v.lastDeviation) !== null ? gmRound(Number(v.lastDeviation), 4) : null,
+        lastObservedVi: gmFiniteOrNull(v.lastObservedVi) !== null ? gmRound(Number(v.lastObservedVi), 2) : null,
+        lastLocalVi: gmFiniteOrNull(v.lastLocalVi) !== null ? gmRound(Number(v.lastLocalVi), 2) : null,
+        damped: !!v.damped, censored: !!v.censored,
+        censoredN: Math.max(0, Math.floor(Number(v.censoredN) || 0)),
+        lastRunId: v.lastRunId == null ? null : String(v.lastRunId), updatedAt: v.updatedAt || null,
+        fpKey: typeof v.fpKey === 'string' ? v.fpKey : null,
+        floodMode: typeof v.floodMode === 'string' ? v.floodMode : null });
+    }
+    out.viBuckets.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    out.viBuckets = out.viBuckets.slice(0, S2_VI_BANDS.length);
+    out.updatedAt = raw.updatedAt || null;
+    return out;
+  }
+  async function loadGainMemory() {
+    const d = db(); if (!d) return emptyGainMemory();
+    let raw = null; try { raw = await d.get(GAIN_MEMORY_KEY); } catch (_) {}
+    return normalizeGainMemory(raw);
+  }
+  async function saveGainMemory(gm) {
+    const d = db(); if (!d) return null;
+    const norm = normalizeGainMemory(gm);
+    try { await d.set(GAIN_MEMORY_KEY, norm); } catch (_) { return null; }
+    return norm;
+  }
+  // ---- Wave B：scaleSampleGate（2.2.57 插件 2715–2731 同口径；摄入副本，输入不改，保微簇）----
+  // 字段兼容 APK {stamp,weight,tare} 与插件 {scaleTimestampSeconds,weightG,tareReset}。
+  // 红线：只学习侧消费（oq 等价路径），不 gate 控制回归 trimRegression/决策 weightRegression/归档/soak/whole。
+  function scaleSampleGate(samples) {
+    if (!Array.isArray(samples)) return samples;
+    const minGapS = (SCALE_SAMPLE_GATE.minGapMs || 60) / 1000;
+    const monotonic = SCALE_SAMPLE_GATE.monotonic === true;
+    const out = []; let lastStamp = null, lastWeight = null;
+    for (const x of samples) {
+      if (x && (x.tareReset || x.tare)) { lastStamp = null; lastWeight = null; }
+      const stamp = gmFiniteOrNull(x && (x.scaleTimestampSeconds != null ? x.scaleTimestampSeconds : x.stamp));
+      const weight = gmFiniteOrNull(x && (x.weightG != null ? x.weightG : x.weight));
+      if (stamp !== null && lastStamp !== null && stamp - lastStamp < minGapS) continue;
+      if (monotonic && weight !== null && lastWeight !== null && weight < lastWeight) continue;
+      out.push(x);
+      if (stamp !== null) lastStamp = stamp;
+      if (weight !== null) lastWeight = weight;
+    }
+    return out;
+  }
+  // 学习侧消费点（oq 等价路径）：gate 副本后回归，供 Wave C gain-memory observedR 消费。
+  // 决策/控制回归仍走未 gate 的 weightRegression/trimRegression（写序列/HIT 不变，用户裁 A 行为级口径）。
+  function gatedLearningRegression(samples, tSec, windowS, phase) {
+    return weightRegression(scaleSampleGate(samples), tSec, windowS, 0, phase);
+  }
   // per-cup 键存储（app.js openDb v2 建 hecShadowCups objectStore，keyPath runId）；
   // 无该 store 的环境（旧测试沙箱）回退 kv 全数组路径，仍走链。
   function cupDb() {
@@ -449,7 +573,10 @@
       cup.modeAtStart = ctx.mode || null;
     }
     const s = ctx.sample;
-    cup.samples.push({ t: s.t, stamp: s.stamp != null ? s.stamp : null, weight: s.weight, tare: !!s.tare, phase: ctx.phase, frame: ctx.frame != null ? ctx.frame : null });
+    // Wave B 字段补：pressure/mflow/tcmd（soak 观测＋gain-memory 签名/观测分母）＋machineAgeMs/machineTelemetryValid 逐样本快照（control ctx 传入）。additive，决策回归不消费这些字段。
+    cup.samples.push({ t: s.t, stamp: s.stamp != null ? s.stamp : null, weight: s.weight, tare: !!s.tare, phase: ctx.phase, frame: ctx.frame != null ? ctx.frame : null,
+      pressure: s.pressure != null ? s.pressure : null, mflow: s.mflow != null ? s.mflow : null, tcmd: s.tcmd != null ? s.tcmd : null,
+      machineAgeMs: ctx.machineAgeMs != null ? ctx.machineAgeMs : null, machineTelemetryValid: ctx.machineTelemetryValid != null ? ctx.machineTelemetryValid : null });
     if (cup.samples.length > 4000) cup.samples.shift();
     // m9：阶段目标重量缺失计数（loadStageWeights 失败 → rescue cannotReturn 残废，status 暴露）。
     if (ctx.extracting && (ctx.phase === 'stage2' || ctx.phase === 'stage3') && !(Number.isFinite(ctx.stage2WeightG) && Number.isFinite(ctx.finalWeightG))) stageWeightsMissing++;
@@ -459,7 +586,9 @@
     const frame = ctx.frame != null ? ctx.frame : null;
     if (cmd != null && cup.lastCmd != null && cmd !== cup.lastCmd) {
       const kind = (frame != null && cup.lastCmdFrame === frame) ? 'write' : 'frame-change';
-      cup.writes.push({ tMs: Math.round(s.t * 1000), from: cup.lastCmd, to: cmd, source: 'plugin', frame, kind });
+      // Wave B：startupAction 字段位（boost/return 打标）。shadow 模式观察插件写入无法直判 startupAction（需插件 trace，Wave D）；
+      // hec 模式 APK 自执行补水自打标（Wave E）。additive 默认 null，现有消费者不破坏。
+      cup.writes.push({ tMs: Math.round(s.t * 1000), from: cup.lastCmd, to: cmd, source: 'plugin', frame, kind, startupAction: ctx.startupAction || null });
       if (kind === 'write') {
         cup.lastPluginWriteCmd = cmd;
         cup.pluginWriteCount++; // 学习仲裁特征 plugin_writes_so_far（插件真实写入计数，与节拍无关）
@@ -633,6 +762,12 @@
     _features: features,
     _regression: weightRegression,
     _trimReg: trimRegression,
+    _gainMemoryEmpty: emptyGainMemory,
+    _gainMemoryNormalize: normalizeGainMemory,
+    loadGainMemory,
+    saveGainMemory,
+    _scaleSampleGate: scaleSampleGate,
+    _gatedLearningReg: gatedLearningRegression,
     _onset: updateS2Onset,
     _newLive: newLive,
     _updateLive: updateLive,

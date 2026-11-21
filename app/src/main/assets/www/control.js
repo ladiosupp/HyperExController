@@ -434,6 +434,10 @@
           commandMlS: ext && ext.lastCommandMlS, baseCommandMlS: ext && ext.baseCommandMlS,
           frame: ext && ext.logicalFrame, pressureBar: machine && machine.pressure,
           machineFlowMlS: machine && machine.flow, cumulativeWeightG: weight,
+          // Wave B：machineAgeMs/machineTelemetryValid 逐样本快照供 shadow gain-memory 观测门（additive，不改 control 行为）。
+          // machineAgeMs＝插件 ext 遥测龄；machineTelemetryValid＝APK machine WS 新鲜＋压力有限（插件同名旗标的 APK 等价）。
+          machineAgeMs: ext && ext.machineAgeMs != null ? ext.machineAgeMs : null,
+          machineTelemetryValid: !!(machine && Number.isFinite(machine.pressure) && (Date.now() - machine.at) <= 1500),
           limiterBar: ext && ext.limiterBar,
           mode: ext && ext.mode, pending: ext && ext.pending,
           stage2WeightG: stageWeights ? stageWeights.stage2 : null, finalWeightG: stageWeights ? stageWeights.final : null,
