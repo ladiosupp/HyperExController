@@ -73,3 +73,8 @@
 
 ## 10. 接力协议
 本对话＝01a1fb60 后继（Wave C 前半）。上下文重按协议写自包含交接＋回叫统筹停下；统筹开后继。C 后半待②用户裁后统筹派单。新建后继显式 model=alibaba-token-plan/qwen4-max-preview＋嵌套 target（AGENTS 22）。
+
+## 11. 补注：commit 实际落点与并行批（2026-11-21 16:20）
+- **Wave C 三文件实际落在 a79eb3e**（统筹 UI 记录批，16:16:46）：本对话 git add 三文件后、commit 前，统筹批裸提交扫入已暂存内容（其 message 称「只 add HEC_COORDINATOR_STATE.md」，stat 实含 shadow.js ×2＋本交接）。**内容已核：git diff HEAD -- shadow.js 两份＝0，与工作区/已验 APK entry 逐字一致**。不改写历史（并行对话活跃，AGENTS 7 别人提交不回滚）；本补注单独 commit 作 Wave C 回执标记。
+- **989025b（16:16:49）升版 v0.38**（versionCode 38，只 build.gradle）在本批 APK 构建（15:59，versionCode 37）之后→**本批回归跑在 37＋Wave C shadow**；下次构建起为 38。UI 取分修复 8a3c8fe（16:07，index.html＋summary.js 两份）明确「Wave C shadow WIP 留工作区未暂存」未碰本批；其改动在本批构建时已在工作区→APK/回归含该 UI 修复（组合态验证）。
+- **共享模拟器并行干扰**：首轮 summary 跑半截断（36/72 无 ERR）系并行套件同抢 emulator-5554/CDP＋wrapper 管道断连留僵尸 node（已 kill 自己 PID 45036）；Start-Process OS 级重定向干净重跑 72/72。后续波次跑六套前先确认无并行套件占用模拟器。
