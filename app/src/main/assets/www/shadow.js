@@ -17,6 +17,25 @@
   const S2_REFILL_VI_RATIO_MIN = 0.2, S2_REFILL_VI_RATIO_MAX = 0.8;
   const S2_VI_LEARN_STORAGE_MIN = 12, S2_VI_LEARN_STORAGE_MAX = 40;
   const S2_VI_BANDS = [[0.2, 0.4], [0.4, 0.6], [0.6, 0.8]];
+  // ---- Wave D 同步债（插件 2.2.56 soak/律、2.2.55 Va/Vb3、2.2.59 viBuckets 同口径）----
+  // shadow 只算与记录（cup.estimator 加法字段），不发指令、不走 external-flow。
+  const S2_REFILL_RISE_TARGET_S = 0.8, S2_REFILL_RR_QUANTILE = 4.8, S2_REFILL_RR_MEDIAN = 4.59;
+  const S2_REFILL_CUTOFF_LEAD_S = 0.274, S2_REFILL_FC_FACTOR = 0;
+  const S2_REFILL_VI_A = 34.057, S2_REFILL_VI_B = -32.251;
+  const S2_REFILL_VI_MIN_ML = 15, S2_REFILL_VI_MAX_ML = 36, S2_REFILL_VI_FALLBACK_ML = 24.8;
+  const S2_REFILL_VI_WINDOW_S = 2, S2_REFILL_SOAK_MIN_SAMPLES = 10, S2_REFILL_SOAK_MIN_P0_BAR = 0.05;
+  const S2_REFILL_FLOOD_MIN_MLS = 3.5, S2_REFILL_FLOOD_COLD_MLS = 5;
+  const S2_REFILL_HOLD_MS_MIN = 2000, S2_REFILL_HOLD_MS_MAX = 7000, S2_REFILL_HOLD_MARGIN_S = 0.6;
+  const S2_REFILL_DEFAULT_HOLD_MS = 4000, S2_REFILL_BOOST_VOLUME_WARN_ML = 32;
+  const S2_VI_LEARN_USED_MIN = 15, S2_VI_LEARN_USED_MAX = 40;
+  const S2_VI_LEARN_ALPHA_UP = 0.5, S2_VI_LEARN_ALPHA_DOWN = 0.15;
+  const S2_VI_LEARN_DEV_ALPHA_UP = 0.55, S2_VI_LEARN_DEV_ALPHA_DOWN = 0.3;
+  const S2_VI_LEARN_WETLAT_MIN_S = 0.8, S2_VI_LEARN_WETLAT_MAX_S = 8;
+  const S2_VI_LEARN_NEG_MAX = 2, S2_VI_LEARN_DT0_MAX = 5, S2_VI_LEARN_CLUSTER_MAX = 100;
+  const S2_VI_LEARN_BRIDGE_GAP_S = 2;
+  const S2_REFILL_ACCEL_HISTORY = 4, S2_REFILL_PREDICTED_CAP = 1.6, S2_REFILL_CUTOFF_BACKSTOP = 0.85;
+  const S2_REFILL_INSTANT_CROSS_FACTOR = 1.1, S2_REFILL_INSTANT_CROSS_SAMPLES = 2;
+  const S2_REFILL_SHADOW_TICK_MS = 250;   // 插件 liveTrimTick 周期（回放/记录用）
   const SCALE_SAMPLE_GATE = Object.freeze({ minGapMs: 60, monotonic: true }); // 2.2.57 同口径
   const GAIN_MEMORY_KEY = 'hecGainMemory';  // APK 镜像 kv 键（插件主本，pre-cup 刷新；fingerprint 来源待②裁）
   const GAIN_MEMORY_MIRROR_KEY = 'hecGainMemoryMirror'; // 插件主本只读镜像快照（hello；含 fpKey/numericFpKey/basket/at）
@@ -1399,6 +1418,372 @@
     // numericFpKey；numeric 键相等即插件 numericLearningFingerprintKey 同语义（排除 targets/温度/LUT 点）。
     return (history || []).filter(x => x && x.numericFp === fpKey && (x.profileTruthSchema === 3 || x.profileTruthSchema == null));
   }
+  // ---- Wave D：⑦ soak 观测＋自适应灌水律纯函数（插件 soakWettingObservation 3302 / refillAdaptiveFloodDecision 3336 逐字）----
+  function estRefillFloodFloor() {
+    return Math.min(CMD_HI, Math.max(CMD_LO, Math.round(S2_REFILL_FLOOD_MIN_MLS * 16) / 16));
+  }
+  // soak 期泵关，压力是粉饼被动测压；只读 rawScaleSamples（不 gate、不改写）。六拒收门同插件。
+  function estSoakWettingObservation(run) {
+    const raw = run && Array.isArray(run.rawScaleSamples) ? run.rawScaleSamples : null;
+    if (!raw || !raw.length) return { available: false, reason: 'no-samples' };
+    const soak = raw.filter(x => x && x.phase === 'soak' && Number.isFinite(Number(x.tMs)));
+    if (soak.length < S2_REFILL_SOAK_MIN_SAMPLES) return { available: false, reason: 'soak-samples', samples: soak.length };
+    const t0 = Number(soak[0].tMs);
+    const head = soak.slice(0, 5).map(x => Number(x.pressureBar)).filter(Number.isFinite);
+    if (head.length < 3) return { available: false, reason: 'soak-pressure-head', samples: soak.length };
+    const p0 = estMedian(head);
+    if (!(p0 > S2_REFILL_SOAK_MIN_P0_BAR)) return { available: false, reason: 'soak-pressure-low', samples: soak.length, p0Bar: estRound(p0, 3) };
+    const at = soak.find(x => Number(x.tMs) - t0 >= S2_REFILL_VI_WINDOW_S * 1000);
+    if (!at) return { available: false, reason: 'soak-window', samples: soak.length, p0Bar: estRound(p0, 3) };
+    const p2 = Number(at.pressureBar);
+    if (!Number.isFinite(p2)) return { available: false, reason: 'soak-pressure-window', samples: soak.length, p0Bar: estRound(p0, 3) };
+    const eTh = p0 * Math.exp(-1);
+    const tau = soak.find(x => Number.isFinite(Number(x.pressureBar)) && Number(x.pressureBar) <= eTh);
+    return { available: true, samples: soak.length, windowS: S2_REFILL_VI_WINDOW_S,
+      soakP0Bar: estRound(p0, 3), soakP2sBar: estRound(p2, 3), soakP2sRatio: estRound(p2 / p0, 4),
+      soakTauES: tau ? estRound((Number(tau.tMs) - t0) / 1000, 3) : null,
+      soakSeconds: estRound((Number(soak[soak.length - 1].tMs) - t0) / 1000, 2) };
+  }
+  // ---- Wave D：⑩ viBuckets（插件 viConfidence 1849 / viBandFor 1858 / viMemorySuggestion 1868 /
+  // viObservation 1889 / updateViMemoryFromRun 1946 逐字；独立 ratio 带，与 r 的 g 桶分离）----
+  function estViConfidence(v) {
+    if (!v || !(Number(v.vi) > 0)) return 'LOW';
+    const n = Number(v.n) || 1, dev = Number(v.lastDeviation);
+    if (v.censored) return n >= 2 ? 'MEDIUM' : 'LOW';
+    if (n >= 3 && (!Number.isFinite(dev) || dev <= GM_DEVIATION)) return 'HIGH';
+    if (n >= 2) return 'MEDIUM';
+    return 'LOW';
+  }
+  function estViBandFor(ratio) {
+    if (!(ratio >= S2_REFILL_VI_RATIO_MIN && ratio <= S2_REFILL_VI_RATIO_MAX)) return null;
+    for (let i = 0; i < S2_VI_BANDS.length; i++) {
+      const b = S2_VI_BANDS[i];
+      if (ratio >= b[0] && (ratio < b[1] || (i === S2_VI_BANDS.length - 1 && ratio <= b[1]))) return b;
+    }
+    return null;
+  }
+  function estViMemorySuggestion(run, memory, fpKey) {
+    if (!memory || !Array.isArray(memory.viBuckets)) return null;
+    const obs = estSoakWettingObservation(run);
+    if (!obs || obs.available !== true) return null;
+    const band = estViBandFor(Number(obs.soakP2sRatio));
+    if (!band) return null;
+    const row = memory.viBuckets.find(x => x.bandLo === band[0] && x.bandHi === band[1]);
+    if (!row || !(Number(row.vi) > 0)) return null;
+    const fpMatch = !!fpKey && row.fpKey === fpKey;
+    let confidence = estViConfidence(row);
+    if (!fpMatch) confidence = 'LOW';
+    return { bandLo: band[0], bandHi: band[1], routedBy: 'ratio-band', vi: estRound(Number(row.vi), 2), n: Number(row.n) || 1, confidence,
+      fpKeyMatch: fpMatch, deviationPct: row.lastDeviation == null ? null : estRound(row.lastDeviation * 100, 1),
+      censored: !!row.censored, censoredN: Number(row.censoredN) || 0, lastRunId: row.lastRunId || null, stale: false };
+  }
+  // 杯末 Vi_obs＝wetLat×max(.2,flood−fc)；flood 取 trace 实际 boost commandMlS（非计划值）。
+  // learningAllowed 由调用方给（live＝Wave C 已裁等价物 evidenceRow＋completed＋basket；回放＝插件 learningRunAllowed）。
+  function estViObservation(run, opts) {
+    opts = opts || {};
+    const cfg = run && run.config || {};
+    const fail = reason => ({ ok: false, reason });
+    if (cfg.basketContext !== 'coffee') return fail('basket-not-coffee');
+    if (opts.learningAllowed !== true) return fail('learning-not-allowed');
+    const obs = estSoakWettingObservation(run);
+    if (!obs || obs.available !== true) return fail('soak:' + (obs && obs.reason || 'unavailable'));
+    const ratio = Number(obs.soakP2sRatio);
+    if (!(ratio >= S2_REFILL_VI_RATIO_MIN && ratio <= S2_REFILL_VI_RATIO_MAX)) return fail('vi-extrapolated');
+    const trace = run.liveFlowTrim && Array.isArray(run.liveFlowTrim.trace) ? run.liveFlowTrim.trace : [];
+    const boost = trace.find(x => x && x.kind === 'write' && x.startupAction === 'boost');
+    if (!boost || !(Number(boost.commandMlS) > 0) || !Number.isFinite(Number(boost.tMs))) return fail('no-boost-write');
+    const flood = Number(boost.commandMlS);
+    const raw = (run.rawScaleSamples || []).filter(x => x && x.phase === 'stage2');
+    let prevStamp = null;
+    for (const x of raw) {
+      const st = estFiniteOrNull(x.scaleTimestampSeconds);
+      if (st === null) continue;
+      if (prevStamp !== null && st - prevStamp > S2_VI_LEARN_BRIDGE_GAP_S) return fail('bridge-gap');
+      prevStamp = st;
+    }
+    const onset = estStage2CupOnset(run);
+    if (!onset.detected) return fail('onset-not-detected');
+    const wetLatS = (Number(onset.startMs) - Number(boost.tMs)) / 1000;
+    if (!(wetLatS >= S2_VI_LEARN_WETLAT_MIN_S && wetLatS <= S2_VI_LEARN_WETLAT_MAX_S)) return fail('wetlat-band');
+    const platform = Number(cfg.stage2CommandMlS) > 0 ? Number(cfg.stage2CommandMlS) : 0;
+    const fc = S2_REFILL_FC_FACTOR * platform;
+    const viObs = wetLatS * Math.max(0.2, flood - fc);
+    if (!(viObs >= S2_VI_LEARN_STORAGE_MIN && viObs <= S2_VI_LEARN_STORAGE_MAX)) return fail('vi-band');
+    let neg = 0, dt0 = 0, cluster = 0, lastStamp = null, lastW = null;
+    for (const x of run.rawScaleSamples || []) {
+      const st = estFiniteOrNull(x.scaleTimestampSeconds), w = estFiniteOrNull(x.weightG);
+      if (st !== null && lastStamp !== null && st === lastStamp) dt0++;
+      if (st !== null && lastStamp !== null && st > lastStamp && st - lastStamp < 0.06) cluster++;
+      if (w !== null && lastW !== null && w < lastW - 0.001) neg++;
+      if (st !== null) lastStamp = st;
+      if (w !== null) lastW = w;
+    }
+    if (neg > S2_VI_LEARN_NEG_MAX) return fail('scale-noise-neg');
+    if (dt0 > S2_VI_LEARN_DT0_MAX) return fail('scale-noise-dt0');
+    if (cluster > S2_VI_LEARN_CLUSTER_MAX) return fail('scale-noise-cluster');
+    const bleed = trace.find(x => x && x.kind === 'write' && x.startupAction === 'bleed');
+    const complete = trace.find(x => x && x.kind === 'startup-complete' && Number(x.frame) === 1);
+    const closeMs = bleed && Number.isFinite(Number(bleed.tMs)) ? Number(bleed.tMs)
+      : (complete && Number.isFinite(Number(complete.tMs)) ? Number(complete.tMs) : null);
+    const censored = closeMs !== null && Number(onset.startMs) > closeMs;
+    const plan = cfg.s2StartupPlan || {};
+    return { ok: true, viObs: estRound(viObs, 2), wetLatS: estRound(wetLatS, 3), floodMlS: flood, ratio, censored,
+      neg, dt0, cluster, damped: neg > 0 || dt0 > 0, onsetStartMs: Number(onset.startMs), boostTMs: Number(boost.tMs),
+      floodMode: String(plan.floodMode || 'adaptive') };
+  }
+  function estUpdateViMemoryFromRun(memory, run, opts) {
+    opts = opts || {};
+    const o = estViObservation(run, opts);
+    if (!o.ok) return { status: 'rejected', reason: o.reason };
+    const band = estViBandFor(o.ratio);
+    if (!band) return { status: 'rejected', reason: 'vi-extrapolated' };
+    if (!memory) return null;
+    if (!Array.isArray(memory.viBuckets)) memory.viBuckets = [];
+    const now = opts.nowIso || new Date().toISOString();
+    const fpKey = opts.fpKey || null;
+    let row = memory.viBuckets.find(x => x.bandLo === band[0] && x.bandHi === band[1]);
+    const fpChanged = !!(row && row.fpKey && fpKey && row.fpKey !== fpKey);
+    let alpha = null, deviation = null, seeded = false;
+    if (!row || !(Number(row.vi) > 0) || fpChanged) {
+      const fresh = { bandLo: band[0], bandHi: band[1], vi: o.viObs, n: 1, lastDeviation: null, lastObservedVi: o.viObs, lastLocalVi: null,
+        damped: o.damped, censored: o.censored, censoredN: o.censored ? 1 : 0,
+        lastRunId: run.runId, updatedAt: now, fpKey, floodMode: o.floodMode };
+      if (row) Object.assign(row, fresh); else { memory.viBuckets.push(fresh); row = fresh; }
+      seeded = true;
+    } else {
+      deviation = Math.abs(o.viObs - row.vi) / row.vi;
+      const up = o.viObs > row.vi;
+      alpha = up ? S2_VI_LEARN_ALPHA_UP : S2_VI_LEARN_ALPHA_DOWN;
+      if (deviation > GM_DEVIATION) { alpha = up ? S2_VI_LEARN_DEV_ALPHA_UP : S2_VI_LEARN_DEV_ALPHA_DOWN; row.lastLocalVi = o.viObs; }
+      if (o.damped) alpha = alpha * 0.5;
+      if (o.censored) alpha = alpha * 0.5;
+      row.vi = estRound(row.vi + alpha * (o.viObs - row.vi), 2);
+      row.n = (Number(row.n) || 1) + 1;
+      row.lastDeviation = estRound(deviation, 4);
+      row.lastObservedVi = o.viObs;
+      row.damped = o.damped;
+      row.censored = o.censored;
+      row.censoredN = (Number(row.censoredN) || 0) + (o.censored ? 1 : 0);
+      row.lastRunId = run.runId; row.updatedAt = now; row.fpKey = fpKey; row.floodMode = o.floodMode;
+    }
+    memory.viBuckets.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    if (memory.viBuckets.length > S2_VI_BANDS.length) memory.viBuckets = memory.viBuckets.slice(0, S2_VI_BANDS.length);
+    memory.updatedAt = now;
+    return { status: seeded ? 'seeded' : 'updated', bandLo: band[0], bandHi: band[1],
+      vi: row.vi, n: row.n, observedVi: o.viObs, wetLatS: o.wetLatS, floodMlS: o.floodMlS,
+      deviationPct: row.lastDeviation == null ? null : estRound(row.lastDeviation * 100, 1), alpha,
+      confidence: estViConfidence(row), censored: o.censored, censoredN: row.censoredN, damped: o.damped,
+      fpKeyReset: fpChanged, floodMode: o.floodMode, lastRunId: row.lastRunId };
+  }
+  // 律：flood=snap16(clamp(max(F_rise,F_budget),3.5,8))；F_budget=fc+Vi/(holdCfg/1000+.274−.8)；
+  // Vi=clamp(34.057−32.251×soakP2sRatio,15,36)，无信号兜底 24.8；消费地板 vi=max(律,blended) 夹[15,40]。
+  function estRefillAdaptiveFloodDecision(opts) {
+    const run = opts.run;
+    const holdCfg = Number(opts.holdMs) > 0 ? Number(opts.holdMs) : S2_REFILL_DEFAULT_HOLD_MS;
+    const riseTarget = S2_REFILL_RISE_TARGET_S;
+    const fRise = S2_REFILL_RR_QUANTILE / riseTarget;
+    const platform = Number.isFinite(Number(opts.platformMlS)) && Number(opts.platformMlS) > 0 ? Number(opts.platformMlS) : null;
+    const fc = platform === null ? 0 : S2_REFILL_FC_FACTOR * platform;
+    const obs = estSoakWettingObservation(run);
+    const signaled = !!(obs && obs.available === true);
+    const viExtrapolated = signaled && (Number(obs.soakP2sRatio) < S2_REFILL_VI_RATIO_MIN || Number(obs.soakP2sRatio) > S2_REFILL_VI_RATIO_MAX);
+    const viLaw = signaled
+      ? Math.min(S2_REFILL_VI_MAX_ML, Math.max(S2_REFILL_VI_MIN_ML, S2_REFILL_VI_A + S2_REFILL_VI_B * Number(obs.soakP2sRatio)))
+      : S2_REFILL_VI_FALLBACK_ML;
+    let vi = viLaw, viLearning = null, viUsedSource = signaled ? 'law' : 'cold-start-fallback';
+    if (signaled && !viExtrapolated) {
+      const sug = estViMemorySuggestion(run, opts.memory, opts.fpKey);
+      if (sug) {
+        viLearning = { bandLo: sug.bandLo, bandHi: sug.bandHi, routedBy: sug.routedBy, viLearnedMl: sug.vi, n: sug.n,
+          confidence: sug.confidence, fpKeyMatch: sug.fpKeyMatch, deviationPct: sug.deviationPct, censoredN: sug.censoredN,
+          lastRunId: sug.lastRunId, blend: 0, floored: false };
+        let blended = viLaw;
+        if (sug.fpKeyMatch && sug.confidence === 'HIGH') { blended = sug.vi; viUsedSource = 'learned-high'; viLearning.blend = 1; }
+        else if (sug.fpKeyMatch && sug.confidence === 'MEDIUM') { blended = 0.5 * sug.vi + 0.5 * viLaw; viUsedSource = 'learned-medium-blend'; viLearning.blend = 0.5; }
+        vi = Math.max(viLaw, blended);
+        if (blended < viLaw) { viLearning.floored = true; viUsedSource = viUsedSource + '-floored'; }
+        vi = Math.min(S2_VI_LEARN_USED_MAX, Math.max(S2_VI_LEARN_USED_MIN, vi));
+      }
+    }
+    const budgetS = Math.max(0.3, holdCfg / 1000 + S2_REFILL_CUTOFF_LEAD_S - riseTarget);
+    const fBudget = fc + vi / budgetS;
+    const lo = estRefillFloodFloor(), hi = CMD_HI;
+    const clampFlood = v => {
+      const s = estSnapCommandFlow(Math.min(hi, Math.max(lo, v)));
+      return Number.isFinite(s) ? s : estSnapCommandFlow(S2_REFILL_FLOOD_COLD_MLS);
+    };
+    const headroom = Number.isFinite(Number(opts.headroomMlS)) && Number(opts.headroomMlS) > 0 ? Number(opts.headroomMlS) + 1 / 16 : 0;
+    let flood = signaled ? clampFlood(Math.max(fRise, fBudget)) : clampFlood(Math.max(S2_REFILL_FLOOD_COLD_MLS, headroom));
+    let binding = signaled ? (fRise >= fBudget ? 'rise-target' : 'hold-budget') : 'cold-start';
+    const needAt = f => vi / Math.max(0.2, f - fc) + S2_REFILL_RR_MEDIAN / f - S2_REFILL_CUTOFF_LEAD_S;
+    let needed = needAt(flood);
+    const round100 = s => Math.min(S2_REFILL_HOLD_MS_MAX, Math.max(S2_REFILL_HOLD_MS_MIN, Math.ceil((s + S2_REFILL_HOLD_MARGIN_S) * 10) * 100));
+    let holdMs, holdAdjusted = null;
+    if (needed <= holdCfg / 1000) {
+      holdMs = Math.min(holdCfg, round100(needed));
+      if (holdMs !== holdCfg) holdAdjusted = 'shrunk';
+    } else {
+      holdMs = Math.max(holdCfg, round100(needed));
+      holdAdjusted = 'raised';
+      if (needed > S2_REFILL_HOLD_MS_MAX / 1000) {
+        flood = clampFlood(hi); binding = 'envelope-max'; needed = needAt(flood); holdMs = S2_REFILL_HOLD_MS_MAX;
+      }
+    }
+    const infeasible = needed > holdMs / 1000;
+    const boostVolumeMl = estRound(flood * holdMs / 1000, 1);
+    const s2w = Number(opts.stage2Weight), s1w = Number(opts.stage1Weight);
+    const weightBudgetG = Number.isFinite(s2w) && Number.isFinite(s1w) && s2w > s1w ? estRound(s2w - s1w, 1) : null;
+    return { floodMlS: flood, holdMs: holdMs, holdMsConfigured: holdCfg, holdAdjusted: holdAdjusted,
+      fRiseMlS: estRound(fRise, 3), fBudgetMlS: estRound(fBudget, 3), binding: binding,
+      riseTargetS: riseTarget, rrQuantile: S2_REFILL_RR_QUANTILE, rrMedian: S2_REFILL_RR_MEDIAN,
+      cutoffLeadS: S2_REFILL_CUTOFF_LEAD_S, fcFactor: S2_REFILL_FC_FACTOR, fcMlS: estRound(fc, 3), platformMlS: platform,
+      viMl: estRound(vi, 2), viLawMl: estRound(viLaw, 2), viSource: signaled ? 'soak-p2s-ratio' : 'cold-start-fallback',
+      viUsedSource: viUsedSource, viLearning: viLearning, viExtrapolated: viExtrapolated,
+      viRatioSupport: [S2_REFILL_VI_RATIO_MIN, S2_REFILL_VI_RATIO_MAX],
+      predictedWetLatencyS: estRound(Math.max(0, needed + S2_REFILL_CUTOFF_LEAD_S - S2_REFILL_RR_MEDIAN / flood), 3),
+      predictedRiseS: estRound(S2_REFILL_RR_MEDIAN / flood, 3), predictedBoostToBleedS: estRound(needed, 3),
+      budgetInfeasible: infeasible,
+      budgetInfeasibleReason: infeasible ? 'predicted wetting + rise ' + estRound(needed, 2) + ' s exceeds holdMs ' + holdMs + ' ms at flood ' + flood.toFixed(3) + '; puck outside the calibrated range, needs a longer watchdog or a coarser grind' : null,
+      boostVolumeMl: boostVolumeMl, boostVolumeWarnMl: S2_REFILL_BOOST_VOLUME_WARN_ML, boostVolumeWarn: boostVolumeMl > S2_REFILL_BOOST_VOLUME_WARN_ML,
+      s2WeightBudgetG: weightBudgetG, observation: obs };
+  }
+
+  // ---- Wave D：⑥ Va 补水流量估计（插件 s2RefillFlowEstimate 3794 逐字；now/帧起改为杯内相对输入）----
+  // st={nowMs,nowCupMs,frameStartCupMs,predictionSeconds,estHistory,lastEstimate,lastEstimateGate}；可变状态同插件 t.startup。
+  function estS2RefillFlowEstimate(run, st) {
+    const nowCupMs = Number(st.nowCupMs), frameStartCupMs = Number(st.frameStartCupMs);
+    const seen = new Set(), points = [];
+    for (const x of (run && run.rawScaleSamples) || []) {
+      const at = Number(x && x.tMs);
+      if (!x || x.phase !== 'stage2' || Number(x.profileFrame) !== 1 || !Number.isFinite(at)) continue;
+      if (at < frameStartCupMs || at > nowCupMs || nowCupMs - at > 1300) continue;
+      if (x.tareReset) { points.length = 0; seen.clear(); }
+      const stamp = estFiniteOrNull(x.scaleTimestampSeconds), weight = estFiniteOrNull(x.weightG);
+      if (stamp === null || weight === null || seen.has(stamp)) continue;
+      if (points.length && (stamp <= points[points.length - 1].x || stamp - points[points.length - 1].x > 0.6)) points.length = 0;
+      seen.add(stamp); points.push({ x: stamp, y: weight, at: at });
+    }
+    const gate = (g, extra) => {
+      const detail = Object.assign({ gate: g, atMs: st.nowMs != null ? st.nowMs : null }, extra || {});
+      st.lastEstimateGate = detail;
+      return { ok: false, gate: g, detail: detail };
+    };
+    if (points.length < 6) return gate('points', { points: points.length });
+    if (points[points.length - 1].x - points[0].x < 0.6) return gate('span', { spanS: estRound(points[points.length - 1].x - points[0].x, 3) });
+    if (nowCupMs - points[points.length - 1].at > 600) return gate('stale', { ageMs: nowCupMs - points[points.length - 1].at });
+    let tail = points.filter(x => points[points.length - 1].x - x.x <= 0.75);
+    if (tail.length < 6) tail = points;
+    if (tail[tail.length - 1].x - tail[0].x < 0.6) return gate('tail-span', { tailPoints: tail.length });
+    const fit = estLinearRegression(tail);
+    if (!fit || tail.length < 6) return gate('tail-points', { tailPoints: tail.length });
+    if (fit.r2 < 0.90) return gate('r2', { r2: estRound(fit.r2, 4) });
+    if (fit.slope < 0) return gate('slope', { slope: estRound(fit.slope, 3) });
+    if (fit.slope <= 1e-6) return gate('slope-zero', { slope: estRound(fit.slope, 3) });
+    st.lastEstimateGate = null;
+    const previous = st.lastEstimate, current = { slope: fit.slope, stamp: tail[tail.length - 1].x, r2: fit.r2 };
+    if (!Array.isArray(st.estHistory)) st.estHistory = [];
+    if (!previous || current.stamp > previous.stamp) {
+      st.estHistory.push(current);
+      if (st.estHistory.length > S2_REFILL_ACCEL_HISTORY) st.estHistory.shift();
+      st.lastEstimate = current;
+    }
+    const hist = st.estHistory;
+    let acceleration = 0;
+    if (hist.length >= 2) {
+      const pairs = [];
+      for (let i = 1; i < hist.length; i++) {
+        const dt = hist[i].stamp - hist[i - 1].stamp;
+        if (dt > 0) pairs.push((hist[i].slope - hist[i - 1].slope) / dt);
+      }
+      if (pairs.length) {
+        pairs.sort((a, b) => a - b);
+        acceleration = pairs.length % 2 ? pairs[(pairs.length - 1) / 2] : (pairs[pairs.length / 2 - 1] + pairs[pairs.length / 2]) / 2;
+      }
+    }
+    const target = Number(run.config.stage2Flow);
+    acceleration = Math.max(-target, Math.min(target, acceleration));
+    const predicted = Math.max(0, current.slope + acceleration * Number(st.predictionSeconds));
+    const predictedCapped = Math.min(predicted, target * S2_REFILL_PREDICTED_CAP);
+    return { ok: true, slope: current.slope, stamp: current.stamp, r2: current.r2,
+      acceleration: acceleration, predicted: predicted, predictedCapped: estRound(predictedCapped, 3) };
+  }
+  // Vb3＋收口判定（插件 s2RefillReturnReason 的 Vb3 3878–3897 与 predicted/backstop 尾段同口径）。
+  // 压力/holdMs/秤 stale/blindFlood 门属执行状态机（Wave E），shadow 不计入；只记 would-be。
+  function estS2RefillWouldReturn(opts) {
+    const run = opts.run, st = opts.state, target = Number(run && run.config && run.config.stage2Flow);
+    const threshold = target * Number(opts.cutoffFraction);
+    const flow = estS2RefillFlowEstimate(run, st);
+    const estHistory = (st.estHistory || []).map(x => ({ slope: estRound(x.slope, 3), stamp: x.stamp, r2: x.r2 != null ? estRound(x.r2, 4) : null }));
+    if (opts.boosting) {
+      const rs = scaleSampleGate((run.rawScaleSamples || []).filter(x => x.phase === 'stage2' && Number(x.profileFrame) === 1 && Number(x.tMs) <= Number(st.nowCupMs)));
+      const need = S2_REFILL_INSTANT_CROSS_SAMPLES;
+      if (rs.length >= need + 1) {
+        const thr = target * S2_REFILL_INSTANT_CROSS_FACTOR;
+        let ok = true, inst = null;
+        for (let i = rs.length - need; i < rs.length; i++) {
+          const a = rs[i - 1], b = rs[i];
+          const dt = Number(b.scaleTimestampSeconds) - Number(a.scaleTimestampSeconds);
+          const s = dt > 0.02 ? (Number(b.weightG) - Number(a.weightG)) / dt : null;
+          if (s === null || s < thr) { ok = false; break; }
+          inst = s;
+        }
+        if (ok && inst !== null) {
+          const bs = target * S2_REFILL_CUTOFF_BACKSTOP;
+          return { wouldReturn: true, basis: 'instantaneous-cross', flow: flow,
+            cutoff: { rawGS: estRound(inst, 3), predictedGS: estRound(inst, 3), predictedRawGS: estRound(inst, 3), decisionGS: estRound(inst, 3),
+              thresholdGS: estRound(threshold, 3), backstopGS: estRound(bs, 3), basis: 'instantaneous-cross', estHistory: estHistory,
+              margin: estRound(inst - bs, 3), firingTickMs: Number(opts.periodMs) || null, firingObservedGS: estRound(inst, 3),
+              instantCrossGS: estRound(inst, 3), instantCrossFactor: S2_REFILL_INSTANT_CROSS_FACTOR, atMs: st.nowMs != null ? st.nowMs : null } };
+        }
+      }
+    }
+    const observed = flow.ok ? Number(flow.slope) : null;
+    const predicted = flow.ok && Number.isFinite(flow.predicted) ? flow.predicted : null;
+    const decisionFlow = Number.isFinite(predicted) ? predicted : observed;
+    const backstop = target * S2_REFILL_CUTOFF_BACKSTOP;
+    const predictedHit = Number.isFinite(decisionFlow) && decisionFlow >= target;
+    const backstopHit = Number.isFinite(observed) && observed >= backstop;
+    if (flow.ok && Number.isFinite(observed) && observed >= threshold * 0.6 && (predictedHit || backstopHit)) {
+      return { wouldReturn: true, basis: predictedHit ? 'predicted' : 'observed-backstop', flow: flow,
+        cutoff: { rawGS: estRound(flow.slope, 3), predictedGS: flow.predictedCapped != null ? flow.predictedCapped : (Number.isFinite(predicted) ? estRound(predicted, 3) : null),
+          predictedRawGS: Number.isFinite(predicted) ? estRound(predicted, 3) : null, decisionGS: estRound(decisionFlow, 3),
+          thresholdGS: estRound(threshold, 3), backstopGS: estRound(backstop, 3), basis: predictedHit ? 'predicted' : 'observed-backstop',
+          estHistory: estHistory, margin: estRound(observed - backstop, 3), firingTickMs: Number(opts.periodMs) || null,
+          firingObservedGS: estRound(flow.slope, 3), atMs: st.nowMs != null ? st.nowMs : null } };
+    }
+    return { wouldReturn: false, basis: null, flow: flow, cutoff: null };
+  }
+  // live shadow 的 would-be 记录：需要插件 trace 的 startupAction 标（boost/bleed）；缺则如实降级，不猜。
+  function estRefillShadowTrace(cup, run) {
+    const writes = (cup && cup.writes) || [];
+    const boost = writes.find(w => w && w.kind === 'write' && w.startupAction === 'boost');
+    if (!boost || !Number.isFinite(Number(boost.tMs))) return { available: false, reason: 'no-boost-trace', va: null, vb3: null };
+    const bleed = writes.find(w => w && w.kind === 'write' && w.startupAction === 'bleed');
+    const complete = writes.find(w => w && w.kind === 'startup-complete' && Number(w.frame) === 1);
+    const raw = (run.rawScaleSamples || []).filter(x => x.phase === 'stage2');
+    const first = raw.find(x => Number(x.profileFrame) === 1);
+    const last = raw.length ? raw[raw.length - 1] : null;
+    if (!first || !last) return { available: false, reason: 'no-stage2-samples', va: null, vb3: null };
+    const frameStartCupMs = Number(first.tMs);
+    const endCupMs = bleed ? Number(bleed.tMs) : (complete ? Number(complete.tMs) : Number(last.tMs));
+    const settings = (run.config && run.config.s2StartupPlan && run.config.s2StartupPlan.settings) || {};
+    const cutoffFraction = Number(settings.cutoffPercent) > 0 ? Number(settings.cutoffPercent) / 100 : 0.85;
+    const st = { nowMs: 0, nowCupMs: 0, frameStartCupMs: frameStartCupMs, predictionSeconds: 1.5, estHistory: [], lastEstimate: null, lastEstimateGate: null };
+    let ticks = 0, lastFlow = null, hit = null;
+    for (let t = Number(boost.tMs); t <= endCupMs; t += S2_REFILL_SHADOW_TICK_MS) {
+      st.nowCupMs = t; st.nowMs = (Number(cup.startedAt) || 0) + t;
+      const r = estS2RefillWouldReturn({ run: run, state: st, cutoffFraction: cutoffFraction, boosting: t < endCupMs, periodMs: S2_REFILL_SHADOW_TICK_MS });
+      ticks++;
+      if (r.flow && r.flow.ok) lastFlow = { slope: estRound(r.flow.slope, 3), r2: r.flow.r2 != null ? estRound(r.flow.r2, 4) : null,
+        acceleration: estRound(r.flow.acceleration, 3), predicted: estRound(r.flow.predicted, 3), predictedCapped: r.flow.predictedCapped,
+        gate: null, atMs: st.nowMs };
+      if (r.wouldReturn && !hit) { hit = r; break; }
+    }
+    return { available: true, ticks: ticks, boostTMs: Number(boost.tMs), bleedTMs: bleed ? Number(bleed.tMs) : null,
+      cutoffFraction: cutoffFraction, cutoffFractionSource: Number(settings.cutoffPercent) > 0 ? 'trace' : 'default',
+      va: lastFlow, vb3: hit ? { wouldReturn: true, basis: hit.basis, cutoff: hit.cutoff } : { wouldReturn: false, basis: null, cutoff: null } };
+  }
+
   // shadow cup → 插件 run 形状视图（估计器输入适配；字段映射见 Wave C 交接）。
   function estRunViewFromCup(c) {
     const cv = c.cfgView || {};
@@ -1409,7 +1794,7 @@
       scaleTimestampSeconds: s.stamp, weightG: s.weight, tareReset: !!s.tare, decaidWeightFlowGS: s.decaid,
       targetFlowMlS: s.tcmd, machineFlowMlS: s.mflow, pressureBar: s.pressure }));
     const trace = c.writes.map(w => ({ kind: w.kind === 'write' ? 'write' : 'frame-change', tMs: w.tMs, frame: w.frame, commandMlS: w.to, previousMlS: w.from, startupAction: w.startupAction || undefined, rescue: null }));
-    return { runId: c.runId, kind: 'hyperex', result: null, samples, rawScaleSamples, events: [],
+    return { runId: c.runId, kind: 'hyperex', result: null, startedAtMs: Number(c.startedAt) || null, samples, rawScaleSamples, events: [],
       liveFlowTrim: { trace, rescueWrites: null, normalWrites: null },
       config: { stage2Flow: cv.stage2Flow, stage2CommandMlS: cv.stage2CommandMlS, stage2PressureLimit: cv.stage2PressureLimit,
         stage3Flow: cv.stage3Flow, stage3CommandMlS: cv.stage3CommandMlS, stage3PressureLimit: cv.stage3PressureLimit,
@@ -1513,10 +1898,29 @@
     const pump = estS2RefillPumpEstimate(run, target, false);
     const platform = Number.isFinite(target) && target > 0 ? estBoundedRefillControlBase({ targetGS: target, profileBase: base, observedBase: pump && pump.command, memory, prior: run, current: null, history: histForFp, priorEvidence: row ? row.s2 : null, lutPoints: null, lutUsable: false }) : null;
     const center = Number.isFinite(target) && target > 0 ? estLiveTrimControlCenter({ phase: 'stage2', fallbackBase: base, run, memory, prior: run, current: run, history: histForFp, priorEvidence: row ? row.s2 : null, local: null, lutPoints: null, lutUsable: false, nowMs: Date.now() }) : null;
+    // Wave D（shadow 只算与记录）：soak→flood/holdMs 纯函数、Vi 镜像消费、杯末 Vi 学习、Va/Vb3 would-be。
+    // Vi_obs 与 Va/Vb3 依赖插件 trace 的 startupAction 标（boost/bleed）；live 台账只有 write/frame-change
+    // → 如实降级（refillTrace.available=false），不猜、不发指令。holdMs 设置 APK 不可得 → 默认 4000（degraded.holdCfg）。
+    if (basket) run.config.basketContext = basket;
+    const soak = estSoakWettingObservation(run);
+    const viSuggestion = estViMemorySuggestion(run, memory, fpKey);
+    const refillPlan = estRefillAdaptiveFloodDecision({ run, platformMlS: platform && platform.commandMlS,
+      holdMs: S2_REFILL_DEFAULT_HOLD_MS, headroomMlS: pump && pump.command, memory, fpKey, stage2Weight: null, stage1Weight: null });
+    const viAllowed = !!(row && c.completed === true && String(basket || '') === 'coffee');
+    const viObservation = estViObservation(run, { learningAllowed: viAllowed });
+    const viUpdate = viObservation.ok ? estUpdateViMemoryFromRun(memory, run, { learningAllowed: viAllowed, fpKey }) : { status: 'rejected', reason: viObservation.reason };
+    if (viUpdate && viUpdate.status !== 'rejected') await saveGainMemory(memory);
+    const refillTrace = estRefillShadowTrace(c, run);
     c.estimator = { schema: 1, at: new Date().toISOString(), gainMemory: gmOut, suggestion: { s2: sugS2, s3: sugS3 }, platform, controlCenter: center,
+      soak: soak, refillPlan: refillPlan, vi: { suggestion: viSuggestion, observation: viObservation, update: viUpdate },
+      va: refillTrace.va, vb3: refillTrace.vb3,
+      refillTrace: { available: refillTrace.available, reason: refillTrace.reason || null, ticks: refillTrace.ticks || 0,
+        boostTMs: refillTrace.boostTMs != null ? refillTrace.boostTMs : null, bleedTMs: refillTrace.bleedTMs != null ? refillTrace.bleedTMs : null,
+        cutoffFraction: refillTrace.cutoffFraction != null ? refillTrace.cutoffFraction : null, cutoffFractionSource: refillTrace.cutoffFractionSource || null },
       historyRows: history.length, fpKey, numericFpKey, basket, completed: !!c.completed, evidenceRow: !!row, evidence: row ? row.s2 : null,
       cfg: c.cfgView ? Object.assign({}, c.cfgView) : null,
-      degraded: { s3Evidence: true, startupTrace: true, fingerprint: !numericFpKey, origin: true, lut: true, mirror: !fpKey } };
+      degraded: { s3Evidence: true, startupTrace: true, fingerprint: !numericFpKey, origin: true, lut: true, mirror: !fpKey,
+        refillTrace: !refillTrace.available, holdCfg: true } };
     lastEstRun = run; lastEstEvidence = row ? row.s2 : null;
     estCache = { memory, history, prior: run, priorEvidence: row ? row.s2 : null, fpKey, numericFpKey, basket,
       memorySource: estCache.memorySource || 'local', warm: false, ready: true };
@@ -1837,6 +2241,15 @@
       boundedRefillControlBase: estBoundedRefillControlBase, liveTrimControlCenter: estLiveTrimControlCenter,
       responseIntervalMs: estLiveResponseIntervalMs, learningPolicy: estLearningPolicy, addGainS2: estAddGainS2, applyMemoryToS2Node: estApplyMemoryToS2Node,
       historyForFp: estHistoryForFp, runViewFromCup: estRunViewFromCup, controlCenterForLive: estControlCenterForLive,
+      // Wave D：soak/律、Vi 学习、Va/Vb3（纯函数，显式传参）
+      soak: estSoakWettingObservation, refillFloodFloor: estRefillFloodFloor, refillAdaptiveFloodDecision: estRefillAdaptiveFloodDecision,
+      viConfidence: estViConfidence, viBandFor: estViBandFor, viSuggestion: estViMemorySuggestion,
+      viObservation: estViObservation, viUpdate: estUpdateViMemoryFromRun,
+      refillFlowEstimate: estS2RefillFlowEstimate, refillWouldReturn: estS2RefillWouldReturn, refillShadowTrace: estRefillShadowTrace,
+      refillConstants: { riseTargetS: S2_REFILL_RISE_TARGET_S, rrQuantile: S2_REFILL_RR_QUANTILE, rrMedian: S2_REFILL_RR_MEDIAN,
+        cutoffLeadS: S2_REFILL_CUTOFF_LEAD_S, floodMin: S2_REFILL_FLOOD_MIN_MLS, floodCold: S2_REFILL_FLOOD_COLD_MLS,
+        holdMin: S2_REFILL_HOLD_MS_MIN, holdMax: S2_REFILL_HOLD_MS_MAX, viA: S2_REFILL_VI_A, viB: S2_REFILL_VI_B,
+        viMin: S2_REFILL_VI_MIN_ML, viMax: S2_REFILL_VI_MAX_ML, viFallback: S2_REFILL_VI_FALLBACK_ML, bands: S2_VI_BANDS },
       normalTrimQuanta, recoveryTimeEstimate,
     },
     loadAdaptiveHistory,
