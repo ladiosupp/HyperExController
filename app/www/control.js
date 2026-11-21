@@ -75,10 +75,12 @@
     '滤波': 'Filter', '关': 'Off', 'RAW 滤波': 'RAW filtered', '原始': 'Raw',
     '常用': 'Fav ', '空位': 'Empty', '条曲线': 'curves', '页': 'pages', '加入到常用': 'Add to fav ', '替换': 'Replace ', '移除': 'Remove', '已加入常用': 'Added to fav ', '已替换常用': 'Replaced fav ', '已移除常用': 'Removed from fav',
     '支持HEC': 'HEC ready',
-    '控制模式': 'Control mode', '插件调流': 'Plugin trim', 'HEC 调流中': 'HEC trim', '启用 HEC': 'Enable HEC',
+    '控制模式': 'Control mode', '插件调流': 'Plugin trim', 'HEC 调流中': 'HEC trim', '点击启用HEC': 'Tap to enable HEC',
     '已切换 HEC': 'HEC enabled · next shot', '已切回插件调流': 'Plugin trim restored',
     '本杯进行中，下一杯生效': 'Shot in progress; applies next shot', 'HEC 执行': 'HEC exec',
     '等待下一杯': 'Waiting for next shot', '已停发': 'Sending stopped',
+    '待机': 'Idle', '就绪': 'Ready', '补水': 'Boosting', '收口': 'Bleeding', '回平台': 'Returning',
+    '完成': 'Done', '结束': 'Ended', 'HEC 已接管': 'HEC takeover', 'HEC 已停发': 'HEC stopped',
   };
   // 控制页键优先，其次复用回放页 EN（插件/逻辑帧等共用词；顶层 const 不挂 window，走全局 t）
   function t(k) {
@@ -230,20 +232,21 @@
     toast(hecMode ? t('已切换 HEC') : t('已切回插件调流'));
     renderAll();
   }
+  const HEC_STATUS_LABEL = { disabled: '待机', armed: '就绪', boosting: '补水', bleeding: '收口', returning: '回平台', complete: '完成', ended: '结束', stopped: '已停发', takeover: '已接管' };
   function renderAlgMode() {
     const b = $('algModeLb'); if (!b) return;
     const off = connState !== 'ok' || !pluginOk;
-    b.textContent = off ? '—' : (hecMode ? t('HEC 调流中') : t('启用 HEC'));
-    const note = $('hecExecNote');
     const hs = window.HxShadow && window.HxShadow.hecStatus ? window.HxShadow.hecStatus() : null;
-    const bits = [];
-    if (hecMode && hs) {
-      bits.push(t('HEC 执行') + ' · ' + (hs.status || '—'));
-      if (hs.notice) bits.push(hs.notice);
+    let label = '—', title = '';
+    if (!off) {
+      if (!hecMode) label = t('点击启用HEC');
+      else if (hs && hs.status === 'takeover') label = t('HEC 已接管');
+      else if (hs && hs.status === 'stopped') label = t('HEC 已停发');
+      else label = t('HEC 调流中') + ' · ' + t(HEC_STATUS_LABEL[(hs && hs.status) || 'disabled'] || '待机');
+      if (hecMode) { if (hs && hs.notice) title = hs.notice; else if (hs && hs.status) title = hs.status; }
     }
-    if (!note) return;
-    note.hidden = !bits.length;
-    note.textContent = bits.join(' · ');
+    b.textContent = label;
+    const btn = $('algModeBtn'); if (btn) { btn.title = title; btn.classList.toggle('hec', !off && hecMode); }
   }
   function startPoll() {
     stopPoll();
