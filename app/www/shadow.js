@@ -808,6 +808,9 @@
     st.finalWeightG = ctx.finalWeightG;
     if (!hecSender) return hecStatus();
     if (ext.takeover) { st.takeoverReason = ext.takeover.reason || 'hec-takeover'; st.startup.status = 'takeover'; st.notice = '插件已接管本杯'; return hecStatus(); }
+    // 接管锁存只在协议仍报 takeover 时成立；下一杯开杯后 ext.takeover 清空，必须同步解除，
+    // 否则上一杯的尾声轮询会把新杯的启动状态卡在 takeover（发送恢复但状态行不复位）。
+    if (st.startup.status === 'takeover') { st.startup.status = 'disabled'; st.takeoverReason = null; st.notice = null; st.lastReason = 'takeover-cleared'; }
     if (ext.mode !== 'hec' || st.stopReason) return hecStatus();
     if (ctx.stale || (typeof document !== 'undefined' && document.hidden)) return hecStatus();
     if (!ext.extracting || (ext.phase !== 'stage2' && ext.phase !== 'stage3')) {

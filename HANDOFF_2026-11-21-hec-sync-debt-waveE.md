@@ -33,17 +33,23 @@ hec 档 APK 调流链已打通：切档 UI → external-flow（≥300ms/读 pend
 ## 2. 构建与产物（v0.39 候选，未发版）
 
 - 同步：`app/www/*` → `app/src/main/assets/www/`；shadow/control/index 三份 SHA256 一致。
-- APK：`app/build/outputs/apk/debug/app-debug.apk`，**6,877,108 字节，SHA256 6AFC56B93AE4D7F2E92399ABCBA30502BD8E346B53B555A8FC1CE6ABFDE01F24**（versionCode 39 / versionName 0.39）。
-- entry 哈希（www＝assets＝APK 三方一致）：shadow **4C6D0475D962D7D1F43E16E3B775C0E9D321DCECEF442EE61C44727375F7E4E5**；control **CCFB6E91A6EB313271E4B1E0591BC886CF147967ED1689981ED945FDCB20AC06**；index **B781075ECADC8FBB65764561996F6DE5656EB498A6704C7876D00C96E60C9E79**。
+- APK：`app/build/outputs/apk/debug/app-debug.apk`，**6,877,314 字节，SHA256 EBF68E149E75542DB91E17202C581A0BDF53995415B662D95433D462DE959667**（versionCode 39 / versionName 0.39）。
+- entry 哈希（www＝assets＝APK 三方一致）：shadow **15283565F2451C5E6DCA7B6290F8C4E22D3A4CC6A245E9C8FE0E45A38854A280**；control **CCFB6E91A6EB313271E4B1E0591BC886CF147967ED1689981ED945FDCB20AC06**；index **B781075ECADC8FBB65764561996F6DE5656EB498A6704C7876D00C96E60C9E79**。
 - 模拟器 emulator-5554 `install -r` Success，dumpsys versionCode=39 / 0.39；平板未动。
+- **他人 WIP 排除**：构建期间工作区出现另一对话未提交的 UI 文案改动（`app/www/control.js`＋`index.html` 的接管横幅措辞）。本包按 **HEAD 版本** 构建（assets 已回退到 HEAD），未把该 WIP 纳入候选、未提交、未改动其工作区文件；如要纳入 v0.39，需其归属对话先提交再重建。
 
 ## 3. 验证回执（全部本机实跑）
 
 - **六套回归全绿（最终包复跑）**：summary **72/72**、boot **8/8**、curvetag **8/8**、TDS 矩阵 **33/33**、TDS UI **31/31**、WS 假死 **17/17**（4810 桩＋reverse＋`__set-addr-4810` 前置）。
+- 说明：最终包（EBF68E…）与上述回归包只差 UI 两文件回退到 HEAD（排除他人未提交文案），hec 逻辑/entry 零差异；六套与冒烟结论继续有效。
 - **既有不回退**：`__rectify-r2345-test` **27/27**、`__phaseB-integration-test` **15/15**、`__waveb-specialty` **33/33**、`__wavec-specialty` **128/128**、`__waved-specialty` **67/67**、`__wavec-replay` **REPLAY STRICT PASS**（Wave C/D 决策级回放维持）。
-- **Wave E 专项 `__wavee-specialty.cjs` 50/50**：409 全 11 分支＋400/未知；信封 S2/S3/rescue＋含当前指令；补水向量律（满灌/平台/只降不升）；收口全序（压力→holdMs→stale→Vb3→predicted/backstop）；4% 死区/8% coast/9% 写/压力上行门/执行器门/补水后 up-hold/S3 入段守卫；Vd15 三连触发＋≤2 档＋滞回/笔数退出；governor S2 峰值/斜坡与 S3 单调闸；takeover 停发/非 hec 不发送/预算停发/409 hec-mode-required/未知 reason 原文/上行压力只 hold；ACK 2s 与回写看门狗 2.5s；状态机 boost→bleed→return→complete＋自执行打标（boost 只记一笔、回显不误记 plugin）。
+- **Wave E 专项 `__wavee-specialty.cjs` 51/51**：409 全 11 分支＋400/未知；信封 S2/S3/rescue＋含当前指令；补水向量律（满灌/平台/只降不升）；收口全序（压力→holdMs→stale→Vb3→predicted/backstop）；4% 死区/8% coast/9% 写/压力上行门/执行器门/补水后 up-hold/S3 入段守卫；Vd15 三连触发＋≤2 档＋滞回/笔数退出；governor S2 峰值/斜坡与 S3 单调闸；takeover 停发/清空后状态复位/非 hec 不发送/预算停发/409 hec-mode-required/未知 reason 原文/上行压力只 hold；ACK 2s 与回写看门狗 2.5s；状态机 boost→bleed→return→complete＋自执行打标（boost 只记一笔、回显不误记 plugin）。
 - **端到端冒烟 `__wavee-smoke.cjs` 10/10**（模拟器＋4812 hec-stub plain）：初始 full→点按切 hec（label「HEC 调流中」）→切回 full→运行中点按 409「本杯进行中」→空闲切 hec→开杯 external-flow 实发→状态机进入 boost/bleed/return/complete→未接管→状态行显示 HEC 执行。
 - **真机同形台账**（模拟器 hec 杯实抓）：`boost 5 → bleed 1.3125 → return 3.75 → trim 4/4.25/4.5/4.6875/4.9375`，source=apk 且 startupAction 齐全；只有一条 plugin frame-change（2.19→3.75），无重复 boost、无回显误记 plugin；sends=8/acks=8、无 takeover、无 rejects。
+- **takeover 场景 live（4814 桩 takeover）**：接管前 sends=3；中途 `takeover=hec-heartbeat-lost`（与桩 `takeover.reason` 一致）；接管后 sends 在 2.5s＋整个 stage3 保持 3（停发）；下一杯开杯后 `takeover` 清空、status 从 disabled→armed→complete、sends 0→3（恢复 APK 调流），随后桩按场景再次接管。另一轮 409 `hec-takeover` 也已实测（停发＋notice「插件已接管本杯」）。
+
+### 3.1 takeover 场景暴露并修复的锁存问题
+第一次 live 验收发现：409/接管后 `startup.status='takeover'` 只在 `ext.takeover` 非空时锁存，但 ext 清空后没有复位，下一杯会出现「发送已恢复、状态行仍显示接管」。修法：`hecTick` 在 `ext.takeover` 为空时把 `status` 从 takeover 复位为 disabled 并清 notice/takeoverReason；专项加 8.2b 钉住。最终包已含此修正。
 
 ## 4. 本轮坑
 
