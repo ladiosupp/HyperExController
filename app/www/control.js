@@ -99,6 +99,7 @@
   let machine = null;              // 最近 machine snapshot（解析后）
   let scale = null;                // 最近 scale snapshot
   let machineWs = null, scaleWs = null, waterWs = null, wsRetry = 0;
+  let wsOpenedAt = 0;              // 最近一次 openWs 时刻（WS 假死看门狗：快照缺失时的龄判据兜底，用户 11-21）
   let water = null;                // 最近水位快照 {current, refill, at}（ws/v1/machine/waterLevels）
   let run = null;                  // 当前杯实时缓冲
   let runEnded = false;            // 杯结束后冻结保留曲线，下一次开杯才清空（用户 2026-11-15 定）
@@ -235,6 +236,7 @@
     hecMode = ext.mode === 'hec';
     noteExternal(ext);
     renderAll();
+    checkWsFreshness();            // WS 假死看门狗（用户 11-21）：成功路径查快照龄，本地重建不占桥池
   }
   function appVer() { try { return (window.HxBridge && window.HxBridge.appVersion()) || '0.11'; } catch (_) { return '0.11'; } }
   // 阶段目标重量（只读）：开杯前拉一次；影子救急判据 remainingS 用。
@@ -271,6 +273,7 @@
   }
   function phaseName(p) { return PHASE_LABEL[p] || p || '—'; }
   function onMachineSnapshot(payload) {
+    const prevMachineState = machineStateStr;   // 唤醒转变检测：更新前的机器态（用户 11-21）
     const p = payload || {};
     const m = p.machine || p;
     const nested = m.state && typeof m.state === 'object' ? m.state : (p.state && typeof p.state === 'object' ? p.state : null);
@@ -292,6 +295,11 @@
     machineStateStr = st || machineStateStr;
     machineSubstate = sub || machineSubstate;
     const extracting = st === 'espresso';
+    // 唤醒刷新（用户 11-21）：sleeping→idle/ready 转变（覆盖 Decaid/机器侧唤醒）重握手＋WS 新鲜度检查；仅空闲。
+    const wasAsleep = prevMachineState === 'sleeping' || prevMachineState === 'sleep';
+    if (wasAsleep && (st === 'idle' || st === 'ready') && !extracting && !(ext && ext.extracting) && mode === 'control' && baseUrl && pluginOk) {
+      hello(); checkWsFreshness();
+    }
     if (extracting && (!run || runEnded)) {
       run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
       if (window.HxSummary) window.HxSummary.onExtracting();
@@ -523,6 +531,7 @@
   function openWs() {
     closeWs();
     if (!baseUrl) return;
+    wsOpenedAt = Date.now();
     try {
       machineWs = new WebSocket(wsBase() + '/ws/v1/machine/snapshot');
       machineWs.onmessage = (e) => { try { onMachineSnapshot(JSON.parse(e.data)); } catch (_) {} };
@@ -535,6 +544,11 @@
       waterWs.onclose = () => scheduleWsRetry();
       waterWs.onerror = () => { try { waterWs.close(); } catch (_) {} };
     } catch (_) {}
+    openScaleWs();
+  }
+  // 单独重建秤 WS（用户 11-21）：萃取中秤假死且 machine 新鲜时只重建 scaleWs，不动 machine/water。
+  function openScaleWs() {
+    if (scaleWs) { scaleWs.onclose = null; try { scaleWs.close(); } catch (_) {} }
     try {
       scaleWs = new WebSocket(wsBase() + '/ws/v1/scale/snapshot');
       scaleWs.onmessage = (e) => { try { onScaleSnapshot(JSON.parse(e.data)); } catch (_) {} };
@@ -559,6 +573,26 @@
   function scheduleWsRetry() {
     if (wsRetryTimer || !baseUrl || mode !== 'control') return;
     wsRetryTimer = setTimeout(() => { wsRetryTimer = 0; openWs(); }, 2000);
+  }
+  // WS 假死看门狗（用户 11-21）：夜间休眠后三路 WS 可能 TCP 静默死亡（readyState 仍 OPEN、onclose 不触发，
+  // scheduleWsRetry 只挂 onclose 永不跑）。借 poll 700ms 成功路径查快照龄：machine 4Hz 常发（含 sleeping）为主判据，
+  // OPEN 但龄 >5s → closeWs＋openWs 重建三路；萃取中秤 OPEN 但龄 >3s 且 machine 新鲜 → 单独重建 scaleWs；
+  // 秤休眠 idle 停发是正常态（extracting 门控）不误触。重建是 WebView 本地 socket 操作，不发插件请求不占桥池，
+  // §0「萃取中不能干预取值」不变量安全；代价是重建瞬间样本空档。
+  const WS_MACHINE_STALE_MS = 5000, WS_SCALE_STALE_MS = 3000;
+  function checkWsFreshness() {
+    if (connState !== 'ok' || mode !== 'control' || !baseUrl) return;
+    const now = Date.now();
+    const machineAge = machine ? now - machine.at : now - wsOpenedAt;
+    if (machineWs && machineWs.readyState === WebSocket.OPEN && machineAge > WS_MACHINE_STALE_MS) {
+      closeWs(); openWs();
+      return;
+    }
+    const extracting = !!(ext && ext.extracting) || (machine && machine.state === 'espresso');
+    if (extracting && scaleWs && scaleWs.readyState === WebSocket.OPEN && machine && (now - machine.at) <= WS_MACHINE_STALE_MS) {
+      const scaleAge = scale ? now - scale.at : now - wsOpenedAt;
+      if (scaleAge > WS_SCALE_STALE_MS) openScaleWs();
+    }
   }
 
   // ---- 曲线 / workflow ----
@@ -685,6 +719,11 @@
     if (!r.ok) { toast(t('应用失败') + ': HTTP ' + r.status); return; }
     closeModal();
     // 状态以机器确认为准（轮询/WS 回来再变胶囊），不做乐观切换
+    // 唤醒刷新（用户 11-21）：PUT idle 成功后重握手＋WS 新鲜度检查，仅空闲（覆盖夜间休眠后 WS 假死）。
+    if (target === 'idle' && mode === 'control' && baseUrl && pluginOk) {
+      const extracting = (machine && machine.state === 'espresso') || (ext && ext.extracting);
+      if (!extracting) { hello(); checkWsFreshness(); }
+    }
   }
 
   // ---- 渲染 ----
@@ -1463,7 +1502,12 @@
       document.addEventListener('click', () => { $('modePanel').hidden = true; });
       document.querySelectorAll('#modePanel .modedrop-item').forEach((it) => it.addEventListener('click', () => { setMode(it.dataset.mode); $('modePanel').hidden = true; }));
       window.addEventListener('resize', () => { clearTimeout(ctrlResizeTimer); ctrlResizeTimer = setTimeout(() => { if (mode === 'control') drawCharts(); }, 150); }); // m18
-      document.addEventListener('visibilitychange', () => { if (!document.hidden && mode === 'control' && baseUrl && pluginOk) { hello(); } });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && mode === 'control' && baseUrl && pluginOk) {
+          if (!pollTimer) startPoll(); else hello();   // 回前台：pollTimer 停摆自恢复（startPoll 内含 hello），否则重握手
+          checkWsFreshness();                          // WS 假死检查/重建（本地 socket，不占桥池）
+        }
+      });
       renderDial('temp'); renderDial('weight');
       setMode(savedMode === 'replay' ? 'replay' : 'control');
       if (baseUrl) connect();
