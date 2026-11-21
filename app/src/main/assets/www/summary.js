@@ -663,7 +663,7 @@
     h += '<div class="sum-hero-row">';
     h += '<div class="sum-stages">' + stageRow('stage1', m) + stageRow('stage2', m) + stageRow('stage3', m) + '</div>';
     if (shown == null && !m.fault) {
-      h += '<div class="sum-hero"><button type="button" class="sum-refresh" id="sumRefresh">' + t('刷新') + '</button><div class="lb">' + pill('mute', t('未取到评分')) + '</div></div>';
+      h += '<div class="sum-hero"><button type="button" class="sumcount sum-refresh-ring" id="sumRefresh"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="54"/><circle class="fg" cx="60" cy="60" r="54"/></svg><span class="sum-refresh-in"><svg class="sum-refresh-ic" viewBox="0 0 24 24"><path fill="#f0c75e" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg><span class="sum-refresh-lb">' + t('未取到评分') + '</span></span></button></div>';
     } else {
       h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
     }
