@@ -19,6 +19,8 @@
   const S2_VI_BANDS = [[0.2, 0.4], [0.4, 0.6], [0.6, 0.8]];
   const SCALE_SAMPLE_GATE = Object.freeze({ minGapMs: 60, monotonic: true }); // 2.2.57 同口径
   const GAIN_MEMORY_KEY = 'hecGainMemory';  // APK 镜像 kv 键（插件主本，pre-cup 刷新；fingerprint 来源待②裁）
+  const GAIN_MEMORY_MIRROR_KEY = 'hecGainMemoryMirror'; // 插件主本只读镜像快照（hello；含 fpKey/numericFpKey/basket/at）
+  const O1_FULL_SHOTS = 4;                  // 插件 HISTORY_FULL_SHOTS：O1 只从最近 4 杯恢复（冻结窗）
   const MODEL_URL = 'vendor/bc_v0.onnx';
   const ORT_URL = 'vendor/ort.wasm.min.js';
   const WASM_BASE = 'vendor/';
@@ -485,6 +487,43 @@
     const norm = normalizeGainMemory(gm);
     try { await d.set(GAIN_MEMORY_KEY, norm); } catch (_) { return null; }
     return norm;
+  }
+  // ---- Wave C 后半：插件 hello 只读镜像（2.2.60 加性 gainMemory/fpKey/numericFpKey）----
+  // 插件主本；APK 只落镜像副本（独立键，不覆盖本地 shadow 轨迹 hecGainMemory），永不回写插件、
+  // 不删改记忆。摄入由 control.js 在 pre-cup（连接/杯末结算空闲）调用，不经杯内轮询。
+  let mirror = { at: 0, gainMemory: null, fpKey: null, numericFpKey: null, basket: null, seen: false };
+  let mirrorError = null;
+  async function loadMirrorRecord() {
+    const d = db(); if (!d) return null;
+    try { return (await d.get(GAIN_MEMORY_MIRROR_KEY)) || null; } catch (_) { return null; }
+  }
+  async function saveMirrorRecord(rec) {
+    const d = db(); if (!d) return null;
+    try { await d.set(GAIN_MEMORY_MIRROR_KEY, rec); } catch (_) { return null; }
+    return rec;
+  }
+  function strOrNull(v) { return typeof v === 'string' && v ? v : null; }
+  // hello 应答摄入：坏镜像/旧插件缺字段一律降级（保旧值或不覆盖），不抛。
+  function ingestPluginMirror(body, ctx) {
+    try {
+      if (!body || typeof body !== 'object') { mirrorError = 'bad-body'; return mirrorStatus(); }
+      const fpKey = strOrNull(body.fpKey), numericFpKey = strOrNull(body.numericFpKey);
+      const basket = (ctx && strOrNull(ctx.basket)) || mirror.basket;
+      let memory = mirror.gainMemory;
+      if (Object.prototype.hasOwnProperty.call(body, 'gainMemory')) {
+        memory = body.gainMemory && typeof body.gainMemory === 'object' ? normalizeGainMemory(body.gainMemory) : null;
+      }
+      mirror = { at: Date.now(), gainMemory: memory, fpKey, numericFpKey, basket, seen: true };
+      mirrorError = null;
+      saveMirrorRecord({ schema: 1, at: mirror.at, fpKey, numericFpKey, basket, memory }).catch(function () {});
+    } catch (e) { mirrorError = String(e && e.message || e); }
+    return mirrorStatus();
+  }
+  function setMirrorBasket(b) { const s = strOrNull(b); if (s) mirror.basket = s; }
+  function mirrorStatus() {
+    return { seen: mirror.seen, at: mirror.at || null, fpKey: mirror.fpKey, numericFpKey: mirror.numericFpKey, basket: mirror.basket,
+      buckets: mirror.gainMemory ? mirror.gainMemory.buckets.length : 0,
+      dropped: mirror.gainMemory ? (mirror.gainMemory.dropped || []).length : 0, error: mirrorError };
   }
   // ---- Wave B：scaleSampleGate（2.2.57 插件 2715–2731 同口径；摄入副本，输入不改，保微簇）----
   // 字段兼容 APK {stamp,weight,tare} 与插件 {scaleTimestampSeconds,weightG,tareReset}。
@@ -1356,7 +1395,9 @@
   }
   function estHistoryForFp(history, fpKey) {
     if (!fpKey) return [];
-    return (history || []).filter(x => x && x.profileTruthSchema === 3 && x.numericFp === fpKey);
+    // live 行来自 shadow-oq-tail（无插件 fingerprint，profileTruthSchema=null），numericFp＝当杯 hello 的
+    // numericFpKey；numeric 键相等即插件 numericLearningFingerprintKey 同语义（排除 targets/温度/LUT 点）。
+    return (history || []).filter(x => x && x.numericFp === fpKey && (x.profileTruthSchema === 3 || x.profileTruthSchema == null));
   }
   // shadow cup → 插件 run 形状视图（估计器输入适配；字段映射见 Wave C 交接）。
   function estRunViewFromCup(c) {
@@ -1378,21 +1419,78 @@
   // 杯末估计器钩子（插件 rememberAdaptiveEvidence 4828 的 shadow 等价：写侧→存储→读侧/平台等价物记录）。
   // live 只学 s2（s3 三帧证据不可得）；sent 恒 false，等价物记 cup.estimator（additive，随 persist 落盘/导出）。
   let estimatorError = null;
-  let estCache = { memory: null, history: [], prior: null, priorEvidence: null, ready: false };
+  let estCache = { memory: null, history: [], prior: null, priorEvidence: null, fpKey: null, numericFpKey: null, basket: null, memorySource: 'local', warm: false, ready: false };
   let lastEstRun = null, lastEstEvidence = null;
+  function priorEvidenceFor(history, prior) {
+    if (!prior) return null;
+    const row = (history || []).find(x => x && x.runId === prior.runId);
+    return (row && row.s2) || (lastEstRun && lastEstRun.runId === prior.runId ? lastEstEvidence : null);
+  }
   function refreshEstCache() {
-    (async () => {
-      const memory = await loadGainMemory();
+    return (async () => {
+      const snap = mirror;
+      let memory = null, memorySource = 'local', fpKey = snap.fpKey, numericFpKey = snap.numericFpKey, basket = snap.basket;
+      if (snap.gainMemory) { memory = snap.gainMemory; memorySource = 'plugin-mirror'; }
+      else {
+        // 冷启动/插件暂不可用：用上次落盘的镜像快照；都没有才回本地 shadow 轨迹（离线性证据）。
+        const rec = await loadMirrorRecord();
+        if (rec && rec.memory && typeof rec.memory === 'object') {
+          memory = normalizeGainMemory(rec.memory); memorySource = 'mirror-persisted';
+          fpKey = fpKey || strOrNull(rec.fpKey); numericFpKey = numericFpKey || strOrNull(rec.numericFpKey); basket = basket || strOrNull(rec.basket);
+        } else memory = await loadGainMemory();
+      }
       const history = await loadAdaptiveHistory();
-      const prior = lastEstRun;
-      const priorEvidence = prior ? ((history.find(x => x && x.runId === prior.runId) || {}).s2 || lastEstEvidence) : null;
-      estCache = { memory, history, prior, priorEvidence, ready: true };
-    })().catch(() => {});
+      let prior = lastEstRun, priorEvidence = priorEvidenceFor(history, prior), warm = null;
+      if (!prior) {
+        warm = await restoreWarmPrior({ fpKey, numericFpKey, basket, history });
+        if (warm) { prior = warm.prior; priorEvidence = priorEvidenceFor(history, prior) || warm.evidence; }
+      }
+      estCache = { memory, history, prior, priorEvidence, fpKey, numericFpKey, basket, memorySource, warm: !!warm, ready: true };
+    })().catch((e) => { estimatorError = String(e && e.message || e); });
+  }
+  // ---- O1 暖机（插件 2.2.54 restoreDiagnosticLastFromPersistentFile 4762 口径；只读）----
+  // 冷启动时把最近合格持久化杯重建为只读 prior（diagnosticLast 等价物），让 FF k 有 prior。
+  // 只影响估计/建议：不写记忆、不改 LUT、不发指令、不触发 autoApply（本函数无写路径）。
+  // 信任门：fpKey 相等（2.2.60 加性暴露）＋numericFpKey 相等＋basket 一致＋学习合格（本杯证据行已入
+  // 历史）＋正常结算（onCupEnd 路径）＋保留全点且属最近 4 杯。插件侧 result/profileTruthVerified/
+  // learningIntegrity APK 不可得，改用本机等价物（见交接「O1 降级口径」）。
+  async function loadCupRecords() {
+    const cd = cupDb();
+    if (cd) { try { return ((await cd.all()) || []).filter(x => x && x.runId); } catch (_) { return []; } }
+    const d = db(); if (!d) return [];
+    try { return ((await d.get('hecShadowCups')) || []).filter(x => x && x.runId); } catch (_) { return []; }
+  }
+  async function restoreWarmPrior(ctx) {
+    const fpKey = ctx.fpKey, numericFpKey = ctx.numericFpKey, basket = ctx.basket;
+    if (!fpKey || !numericFpKey || !basket) return null;   // 指纹/篮子不可得 → 不暖机（保守走 profile-base）
+    const cups = (await loadCupRecords()).slice().sort((a, b) => (a.startedAt || 0) - (b.startedAt || 0)).slice(-40);
+    const recent = cups.slice(-O1_FULL_SHOTS);
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const rec = recent[i], est = rec.estimator;
+      if (!est || est.completed !== true) continue;
+      if (est.fpKey !== fpKey || est.numericFpKey !== numericFpKey) continue;
+      if (String(est.basket || '') !== String(basket)) continue;
+      if (est.evidenceRow !== true) continue;
+      if (rec.modeAtStart === 'off') continue;
+      if (!Array.isArray(rec.samples) || !rec.samples.length) continue;
+      if (!est.cfg || !(Number(est.cfg.stage2Flow) > 0) || !(Number(est.cfg.stage2CommandMlS) > 0)) continue;
+      const run = estRunViewFromCup({ runId: rec.runId, samples: rec.samples, writes: rec.writes || [], cfgView: est.cfg });
+      run.gainMemoryBucketId = est.gainMemory && est.gainMemory.bucketId || null;
+      run.restoredFromDisk = true;
+      return { prior: run, evidence: est.evidence || null };
+    }
+    return null;
   }
   async function runCupEstimator(c) {
     if (!c || !c.cfgView || !Array.isArray(c.samples) || !c.samples.length) return;
     const run = estRunViewFromCup(c);
-    const memory = await loadGainMemory();
+    // 杯子身份（杯首快照）：pre-cup 镜像的 fpKey/numericFpKey/basket，用于证据行 numeric 门与 O1 暖机比对。
+    const id = c.mirrorId || {};
+    const fpKey = strOrNull(id.fpKey) || estCache.fpKey || null;
+    const numericFpKey = strOrNull(id.numericFpKey) || estCache.numericFpKey || null;
+    const basket = strOrNull(id.basket) || estCache.basket || null;
+    // 杯末学习从当杯估计用的记忆接续（镜像优先，深拷贝不就地改镜像）；落盘副本进 hecGainMemory。
+    const memory = JSON.parse(JSON.stringify(estCache.memory || (await loadGainMemory())));
     let history = await loadAdaptiveHistory();
     const evidence = { s2: null, s3: null }; // live：s2 观测由 run 自算；evidence.liveTrimChain 不可得（插件同名顶层字段本就不置位，逐字镜像）
     const gmOut = estUpdateGainMemoryFromRun(memory, run, evidence);
@@ -1401,14 +1499,14 @@
     const eff = estStage2EffectiveCommand(run);
     let row = null;
     if (oq && oq.available && Number(oq.tailMeanGS) > 0 && Number.isFinite(eff) && eff > 0) {
-      row = { runId: c.runId, profileTruthSchema: null, fingerprint: null, numericFp: null, basket: null,
+      row = { runId: c.runId, profileTruthSchema: null, fingerprint: null, numericFp: numericFpKey, basket: basket,
         s2: { runId: c.runId, targetGS: estRound(Number(run.config.stage2Flow), 3), command: estRound(eff, 3), measured: estRound(oq.tailMeanGS, 3), measurementBasis: 'shadow-oq-tail' },
         s3: null, source: 'shadow', capturedAt: new Date().toISOString() };
       history = history.filter(x => x && x.runId !== c.runId);
       history.push(row);
       history = await saveAdaptiveHistory(history) || history.slice(-8);
     }
-    const histForFp = estHistoryForFp(history, null); // live 无 fp → FF k 不消费（②待裁）
+    const histForFp = estHistoryForFp(history, numericFpKey); // ②已裁：numeric fp 相等即消费 FF k
     const sugS2 = estGainMemorySuggestion(memory, run, 's2');
     const sugS3 = estGainMemorySuggestion(memory, run, 's3');
     const target = Number(run.config.stage2Flow), base = Number(run.config.stage2CommandMlS);
@@ -1416,9 +1514,12 @@
     const platform = Number.isFinite(target) && target > 0 ? estBoundedRefillControlBase({ targetGS: target, profileBase: base, observedBase: pump && pump.command, memory, prior: run, current: null, history: histForFp, priorEvidence: row ? row.s2 : null, lutPoints: null, lutUsable: false }) : null;
     const center = Number.isFinite(target) && target > 0 ? estLiveTrimControlCenter({ phase: 'stage2', fallbackBase: base, run, memory, prior: run, current: run, history: histForFp, priorEvidence: row ? row.s2 : null, local: null, lutPoints: null, lutUsable: false, nowMs: Date.now() }) : null;
     c.estimator = { schema: 1, at: new Date().toISOString(), gainMemory: gmOut, suggestion: { s2: sugS2, s3: sugS3 }, platform, controlCenter: center,
-      historyRows: history.length, degraded: { s3Evidence: true, startupTrace: true, fingerprint: true, origin: true, lut: true } };
+      historyRows: history.length, fpKey, numericFpKey, basket, completed: !!c.completed, evidenceRow: !!row, evidence: row ? row.s2 : null,
+      cfg: c.cfgView ? Object.assign({}, c.cfgView) : null,
+      degraded: { s3Evidence: true, startupTrace: true, fingerprint: !numericFpKey, origin: true, lut: true, mirror: !fpKey } };
     lastEstRun = run; lastEstEvidence = row ? row.s2 : null;
-    estCache = { memory, history, prior: run, priorEvidence: row ? row.s2 : null, ready: true };
+    estCache = { memory, history, prior: run, priorEvidence: row ? row.s2 : null, fpKey, numericFpKey, basket,
+      memorySource: estCache.memorySource || 'local', warm: false, ready: true };
   }
   // 杯内控制中心等价物（D3 ccRescue；插件 liveTrimControlCenter 的 shadow 输入适配）。
   // 空记忆/无历史/无 local → profile-base（r=null → RESCUE_R 缺省），与 Wave B 前 r 口径逐字一致。
@@ -1430,7 +1531,7 @@
       ? { r: lv.rEst, count: lv.rCount, coverageS: reg.endStamp - lv.rFirstStamp, requiredCoverageS: windowS, atMs: lv.rAtSec * 1000 } : null;
     const fallbackBase = ctx.baseCommandMlS != null ? ctx.baseCommandMlS : ctx.commandMlS;
     return estLiveTrimControlCenter({ phase, fallbackBase, run, memory: estCache.memory, prior: estCache.prior, current: run,
-      history: estHistoryForFp(estCache.history, null), priorEvidence: estCache.priorEvidence,
+      history: estHistoryForFp(estCache.history, estCache.numericFpKey), priorEvidence: estCache.priorEvidence,
       local, lutPoints: null, lutUsable: false, nowMs });
   }
   // per-cup 键存储（app.js openDb v2 建 hecShadowCups objectStore，keyPath runId）；
@@ -1511,6 +1612,7 @@
       if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(summaryOf(cup)); persist(cup, true); }
       cup = newCup(ctx.runId);
       cup.modeAtStart = ctx.mode || null;
+      cup.mirrorId = { fpKey: mirror.fpKey, numericFpKey: mirror.numericFpKey, basket: mirror.basket }; // 杯首身份快照（O1/证据行门）
       refreshEstCache(); // Wave C：杯首加载记忆镜像/证据历史/上杯 prior（fire-and-forget，不阻塞样本流）
     }
     const s = ctx.sample;
@@ -1670,7 +1772,7 @@
   }
 
   function onCupEnd() {
-    if (cup && (cup.decisions.length || cup.writes.length)) { finalizeCup(cup); cups.push(summaryOf(cup)); persist(cup, true); }
+    if (cup && (cup.decisions.length || cup.writes.length)) { cup.completed = true; finalizeCup(cup); cups.push(summaryOf(cup)); persist(cup, true); }
     cup = null;
   }
 
@@ -1678,7 +1780,10 @@
     load,
     onSample,
     onCupEnd,
-    status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length, inferErrors, lastInferError, stageWeightsMissing, estimatorError }; },
+    ingestPluginMirror,
+    setMirrorBasket,
+    status: function () { return { loadState, loadError, model: 'bc_v0', arbiter: window.HxArbiter && window.HxArbiter.learnedStatus ? window.HxArbiter.learnedStatus() : null, cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, writes: cup.writes.length } : null, archived: cups.length, inferErrors, lastInferError, stageWeightsMissing, estimatorError,
+      mirror: mirrorStatus(), est: { ready: estCache.ready, memorySource: estCache.memorySource, warm: estCache.warm, fpKey: !!estCache.fpKey, numericFpKey: !!estCache.numericFpKey, buckets: estCache.memory ? estCache.memory.buckets.length : 0 } }; },
     exportJSON: async function () {
       await persistChain; // 先等在途 persist 落盘，杯末立即导出不再缺刚结算杯（审计 M1）
       await migrate();
@@ -1738,8 +1843,12 @@
     saveAdaptiveHistory,
     _runCupEstimator: runCupEstimator,
     _estCache: function () { return estCache; },
-    _setEstCache: function (c) { estCache = c || { memory: null, history: [], prior: null, priorEvidence: null, ready: false }; },
+    _setEstCache: function (c) { estCache = c || { memory: null, history: [], prior: null, priorEvidence: null, fpKey: null, numericFpKey: null, basket: null, memorySource: 'local', warm: false, ready: false }; },
     _refreshEstCache: refreshEstCache,
+    _mirror: mirrorStatus,
+    _restoreWarmPrior: restoreWarmPrior,
+    _loadCupRecords: loadCupRecords,
+    _resetEstRun: function () { lastEstRun = null; lastEstEvidence = null; },
     _onset: updateS2Onset,
     _newLive: newLive,
     _updateLive: updateLive,

@@ -130,6 +130,8 @@
   let sleepSeq = 0;                // 休眠弹窗代数：取消/关闭后丢弃迟到的状态查询响应
   let machineSubstate = '';        // 机器子状态（加热判定兜底）
   let helloBusy = false;           // 主动握手进行中
+  let basketCtx = null;            // calibration-status.basketContext（O1 暖机篮子上文；只读透传影子）
+  let mirrorHelloRunId = null;     // 已为哪一杯做过杯末镜像 hello（每杯一次，萃取中零新增请求）
   let tareBusy = false;            // 去皮请求进行中
   let lastPollSuccessAt = 0;       // M2 守卫：最近一次 external-status/hello 成功时刻（ext 新鲜度）
   let ctrlResizeTimer = 0;         // m18：控制页 resize 防抖（对齐回放页 150ms）
@@ -220,6 +222,11 @@
     const r = await httpJson('POST', pluginPath('external-hello'), { client: 'HyperExController', version: appVer() });
     helloOk = !!(r.ok && r.body && r.body.ok);
     if (helloOk && r.body) ext = r.body;
+    // Wave C：pre-cup 摄入插件只读记忆镜像（2.2.60 hello 加性 gainMemory/fpKey/numericFpKey）。
+    if (helloOk && r.body && window.HxShadow && window.HxShadow.ingestPluginMirror) {
+      window.HxShadow.ingestPluginMirror(r.body, { basket: basketCtx });
+      if (r.body.settledRunId) mirrorHelloRunId = r.body.settledRunId;
+    }
     if (helloOk) lastPollSuccessAt = Date.now();
     helloBusy = false;
     renderAll();
@@ -234,6 +241,11 @@
     lastPollSuccessAt = Date.now();
     helloOk = !!(ext.heartbeat && ext.heartbeat.ok);
     hecMode = ext.mode === 'hec';
+    // Wave C：杯末结算完成（空闲＋settledRunId 为本杯）→ 每杯一次 pre-cup hello 刷镜像；萃取中不发。
+    if (!ext.extracting && !ext.settlingBusy && ext.settledRunId && ext.settledRunId !== mirrorHelloRunId) {
+      mirrorHelloRunId = ext.settledRunId;
+      hello();
+    }
     noteExternal(ext);
     renderAll();
     checkWsFreshness();            // WS 假死看门狗（用户 11-21）：成功路径查快照龄，本地重建不占桥池
@@ -245,6 +257,10 @@
     const sw = r.ok && r.body && r.body.curveEditor && r.body.curveEditor.stageWeights;
     if (sw && Number.isFinite(Number(sw.stage2)) && Number.isFinite(Number(sw.final))) {
       stageWeights = { stage2: Number(sw.stage2), final: Number(sw.final) };
+    }
+    if (r.ok && r.body && typeof r.body.basketContext === 'string' && r.body.basketContext) {
+      basketCtx = r.body.basketContext;
+      if (window.HxShadow && window.HxShadow.setMirrorBasket) window.HxShadow.setMirrorBasket(basketCtx);
     }
   }
 
