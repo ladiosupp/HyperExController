@@ -7,6 +7,7 @@
   const EN = { '本杯评分': 'Shot score', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', '研磨调整建议': 'Grind adjustment advice', '完成': 'Done', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末评分弹窗': 'Shot score popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '加载中…': 'Loading…', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
   Object.assign(EN, { '控制': 'Control', '分带': 'band', '写入': 'writes', '供水': 'refill', '常规': 'normal', '救急': 'rescue', '反转': 'reversals', '平台过冲': 'plateau over', '过冲': 'overshoot', '平台': 'plateau', '长段': 'long stage', '启动': 'startup', '整段': 'whole', '尾均': 'tail mean', '尾': 'tail', '扣分': 'deductions', '原始': 'raw', '整杯': 'whole cup', '中位': 'med', '峰': 'peak', '限压命中': 'limit hits', '滚动回归口径': 'rolling regression', '桶中心': 'bucket centre', '平滑': 'smoothed', '置信': 'conf', '分': 'pts', '匹配': 'match', '杯末持久化总结': 'persisted at cup end', '移植': 'ported', '本地影子': 'local shadow', '帧切换': 'frame changes', '插件写入': 'plugin writes', '置信中位': 'confidence median', '决策': 'decisions', '校准素材，非增益裁判': 'calibration material, not a gain verdict', '离线训练乐观口径': 'offline-training optimistic bound', '中止杯不给研磨建议': 'No grind advice for aborted cups', '平台 + 供水': 'plateau + refill' });
   Object.assign(EN, { '联合判定': 'Joint verdict', '研磨大概率合适': 'Grind likely right', '通道/布粉优先': 'Channel/distribution first', '偏粗嫌疑（三重一致）': 'Coarse suspicion (triple match)', '偏细嫌疑（三重一致）': 'Fine suspicion (triple match)', '偏粗嫌疑上升': 'Coarse suspicion rising', '偏细嫌疑上升': 'Fine suspicion rising', '萃取不足嫌疑': 'Under-extraction suspicion', '萃取过度嫌疑': 'Over-extraction suspicion', '粉量偏低嫌疑': 'Low dose suspicion', '粉量偏高嫌疑': 'High dose suspicion', '萃取维度偏差': 'Extraction-dimension deviation', 'regime 伪影嫌疑': 'Regime artifact suspicion', 'TDS 偏低 · 判据较弱': 'Low TDS · weaker evidence', 'TDS 偏高 · 判据较弱': 'High TDS · weaker evidence', '杯末': 'Cup end', '阻力': 'Resistance', '插件杯末判定': 'Plugin cup-end verdict', '录 TDS 点重算可看联合判定': 'Enter TDS & recalc for joint verdict' });
+  Object.assign(EN, { '刷新': 'Refresh', '未取到评分': 'Score not fetched', '取分中…': 'Fetching…', '仍未取到评分': 'Still not fetched' });
   function t(k) { try { return (typeof lang !== 'undefined' && lang === 'en' && EN[k]) ? EN[k] : (window.t ? window.t(k) : k); } catch (_) { return k; } }
   const $ = (id) => document.getElementById(id);
   const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -333,9 +334,8 @@
     const st = ctrl();
     if (!st.baseUrl) return openOffline(ctx, seq);
     let body = null;
-    // 提速＋真机兜底（用户 11-20）：首请求 3s；200ms 密轮询；单请求 5s race（对齐原生 readTimeout；原 2s 短于插件杯末结算延迟 3–6s 致全超时→缺5项，v0.32 引入，11-20 修）；总 deadline 8.5s 到点必离线兜底弹
+    // 真机兜底（用户 11-20；11-21 去 3s 前置空等）：首请求即发；200ms 密轮询；单请求 5s race（对齐原生 readTimeout）；总 deadline 8.5s 到点必离线兜底弹。慢杯首请求≈4.8s＋需重试，3s 空等会撞 deadline 致 compact（11-21 修）
     const deadline = Date.now() + 8500;
-    await new Promise((res) => setTimeout(res, 3000));
     for (let i = 0; i < 40 && Date.now() <= deadline; i++) {
       if (seq !== fetchSeq) return;
       if (Date.now() > deadline) break;
@@ -413,6 +413,12 @@
       if (model === m && openId === rid) render();
     });
   }
+  // 没取到分（非故障杯）手动重取（用户 11-21）：复用 collect（已去 3s 空等）；loading 态由 collect 重渲染自然复位（成功显分、失败重建刷新按钮）
+  function refreshScore() {
+    const rid = openId; if (rid == null) return;
+    const btn = $('sumRefresh'); if (btn) { btn.disabled = true; btn.textContent = t('取分中…'); }
+    collect({ runId: rid, run: null, hx: true });
+  }
   async function openOffline(ctx, seq) {
     const shot = await archiveShot(ctx.runId);
     if (seq !== fetchSeq) return;
@@ -436,7 +442,7 @@
       return h;
     }
     if (total == null) {
-      h += '<div class="scoreline">' + pill('mute', t('不评分 · 5 指标缺')) + '<div class="scoremeta"><span class="srcrow">' + (m.source === 'compact' ? t('离线归档') + ' · compact' : t('插件数据未就绪')) + '</span></div></div>';
+      h += '<div class="scoreline"><button type="button" class="sum-refresh" id="sumRefresh">' + t('刷新') + '</button>' + pill('mute', t('未取到评分')) + '<div class="scoremeta"><span class="srcrow">' + (m.source === 'compact' ? t('离线归档') + ' · compact' : t('插件数据未就绪')) + '</span></div></div>';
       if (m.validation) {
         h += '<div class="lrn-grid">';
         for (const ph of ['stage2', 'stage3']) {
@@ -656,7 +662,11 @@
     let h = '<div class="modal lrn-modal sum-modal sum-notop' + (enteredRunId === m.runId ? ' no-anim' : '') + '" id="sumModal"><div class="lrn-body" id="sumBody"><div class="sum-simple">';
     h += '<div class="sum-hero-row">';
     h += '<div class="sum-stages">' + stageRow('stage1', m) + stageRow('stage2', m) + stageRow('stage3', m) + '</div>';
-    h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
+    if (shown == null && !m.fault) {
+      h += '<div class="sum-hero"><button type="button" class="sum-refresh" id="sumRefresh">' + t('刷新') + '</button><div class="lb">' + pill('mute', t('未取到评分')) + '</div></div>';
+    } else {
+      h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
+    }
     const jv = simpleConfirmed ? jointVerdict(m, tds) : null;
     const sideV = jv
       ? '<div class="v" style="grid-row:2">' + esc(jv.title) + '</div><div class="s" style="grid-row:3;font-size:10px;font-weight:400;color:#8b93a1;line-height:1.2;overflow:hidden;display:flex;align-items:center;justify-content:flex-end;text-align:left">' + t('杯末') + ' ' + esc(g.status || '—') + (g.relPct != null ? ' · ' + t('阻力') + ' ' + (g.relPct > 0 ? '+' : '') + g.relPct + '%' : '') + (g.confidence ? ' · ' + esc(g.confidence) : '') + '</div>'
@@ -812,6 +822,7 @@
       const ga = $('sumAgain');
       if (ga) ga.addEventListener('click', close);
       balanceGrind();
+      const rf = $('sumRefresh'); if (rf) rf.addEventListener('click', refreshScore);
 
     });
   }
