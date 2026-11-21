@@ -53,7 +53,7 @@
     '握手': 'Handshake', '未握手': 'No handshake', '未握手 · 只读': 'No handshake · read-only', 'recorder 在录': 'recorder recording',
     '遥测': 'Telemetry',
     '插件已接管本杯': 'Plugin took over', '只读 · 下一杯恢复': 'read-only · resumes next shot',
-    '接管横幅': 'Plugin took over · command returned to base, chart continues',
+    '本杯已被插件接管，HEC状态为只读，将在下一杯恢复': 'Plugin has taken over this shot · HEC is read-only and resumes next shot',
     '咖啡机休眠': 'Machine sleep', '唤醒': 'Wake', '已休眠': 'Asleep', '萃取中': 'Extracting', '待机': 'Ready', '加热中': 'Heating', '睡眠': 'Sleep', '未连接': 'Offline',
     '正在检查机器状态': 'Checking machine state…', '当前状态': 'Current state',
     '确定让咖啡机休眠吗？': 'Put the machine to sleep?', '确定休眠': 'Sleep',
@@ -872,10 +872,8 @@
     const lb = $('sleepLb'); const k = asleep ? '唤醒' : '咖啡机休眠';
     lb.dataset.i18n = k; lb.textContent = t(k);
     sb.classList.toggle('wake', asleep);
-    // 顶栏只保留接管态的只读提示；预算/拒绝已移入左侧指令卡
-    const hs = $('hstat');
-    if (taken) { hs.hidden = false; hs.textContent = t('只读 · 下一杯恢复'); }
-    else hs.hidden = true;
+    // 顶栏不再显示接管只读提示（用户 11-21：信息并入控制页接管横幅）
+    $('hstat').hidden = true;
     renderWaterPill();
   }
   // 水位胶囊（用户 2026-11-15 定）：≥33mm 满格淡蓝；18–33 淡蓝按比例；12–18 黄；<12 红报警、进度条留 1/10
