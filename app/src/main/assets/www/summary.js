@@ -6,6 +6,7 @@
   'use strict';
   const EN = { '本杯评分': 'Shot score', '本杯控制分': 'Shot control score', '杯数据补充（仅完整档）': 'Cup extras (Full only)', '下一杯建议': 'Next-shot advice', '决策与仲裁': 'Decisions & arbitration', '研磨建议': 'Grind advice', '研磨调整建议': 'Grind adjustment advice', '完成': 'Done', 'TDS（可选）': 'TDS (optional)', '来源': 'Source', '简单': 'Simple', '标准': 'Standard', '完整': 'Full', '显示颗粒度': 'Display granularity', '杯末评分弹窗': 'Shot score popup', 'TDS 未录': 'TDS not entered', '未录': 'Not entered', '加权 · 提案待确认': 'Weighted · proposal', '数据不足': 'Insufficient data', '不评分 · 5 指标缺': 'Not scored · metrics missing', '异常中止 · 不评分': 'Aborted · not scored', '只建议，不自动改': 'Advice only, no auto change', '阶段时长': 'Stage durations', '压力': 'Pressure', '供水峰': 'Refill peak', '研磨阻力': 'Grind resistance', '增益带': 'Gain band', '与上一杯': 'Vs previous cup', '上一杯不可评分': 'Previous cup not scoreable', '粉量 g（可选）': 'Dose g (optional)', 'TDS %（目标 3.5）': 'TDS % (target 3.5)', '阶段': 'Stage', '当前 ml/s': 'Current ml/s', '建议 ml/s': 'Suggested ml/s', '动作': 'Action', '置信': 'Confidence', '已自动应用': 'Auto-applied', '保留当前指令': 'Hold current commands', '在线': 'Online', '插件数据未就绪': 'Plugin data not ready', '本杯无影子记录': 'No shadow record for this cup', '离线归档': 'Offline archive', '均值只报告': 'mean reported only', '只报告，权重 0': 'reported only, weight 0', '权重重分配': 'weights renormalized', '缩减窗': 'reduced window', '杯末不自动弹': 'No auto popup', '回看保留': 'Review kept', '加权': 'Weighted', '再来一杯': 'Brew another', '确认重算': 'Confirm & recalc', '研磨度格数': 'Grind clicks', '研磨': 'Grind', '加权分': 'Weighted score', '控制分': 'Control score', '缺数据': 'Missing data', '加载中…': 'Loading…', '待确认重算': 'Awaiting confirm', '已重算': 'Recalculated' };
   Object.assign(EN, { '控制': 'Control', '分带': 'band', '写入': 'writes', '供水': 'refill', '常规': 'normal', '救急': 'rescue', '反转': 'reversals', '平台过冲': 'plateau over', '过冲': 'overshoot', '平台': 'plateau', '长段': 'long stage', '启动': 'startup', '整段': 'whole', '尾均': 'tail mean', '尾': 'tail', '扣分': 'deductions', '原始': 'raw', '整杯': 'whole cup', '中位': 'med', '峰': 'peak', '限压命中': 'limit hits', '滚动回归口径': 'rolling regression', '桶中心': 'bucket centre', '平滑': 'smoothed', '置信': 'conf', '分': 'pts', '匹配': 'match', '杯末持久化总结': 'persisted at cup end', '移植': 'ported', '本地影子': 'local shadow', '帧切换': 'frame changes', '插件写入': 'plugin writes', '置信中位': 'confidence median', '决策': 'decisions', '校准素材，非增益裁判': 'calibration material, not a gain verdict', '离线训练乐观口径': 'offline-training optimistic bound', '中止杯不给研磨建议': 'No grind advice for aborted cups', '平台 + 供水': 'plateau + refill' });
+  Object.assign(EN, { '联合判定': 'Joint verdict', '研磨大概率合适': 'Grind likely right', '通道/布粉优先': 'Channel/distribution first', '偏粗嫌疑（三重一致）': 'Coarse suspicion (triple match)', '偏细嫌疑（三重一致）': 'Fine suspicion (triple match)', '偏粗嫌疑上升': 'Coarse suspicion rising', '偏细嫌疑上升': 'Fine suspicion rising', '萃取不足嫌疑': 'Under-extraction suspicion', '萃取过度嫌疑': 'Over-extraction suspicion', '粉量偏低嫌疑': 'Low dose suspicion', '粉量偏高嫌疑': 'High dose suspicion', '萃取维度偏差': 'Extraction-dimension deviation', 'regime 伪影嫌疑': 'Regime artifact suspicion', 'TDS 偏低 · 判据较弱': 'Low TDS · weaker evidence', 'TDS 偏高 · 判据较弱': 'High TDS · weaker evidence', '杯末': 'Cup end', '阻力': 'Resistance', '插件杯末判定': 'Plugin cup-end verdict', '录 TDS 点重算可看联合判定': 'Enter TDS & recalc for joint verdict' });
   function t(k) { try { return (typeof lang !== 'undefined' && lang === 'en' && EN[k]) ? EN[k] : (window.t ? window.t(k) : k); } catch (_) { return k; } }
   const $ = (id) => document.getElementById(id);
   const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -510,13 +511,18 @@
     h += t('置信中位') + ' <b>' + (a.pModelBetter ? a.pModelBetter.median : '—') + '</b> <span class="guard">（' + t('离线训练乐观口径') + '）</span> · thr <b>' + (a.thr && a.thr.length ? a.thr[0] : '—') + '</b> ' + (a.learned ? 'learned' : 'rule') + ' · ' + t('插件写入') + ' <b>' + a.pluginWrites + '</b>（' + t('帧切换') + ' ' + a.frameChanges + '）</div></div>';
     return h;
   }
-  function grindSec(m) {
+  function grindSec(m, tds) {
     const g = m.grind;
     let h = '<div class="lrn-sec" id="sumGrindSec"><h4>' + t('研磨建议') + '</h4>';
     if (m.fault) { h += '<div class="grind"><div class="t">aborted</div><div class="d">' + t('中止杯不给研磨建议') + '</div></div></div>'; return h; }
     if (!g || !g.available) { h += '<div class="lrn-empty">—</div></div>'; return h; }
+    const jv = simpleConfirmed ? jointVerdict(m, tds) : null;
+    if (jv) {
+      h += '<div class="grind" id="sumGrind"><div class="t">' + esc(jv.title) + ' ' + pill(jv.cls, t('联合判定')) + '</div><div class="d">' + esc(jv.detail) + '</div><div class="s">' + t('插件杯末判定') + '：' + esc(g.status || '—') + (g.relPct != null ? ' · ' + t('阻力') + ' ' + (g.relPct > 0 ? '+' : '') + g.relPct + '%' : '') + (g.confidence ? ' · ' + esc(g.confidence) : '') + (g.label ? ' · ' + esc(g.label) : '') + '</div><div class="s">' + t('只建议，不自动改') + '</div></div></div>';
+      return h;
+    }
     const cls = g.status === 'hold' ? 'ok' : 'warn';
-    h += '<div class="grind" id="sumGrind"><div class="t">' + esc(g.status || '—') + ' ' + pill(cls, g.confidence || '—') + '</div><div class="d">' + esc(g.label || g.detail || '—') + '</div><div class="s">' + t('只建议，不自动改') + '</div></div></div>';
+    h += '<div class="grind" id="sumGrind"><div class="t">' + esc(g.status || '—') + ' ' + pill(cls, g.confidence || '—') + '</div><div class="d">' + esc(g.label || g.detail || '—') + '</div><div class="s">' + t('只建议，不自动改') + '</div>' + (tds && tds.tds != null && tds.tds !== '' ? '' : '<div class="s">' + t('录 TDS 点重算可看联合判定') + '</div>') + '</div></div>';
     return h;
   }
   function tdsSec(m, tds) {
@@ -537,6 +543,69 @@
     if (!tds || tds.tds == null || tds.tds === '' || tds.dose == null || tds.dose === '' || !Number(tds.dose)) return null;
     if (m.finalWeightG == null) return null;
     return round(Number(tds.tds) * m.finalWeightG / Number(tds.dose), 1);
+  }
+  // ---- TDS×秤流联合判定（提案 §4.1/§5.2，用户 11-21 裁 Q6）----
+  // 红线：只展示，不喂增益记忆、不覆盖 shot.grindAdvice、hecShotTds 仍 APK 本地；通道签名读插件 status 不受影响。
+  // EY 正常带＝固定参考 17.7–19.8%（提案参考配方 dose 19/液重 102 推得；用户 11-21 确认不随录入 dose 缩放，
+  // 否则 EY 状态恒等于 TDS 状态，与 §5.2 粉量偏低示例矛盾）。TDS 命中带 3.5±0.2 与 tdsScore 死区一致。
+  // R6 多杯确认覆盖（命中先验的例外）待插件 P0 落 confirmation 字段后消费，本期无该字段不实现（同步债）。
+  const EY_LO = 17.7, EY_HI = 19.8;
+  function jointVerdict(m, tds) {
+    const tdsV = tds && tds.tds != null && tds.tds !== '' ? num(tds.tds) : null;
+    if (tdsV == null || m.fault) return null;
+    const g = m.grind;
+    if (!g || !g.available) return null;
+    const hit = Math.abs(round(tdsV - 3.5, 2)) <= 0.2; // 两位小数舍入避浮点边界（3.3/3.7 裸减得 0.20000000000000018）
+    const dose = num(tds && tds.dose);
+    const fw = num(m.finalWeightG);
+    const hasDose = dose != null && dose > 0 && fw != null && fw > 0;
+    const ey = hasDose ? round(tdsV * fw / dose, 1) : null;
+    const eyState = ey == null ? null : (ey < EY_LO ? 'low' : ey > EY_HI ? 'high' : 'normal');
+    const rel = g.relPct != null && g.relPct !== '' ? num(g.relPct) : null; // num(null)=0 陷阱：null 须保持 null（relTxt 显示 —）
+    const regime = rel != null && Math.abs(rel) > 50;
+    const st = String(g.status || '');
+    const flowHigh = st === 'flow-high' || st === 'coarse';
+    const flowLow = st === 'flow-low' || st === 'fine';
+    const relLow = rel != null ? rel <= -12 : st === 'coarse';
+    const relHigh = rel != null ? rel >= 12 : st === 'fine';
+    const relLowNear = rel != null ? rel <= -8 : st === 'coarse';
+    const relHighNear = rel != null ? rel >= 8 : st === 'fine';
+    const relTxt = rel != null ? (rel > 0 ? '+' : '') + rel + '%' : '—';
+    const noDoseNote = '未录粉量，EY 不可算：粉量/研磨歧义未解，录粉量重算可区分。';
+    const regimeNote = '阻力偏差过大（' + relTxt + '），疑似纸/豆/桶不匹配，阻力对比仅供参考，先核 regime。';
+    const v = { hit, hasDose, ey, eyState, rel, regime, kind: null, title: '', detail: '', cls: 'warn' };
+    if (st === 'uneven') {
+      v.kind = 'channel'; v.title = t('通道/布粉优先');
+      if (hit) v.detail = 'TDS ' + tdsV.toFixed(2) + ' 命中佐证研磨合适；通道证据仍在，先布粉复测，研磨暂不动。' + (hasDose ? '' : noDoseNote);
+      else if (eyState === 'low') v.detail = '萃取不足（EY ' + ey + '% 低）支持通道判断：先改善布粉，研磨暂不动。';
+      else if (eyState === 'normal') v.detail = '通道证据优先；TDS 低而 EY 正常（' + ey + '%），兼查粉量。';
+      else if (eyState === 'high') v.detail = '通道证据优先；TDS 偏高，查粉量/液重。';
+      else v.detail = '通道证据优先，先改善布粉，研磨暂不动。' + noDoseNote;
+      return v;
+    }
+    if (hit) {
+      if (regime) { v.kind = 'regime'; v.title = t('regime 伪影嫌疑'); v.detail = 'TDS 命中佐证研磨非问题：' + regimeNote; return v; }
+      if (eyState === 'low' || eyState === 'high') { v.kind = 'ey'; v.title = t('萃取维度偏差'); v.detail = 'TDS 命中但 EY ' + ey + '% 偏' + (eyState === 'low' ? '低' : '高') + '（正常带 ' + EY_LO + '–' + EY_HI + '%）：萃取维度偏差，研磨微调候选/豆/温，低优先级；先核粉量/液重比。'; return v; }
+      v.kind = 'ok'; v.cls = 'ok'; v.title = t('研磨大概率合适');
+      const flowNote = (st === 'coarse' || st === 'fine') ? '阻力偏差（' + relTxt + '）与 TDS 命中不一致：粉量补偿可能掩盖研磨偏差，连续两杯同向再议调磨。' : flowLow ? '流量偏低先查粉量/指令，纠正后再评估研磨。' : flowHigh ? '流量偏高先查粉量/指令，纠正后再评估研磨。' : '保持当前研磨。';
+      v.detail = 'TDS ' + tdsV.toFixed(2) + ' 命中 3.5±0.2' + (ey != null ? '，EY ' + ey + '% 正常' : '') + '：调磨建议降级为可选，复测后再定。' + flowNote + (hasDose ? '' : noDoseNote);
+      return v;
+    }
+    if (tdsV < 3.3) {
+      if (eyState === 'low') {
+        if (regime) { v.kind = 'under'; v.title = t('萃取不足嫌疑'); v.detail = 'TDS/EY 偏低提示萃取不足；' + regimeNote; return v; }
+        if (flowHigh && relLow) { v.kind = 'coarse'; v.title = t('偏粗嫌疑（三重一致）'); v.detail = '流量偏高＋TDS 低＋EY ' + ey + '% 低＋阻力偏低（' + relTxt + '）一致指向偏粗：调细嫌疑高，幅度按阻力偏差，调后复测 TDS。'; return v; }
+        if (flowHigh && relLowNear) { v.kind = 'coarse'; v.title = t('偏粗嫌疑上升'); v.detail = '萃取不足（EY ' + ey + '% 低）＋流量偏高＋阻力 ' + relTxt + '：偏粗嫌疑，先核指令/base 偏离，纠正后复测 TDS 再议调细。'; return v; }
+        if (flowLow && relHighNear) { v.kind = 'fine'; v.title = t('偏细嫌疑上升'); v.detail = '萃取不足（EY ' + ey + '% 低）＋流量偏低＋阻力 ' + relTxt + '：偏细嫌疑，先核指令/base 偏离，纠正后复测 TDS 再议调粗。'; return v; }
+        v.kind = 'under'; v.title = t('萃取不足嫌疑'); v.detail = '萃取不足（EY ' + ey + '% 低）：通道/布粉/豆龄/温度嫌疑，先布粉复测，研磨暂不动。'; return v;
+      }
+      if (eyState === 'normal' || eyState === 'high') { v.kind = 'dose-low'; v.title = t('粉量偏低嫌疑'); v.detail = 'TDS 低而 EY ' + (eyState === 'normal' ? '正常（' + ey + '%）' : '偏高（' + ey + '%）') + '：浓度低、萃取正常，先查粉量' + (eyState === 'high' ? '/液重' : '') + '，研磨保持。'; return v; }
+      v.kind = 'weak'; v.title = t('TDS 偏低 · 判据较弱'); v.detail = 'TDS 偏低：萃取不足或粉量偏低均有可能。' + noDoseNote + (flowLow ? '流量偏低兼查布粉/指令。' : flowHigh ? '流量偏高兼查布粉/指令。' : ''); return v;
+    }
+    if (eyState === 'high' && flowLow && relHigh && !regime) { v.kind = 'fine'; v.title = t('偏细嫌疑（三重一致）'); v.detail = '流量偏低＋TDS 高＋EY ' + ey + '% 高＋阻力偏高（' + relTxt + '）一致指向偏细：调粗嫌疑高，幅度按阻力偏差，调后复测 TDS。'; return v; }
+    if (eyState === 'high') { v.kind = 'over'; v.title = t('萃取过度嫌疑'); v.detail = 'TDS/EY 偏高（EY ' + ey + '%）：萃取过度，先核粉量/液重与指令。' + (regime ? regimeNote : '阻力偏差（' + relTxt + '）供参考，连续两杯同向再议调粗。'); return v; }
+    if (eyState === 'normal' || eyState === 'low') { v.kind = 'dose-high'; v.title = t('粉量偏高嫌疑'); v.detail = 'TDS 高而 EY ' + (eyState === 'normal' ? '正常（' + ey + '%）' : '偏低（' + ey + '%）') + '：粉量偏高或液重偏低，查粉量/液重，研磨保持。'; return v; }
+    v.kind = 'weak'; v.title = t('TDS 偏高 · 判据较弱'); v.detail = 'TDS 偏高：粉量偏高或萃取过度均有可能。' + noDoseNote; return v;
   }
   function suppSec(m) {
     if (level < 2 || !m.supp) return '';
@@ -588,7 +657,11 @@
     h += '<div class="sum-hero-row">';
     h += '<div class="sum-stages">' + stageRow('stage1', m) + stageRow('stage2', m) + stageRow('stage3', m) + '</div>';
     h += '<div class="sum-hero"><div class="n ' + (shown == null ? 'mute' : scoreColor(shown)) + '" id="sumHeroN">' + (shown == null ? '—' : shown) + '</div><div class="lb">' + lb + '</div><div class="meta">' + meta + '</div></div>';
-    h += '<div class="sum-side right" id="sumGrindSec"><div class="k">' + t('研磨调整建议') + '</div><div class="v">' + (g && g.available ? esc(g.status || '—') + ' · ' + esc(g.label || g.detail || '—') : '—') + '</div></div>';
+    const jv = simpleConfirmed ? jointVerdict(m, tds) : null;
+    const sideV = jv
+      ? '<div class="v" style="grid-row:2">' + esc(jv.title) + '</div><div class="s" style="grid-row:3;font-size:10px;font-weight:400;color:#8b93a1;line-height:1.2;overflow:hidden;display:flex;align-items:center;justify-content:flex-end;text-align:left">' + t('杯末') + ' ' + esc(g.status || '—') + (g.relPct != null ? ' · ' + t('阻力') + ' ' + (g.relPct > 0 ? '+' : '') + g.relPct + '%' : '') + (g.confidence ? ' · ' + esc(g.confidence) : '') + '</div>'
+      : '<div class="v">' + (g && g.available ? esc(g.status || '—') + ' · ' + esc(g.label || g.detail || '—') : '—') + '</div>';
+    h += '<div class="sum-side right" id="sumGrindSec"><div class="k">' + t('研磨调整建议') + '</div>' + sideV + '</div>';
     h += '</div>';
     h += '<div class="sum-inputrow"><div class="sum-dialfield"><span class="lbl">' + t('TDS %（目标 3.5）') + '</span><div class="sum-dial' + (hasTds ? '' : ' idle') + '" id="sumDialTds"><span class="dv">' + tdsV.toFixed(2) + '</span></div><button type="button" class="sum-recalc' + (canRecalc ? '' : ' off') + '" id="sumRecalc"' + (canRecalc ? '' : ' disabled') + '>' + (simpleConfirmed ? t('已重算') : t('确认重算')) + '</button></div><span class="gap"></span><div class="sum-dialfield"><span class="lbl">' + t('研磨度格数') + '</span><div class="sum-dial' + (tds && tds.grind != null ? '' : ' idle') + '" id="sumDialGr"><span class="dv">' + String(Math.round(grV)).padStart(3, '0') + '</span></div></div></div>';
     h += '<button type="button" class="sum-again" id="sumAgain">' + t('再来一杯') + '</button>';
@@ -706,7 +779,7 @@
       h += scoreSec(m, tds);
       h += nextSec(m);
       h += arbSec(m);
-      h += grindSec(m);
+      h += grindSec(m, tds);
       h += tdsSec(m, tds);
       h += suppSec(m);
       h += srcSec(m);
@@ -849,7 +922,7 @@
     onCupEnd, onExtracting, review, close, setEnabled, setLevel, onLang, init,
     _state: function () { return { enabled, level, openId, lastRunId, source: model && model.source }; },
     _openForTest: function (m) { open(m.runId || 'test', m); },
-    _tdsScore: tdsScore, _weighted: weighted,
+    _tdsScore: tdsScore, _weighted: weighted, _jointVerdict: jointVerdict,
   };
   init();
 })();
