@@ -37,6 +37,13 @@
   const S2_REFILL_INSTANT_CROSS_FACTOR = 1.1, S2_REFILL_INSTANT_CROSS_SAMPLES = 2;
   const S2_REFILL_SHADOW_TICK_MS = 250;   // 插件 liveTrimTick 周期（回放/记录用）
   const SCALE_SAMPLE_GATE = Object.freeze({ minGapMs: 60, monotonic: true }); // 2.2.57 同口径
+  // Wave E：hec 执行路径常量（插件 2.2.61 同名同值）
+  const S2_REFILL_TRIM_MS = 500, S2_REFILL_BLEED_MS = 700, S2_REFILL_BLEED_FRACTION = 0.35;
+  const S2_REFILL_BLIND_PRESSURE_BAR = 2.5, S2_REFILL_BLIND_RISE_BAR = 0.5;
+  const S2_POST_REFILL_UP_HOLD_MS = 1500, S2_NORMAL_CEILING_RATIO = 1.25;
+  const S2_DECAY_EXCEPTION_FACTOR = 1.5, S2_DECAY_EXCEPTION_SAMPLES = 3;
+  const S2_DECAY_EXCEPTION_EXIT_FACTOR = 1.2, S2_DECAY_EXCEPTION_MAX_WRITES = 4;
+  const HEC_MIN_DECISION_MS = 300, HEC_ACK_TIMEOUT_MS = 2000, HEC_WATCHDOG_MS = 2500;
   const GAIN_MEMORY_KEY = 'hecGainMemory';  // APK 镜像 kv 键（插件主本，pre-cup 刷新；fingerprint 来源待②裁）
   const GAIN_MEMORY_MIRROR_KEY = 'hecGainMemoryMirror'; // 插件主本只读镜像快照（hello；含 fpKey/numericFpKey/basket/at）
   const O1_FULL_SHOTS = 4;                  // 插件 HISTORY_FULL_SHOTS：O1 只从最近 4 杯恢复（冻结窗）
@@ -403,6 +410,524 @@
     }
     lv.rescueActive = !!lv.rescueMode && predictedRel >= 0.08;
     lv.lastCheckGS = reg.slope; lv.lastCheckAtSec = nowMs / 1000;
+  }
+
+  // ---- Wave E：hec 执行路径（APK 调流，指令经 POST external-flow 交插件校验代写）----
+  // 红线：APK 永不直写 A010/BLE；本段只在 ext.mode==="hec" 且未接管时产出候选，由 control.js
+  // 注入的 sender 发 external-flow；ACK / 预算 / 看门狗 / 上行压力门仍在插件侧。shadow 模式
+  // sent 恒 false（本段不运行）。纯决策函数显式传参，回放/专项可脱离网络调用。
+  const hecFinite = gmFiniteOrNull;
+  function hecRunView(cup, target) {
+    const src = (cup && cup.samples) || [];
+    const start = Math.max(0, src.length - 400);
+    const samples = [], rawScaleSamples = [];
+    for (let i = start; i < src.length; i++) {
+      const s = src[i];
+      const tMs = Math.round(Number(s.t) * 1000);
+      samples.push({ tMs: tMs, phase: s.phase, profileFrame: s.frame, pressureBar: s.pressure, machineFlowMlS: s.mflow,
+        targetFlowMlS: s.tcmd, machineTelemetryValid: true, machineAgeMs: 50 });
+      if (s.stamp != null && s.weight != null) rawScaleSamples.push({ tMs: tMs, phase: s.phase, profileFrame: s.frame,
+        scaleTimestampSeconds: s.stamp, weightG: s.weight, tareReset: !!s.tare, decaidWeightFlowGS: s.decaid,
+        targetFlowMlS: s.tcmd, machineFlowMlS: s.mflow, pressureBar: s.pressure });
+    }
+    const cv = (cup && cup.cfgView) || {};
+    return { runId: cup && cup.runId, kind: 'hyperex', result: null, startedAtMs: null, samples: samples,
+      rawScaleSamples: rawScaleSamples, events: [], liveFlowTrim: { trace: [] },
+      config: { stage2Flow: target, stage3Flow: cv.stage3Flow, stage2CommandMlS: cv.stage2CommandMlS,
+        stage2PressureLimit: cv.stage2PressureLimit, stage3CommandMlS: cv.stage3CommandMlS,
+        stage3PressureLimit: cv.stage3PressureLimit, s2StartupPlan: { strategy: 'none' } } };
+  }
+  // 阶段2 入口一次：APK 自建 refill-85 计划（插件 hec 分支 stage2StartupPlan disabled，补水由 APK 负责）。
+  function hecBuildPlan(ext, cup, cache, baseMlS) {
+    const target = Number(ext && ext.targetGS), base = Number(baseMlS);
+    if (!(target > 0) || !(base > 0)) return { enabled: false, reason: 'target/base unavailable' };
+    const run = cup ? estRunViewFromCup(cup) : null;
+    const prior = cache && cache.prior ? cache.prior : null;
+    const pump = prior ? estS2RefillPumpEstimate(prior, target, false) : null;
+    const platform = estBoundedRefillControlBase({ targetGS: target, profileBase: base, observedBase: pump && pump.command,
+      memory: cache && cache.memory, prior: prior, current: null, history: cache ? estHistoryForFp(cache.history, cache.numericFpKey) : [],
+      priorEvidence: cache && cache.priorEvidence, lutPoints: null, lutUsable: false });
+    const decision = estRefillAdaptiveFloodDecision({ run: run, platformMlS: platform && platform.commandMlS,
+      holdMs: S2_REFILL_DEFAULT_HOLD_MS, headroomMlS: pump && pump.command, memory: cache && cache.memory,
+      fpKey: cache && cache.fpKey, stage2Weight: null, stage1Weight: null });
+    const control = Number(platform && platform.commandMlS);
+    const trusted = !!(platform && /gain-memory|observed-tail|feed-forward-k/.test(String(platform.source || '')));
+    const holding = Number.isFinite(control) && control > 0 ? estSnapCommandFlow(trusted ? control : Math.max(control, base)) : estSnapCommandFlow(base);
+    const flood = Number(decision && decision.floodMlS);
+    if (!(holding > 0) || !(flood > 0)) return { enabled: false, reason: 'refill plan estimate unavailable' };
+    return { enabled: true, strategy: 'refill-85', targetGS: target, baseCommandMlS: estSnapCommandFlow(base),
+      controlBaseMlS: estSnapCommandFlow(control), holdingCommandMlS: holding, controlGain: target / holding,
+      controlSource: (platform && platform.source) || 'profile-base', floodCommandMlS: flood, floodMode: 'adaptive',
+      holdMs: Number(decision.holdMs) || S2_REFILL_DEFAULT_HOLD_MS, holdAdjusted: decision.holdAdjusted || null,
+      budgetInfeasible: decision.budgetInfeasible === true, cutoffFraction: 0.85, predictionSeconds: 1.5,
+      bleedCommandMlS: estSnapCommandFlow(Math.max(CMD_LO, holding * S2_REFILL_BLEED_FRACTION)),
+      soak: decision.observation || null, degraded: { holdCfg: true } };
+  }
+  // §22.11 补水向量律（插件 boundedRefillCommand 逐字）：flood 只降不升，收口回平台 target/r。
+  function hecBoundedRefillCommand(plan, est, target, lastBoost) {
+    if (!plan || plan.enabled !== true) return null;
+    const platform = Number(plan.controlBaseMlS), flood = Number(plan.floodCommandMlS);
+    const r = Number(plan.controlGain) > 0 ? Number(plan.controlGain) : (platform > 0 ? target / platform : 1);
+    if (!(platform > 0) || !(flood > 0) || !(target > 0)) return null;
+    let wanted;
+    if (!est || est.ok !== true) wanted = flood;
+    else {
+      const predicted = Math.max(0, Number(est.predicted));
+      wanted = Math.max(platform, platform + (target - predicted) / Math.max(0.15, r));
+    }
+    let out = estSnapCommandFlow(Math.max(CMD_LO, Math.min(flood, wanted)));
+    const previous = Number(lastBoost);
+    if (out !== null && Number.isFinite(previous) && previous > CMD_LO) out = estSnapCommandFlow(Math.max(CMD_LO, Math.min(out, previous)));
+    return out;
+  }
+  // 收口全序（插件 s2RefillReturnReason 3878 逐字）：压力门→holdMs→秤 stale→blindFlood→Vb3→predicted/observed。
+  function hecRefillReturnReason(opts) {
+    const plan = opts.plan, st = opts.startup, nowMs = opts.nowMs, target = Number(opts.target);
+    const limiter = Number(opts.limiterBar);
+    const machineAge = Number(opts.machineAgeMs);
+    const machineFresh = !Number.isFinite(machineAge) || machineAge <= 600;
+    if (machineFresh && Number.isFinite(Number(opts.pressureBar)) && Number(opts.pressureBar) >= limiter * 0.90) return { reason: 'pressure', basis: 'pressure-margin' };
+    if (nowMs - Number(st.boostStartedAt || 0) >= Number(plan.holdMs || S2_REFILL_DEFAULT_HOLD_MS)) return { reason: 'holdMs', basis: 'maximum-duration' };
+    if (Number(opts.scaleAgeMs) >= 0 && Number(opts.scaleAgeMs) > 600) return { reason: 'scale-stale', basis: 'scale-age' };
+    const would = estS2RefillWouldReturn({ run: opts.run, state: st.estState, cutoffFraction: plan.cutoffFraction, boosting: st.status === 'boosting', periodMs: HEC_MIN_DECISION_MS });
+    const flow = would.flow && would.flow.ok ? would.flow : null;
+    const blind = !flow || !(Number(flow.slope) > 0);
+    if (blind && machineFresh) {
+      const pr = Number(opts.pressureBar);
+      if (Number.isFinite(pr) && pr >= 0) {
+        if (!st.blindPressure) st.blindPressure = { firstAt: nowMs, firstBar: pr };
+        if (pr >= S2_REFILL_BLIND_PRESSURE_BAR && nowMs - st.blindPressure.firstAt >= 500 && pr - st.blindPressure.firstBar >= S2_REFILL_BLIND_RISE_BAR) {
+          return { reason: 'blind-flood', basis: 'pressure-climb' };
+        }
+      }
+    }
+    if (would.wouldReturn === true) return { reason: would.basis, basis: would.basis, cutoff: would.cutoff || null, flow: flow };
+    return null;
+  }
+  // 常规路径守卫（插件 liveTrimTick 2.2.34–2.2.46 同口径）：死区/coast/up-hold/handover/governor/Vd15。
+  function hecCommandCeiling(phase, mode, ctx) {
+    const command = Number(ctx && ctx.command), center = Number(ctx && ctx.center), mapped = Number(ctx && ctx.mapped);
+    const anchor = Number.isFinite(center) ? center : Number.isFinite(mapped) ? mapped : command;
+    let lo = Math.min(anchor * 0.8, Number.isFinite(mapped) ? mapped : anchor);
+    let hi = Math.max(anchor * (phase === 'stage2' && mode === 'normal' ? S2_NORMAL_CEILING_RATIO : 1.2), Number.isFinite(mapped) ? mapped : anchor);
+    if (mode === 'rescue') { lo = CMD_LO; hi = Math.min(CMD_HI, Math.max(hi, Number.isFinite(mapped) ? mapped * 2 : anchor * 2)); }
+    if (Number.isFinite(command)) { lo = Math.min(lo, command); hi = Math.max(hi, command); }
+    lo = Math.max(CMD_LO, Math.min(CMD_HI, Math.ceil(lo * 16) / 16));
+    hi = Math.max(CMD_LO, Math.min(CMD_HI, Math.floor(hi * 16) / 16));
+    return { lo: lo, hi: hi };
+  }
+  function hecPredictiveSteps(errGS, r, min, max) {
+    if (!(Number(r) > 0) || !Number.isFinite(errGS)) return min;
+    return Math.max(min, Math.min(max, Math.round(Math.abs(errGS) / r * 16)));
+  }
+  // S2 补水后斜坡 governor（插件 liveTrimGovernor 2.2.35/2.2.42 逐字，settle 用本仓常量）。
+  function hecGovernorS2(st, reg, command, target, nowMs) {
+    if (st.status !== 'complete' || !st.plan || st.plan.strategy !== 'refill-85') return null;
+    const rec = st.s2Recovery || (st.s2Recovery = {});
+    if (rec.done) return null;
+    const doneAt = Number(st.completedAt);
+    if (!Number.isFinite(doneAt)) return null;
+    const handoverEnd = doneAt + S2_REFILL_SETTLE_MS;
+    if (nowMs < handoverEnd) return null;
+    const since = nowMs - handoverEnd;
+    const fast = hecFinite(reg.fastSlope);
+    const flowNow = Number(reg.slope);
+    const remainNow = flowNow > 0 ? Math.max(0.5, (Number(st.stage2WeightG) - Number(st.cumulativeWeightG)) / Math.max(0.5, flowNow)) : Infinity;
+    const shortS2 = Number.isFinite(remainNow) && remainNow < 4;
+    if (!rec.active) {
+      const predicted = Number(reg.predicted);
+      if (Number.isFinite(predicted) && predicted <= target * 1.05 && reg.slope < target * 1.01) return null;
+      const settleMs = shortS2 ? 500 : 1500;
+      const previous = rec.peakEvidence;
+      const fresh = !previous || reg.endStamp > previous.stamp;
+      const noiseFloor = Math.max(0.03, target * 0.01);
+      const falling = fast !== null && fast < flowNow - noiseFloor;
+      if (fresh && Number.isFinite(reg.endStamp)) rec.peakEvidence = { stamp: reg.endStamp, fallingCount: falling ? ((previous && previous.fallingCount) || 0) + 1 : 0 };
+      const peakPassed = rec.peakEvidence && rec.peakEvidence.fallingCount >= 2;
+      const peakReady = shortS2 ? since >= settleMs : (since >= settleMs && (peakPassed || since >= 6000));
+      if (!peakReady) return { hold: true, reason: 'S2 post-refill settle' };
+      const T = Number(target), f0 = Number(reg.slope);
+      if (!(T > 0) || !(f0 > 0)) { rec.done = true; return null; }
+      const uEnd = estSnapCommandFlow(Math.max(CMD_LO, Math.min(CMD_HI, command * T / f0)));
+      if (Math.abs(uEnd - command) < 1 / 16 - 1e-9) { rec.done = true; return null; }
+      const remainS = Math.max(0.5, (Number(st.stage2WeightG) - Number(st.cumulativeWeightG)) / Math.max(0.5, f0));
+      rec.active = true; rec.at = nowMs; rec.u0 = command; rec.u1 = uEnd; rec.dir = Math.sign(uEnd - command);
+      rec.durationMs = Math.max(shortS2 ? 900 : 1500, Math.min(8000, Math.round(remainS * 700)));
+      rec.f0 = f0; rec.T = T; rec.short = shortS2;
+      return { hold: true, reason: 'S2 post-refill ramp armed' };
+    }
+    const actualError = flowNow / target - 1;
+    const fastError = fast === null ? null : fast / target - 1;
+    if (Math.abs(actualError) <= 0.04 && (fastError === null || Math.abs(fastError) <= 0.04)) { rec.active = false; rec.done = true; return { hold: true, reason: 'S2 feedback ramp reached target' }; }
+    if (rec.dir < 0 && actualError >= 0.08) { rec.active = false; rec.done = true; return null; }
+    const wanted = Math.sign(target - flowNow);
+    if (rec.dir && wanted !== rec.dir) { rec.active = false; rec.done = true; return { hold: true, reason: 'S2 feedback ramp crossed target' }; }
+    if (nowMs - rec.at >= rec.durationMs) { rec.active = false; rec.done = true; return null; }
+    const progress = Math.max(0, Math.min(1, (nowMs - rec.at) / rec.durationMs));
+    const desired = rec.u0 + (rec.u1 - rec.u0) * progress;
+    const elapsed = Math.max(0, nowMs - Math.max(rec.at, st.lastWriteAt || rec.at));
+    const allowed = Math.min(2, Math.floor(elapsed / 600));
+    const distance = Math.max(0, rec.dir * (desired - command));
+    const quanta = Math.min(allowed, Math.floor(distance * 16 + 1e-9));
+    const ref = estSnapCommandFlow(command + rec.dir * quanta / 16);
+    rec.lastFeedbackAt = nowMs;
+    if (Math.abs(ref - command) < 1 / 16 - 1e-9) return { hold: true, reason: 'S2 feedback ramp quantum hold' };
+    return { hold: false, ref: ref, mode: 's2-ramp', steps: Math.max(1, Math.round(Math.abs(ref - command) * 16)) };
+  }
+  // S3 近目标单调闸（插件 liveTrimGovernor stage3 逐字）。
+  function hecGovernorS3(st, frame, reg, command, target, nowMs, stage3At) {
+    const entryAge = stage3At > 0 ? nowMs - stage3At : Infinity;
+    if (entryAge < 3500) return null;
+    const mono = st.s3Mono || (st.s3Mono = { frame: null, out: 0, sign: 0, dir: 0 });
+    if (mono.frame !== frame) { mono.frame = frame; mono.out = 0; mono.sign = 0; mono.dir = 0; }
+    const T = Number(target), f = Number(reg.slope);
+    if (!(T > 0) || !(f > 0)) return null;
+    const err = f / T - 1;
+    if (Math.abs(err) <= 0.10) { mono.out = 0; mono.sign = 0; return { hold: true, reason: 'coast-trend-stable', trimMode: 'coast' }; }
+    if (Math.abs(err) > 0.15) return null;
+    const sign = Math.sign(err);
+    if (sign === mono.sign) mono.out++; else { mono.sign = sign; mono.out = 1; }
+    if (mono.out < 2 && Math.abs(err) < 0.12) return { hold: true, reason: 'S3 monotone confirm' };
+    const dir = -sign;
+    if (mono.dir && dir !== mono.dir && (mono.out < 3 || Math.abs(err) < 0.10)) return { hold: true, reason: 'S3 monotone hysteresis' };
+    const ref = estSnapCommandFlow(command + dir / 16);
+    if (Math.abs(ref - command) < 1 / 16 - 1e-9) return { hold: true, reason: 'S3 monotone command-bound' };
+    return { hold: false, ref: ref, mode: 's3-mono', steps: 1, dir: dir };
+  }
+  // 常规调流决策（插件 liveTrimTick 非 startup 段逐字裁剪；不写 → {action:'hold'}）。
+  function hecTrimDecision(o) {
+    const phase = o.phase, reg = o.reg, target = Number(o.target), command = Number(o.command);
+    const nowMs = o.nowMs, st = o.startup, lv = o.lv;
+    const hold = (reason, extra) => Object.assign({ action: 'hold', reason: reason }, extra || {});
+    const decisionGS = Number(lv && lv.predictedGS != null && Number.isFinite(Number(lv.predictedGS)) ? lv.predictedGS : reg.slope);
+    const rescueActive = !!(lv && lv.rescueActive);
+    const bigAngleStreak = Number(lv && lv.bigAngleStreak) || 0;
+    const rescueAngleStreak = Number(lv && lv.rescueAngleStreak) || 0;
+    const predictedRel = target > 0 ? Math.abs(target - decisionGS) / target : 1;
+    const errGS = target - decisionGS;
+    const trendSlope = o.trendSlope != null ? Number(o.trendSlope) : null;
+    const stage3At = Number(o.stage3At) || 0;
+    if (phase === 'stage3' && stage3At > 0 && nowMs - stage3At < 3500 && reg.slope > target * 1.2 && decisionGS < target) return hold('S3 entry overshoot; hold upward correction');
+    if (phase === 'stage3' && reg.slope < target && reg.fastSlope != null && (reg.fastSlope >= target * 0.98 || reg.predicted >= target)) return hold('S3 rising response; hold upward correction');
+    let decayException = false;
+    if (phase === 'stage2' && st.status === 'complete' && Number.isFinite(reg.slope) && Number.isFinite(target)) {
+      if (reg.slope > target * S2_DECAY_EXCEPTION_FACTOR) {
+        st.decay.hotStreak = (st.decay.hotStreak || 0) + 1;
+        if (!st.decay.active && st.decay.hotStreak >= S2_DECAY_EXCEPTION_SAMPLES && (st.decay.writes || 0) < S2_DECAY_EXCEPTION_MAX_WRITES) {
+          st.decay.active = true; st.decay.triggerAt = nowMs; st.decay.triggerGS = reg.slope;
+        }
+      } else st.decay.hotStreak = 0;
+      if (st.decay.active && reg.slope < target * S2_DECAY_EXCEPTION_EXIT_FACTOR) { st.decay.active = false; st.decay.hotStreak = 0; st.decay.exitReason = 'hysteresis'; }
+    } else { st.decay.hotStreak = 0; st.decay.active = false; }
+    decayException = !!st.decay.active;
+    const handover = phase === 'stage2' && st.status === 'complete' && Number.isFinite(st.completedAt) && nowMs - st.completedAt < S2_REFILL_SETTLE_MS;
+    if (!rescueActive) {
+      if (handover && reg.slope > target * 1.02 && !decayException) {
+        const fast = o.refillEst;
+        if (!fast || fast.slope <= target * 1.02 || fast.predicted <= target * 1.02) return hold('S2 handover falling response; avoid an extra decrease');
+      }
+      if (handover && reg.slope < target) {
+        const fast = o.refillEst;
+        if (fast && fast.predicted >= target) return hold('S2 approach rising response; hold for inertia');
+      }
+      if (phase === 'stage2' && !handover && st.status === 'complete' && Number.isFinite(st.completedAt) && nowMs - st.completedAt < S2_POST_REFILL_UP_HOLD_MS && decisionGS < target && reg.slope <= target * 1.04) return hold('s2-post-refill-up-hold');
+    }
+    const governor = (rescueActive || decayException) ? null : (phase === 'stage2' ? hecGovernorS2(st, reg, command, target, nowMs) : hecGovernorS3(st, o.frame, reg, command, target, nowMs, stage3At));
+    if (governor && governor.hold) return hold(governor.reason, governor.trimMode ? { trimMode: governor.trimMode } : null);
+    let refCommand = null, governorSteps = null, governorMode = null, shortS2 = false;
+    if (governor && governor.ref != null) { refCommand = governor.ref; governorSteps = governor.steps; governorMode = governor.mode; shortS2 = !!(st.s2Recovery && st.s2Recovery.short); }
+    const deadband = 0.04;
+    if (refCommand == null && Math.abs(decisionGS / target - 1) <= deadband + 1e-9) return hold('inside-4pct-band');
+    const limiter = Number(o.limiterBar);
+    const pressureLimited = !Number.isFinite(limiter) || Number(o.pressureBar) >= 0.95 * limiter;
+    const actuatorLow = Number(o.machineFlowMlS) < command * 0.7;
+    if (pressureLimited && decisionGS < target) return hold('pressure-limited-upward-blocked');
+    if (actuatorLow && decisionGS < target && !rescueActive) return hold('actuator-low-normal-hold');
+    const forecast = hecFinite(reg.predicted) != null ? hecFinite(reg.predicted) : hecFinite(reg.fastSlope);
+    const observedError = target - reg.slope;
+    const forecastError = forecast === null ? null : target - forecast;
+    const closing = forecastError !== null && Math.abs(forecastError) < Math.abs(observedError) - Math.max(0.015, target * 0.002) &&
+      (observedError * forecastError >= 0 || Math.abs(forecastError) <= target * 0.02);
+    const trendFlat = Number.isFinite(trendSlope) && Math.abs(trendSlope) < 0.1;
+    const stage3EntryCoast = phase === 'stage3' && stage3At > 0 && nowMs - stage3At < 3500 && (reg.slope > target * 1.02 || (Number.isFinite(trendSlope) && trendSlope < 0));
+    const coastBand = phase === 'stage3' ? 0.10 : 0.08;
+    const predictiveCoast = refCommand == null && !rescueActive && !stage3EntryCoast && Math.abs(errGS / target) <= coastBand && (closing || trendFlat);
+    const trimMode = stage3EntryCoast ? 'coast' : rescueActive ? 'rescue' : predictiveCoast ? 'coast' : 'vector';
+    if (trimMode === 'coast') return hold('coast-trend-stable', { trimMode: 'coast', coastEntry: !!stage3EntryCoast });
+    if (phase === 'stage3') {
+      const q = (st.phaseQuanta && st.phaseQuanta.stage3) || { normal: 0, rescue: 0 };
+      const bigAngleRelease = rescueAngleStreak >= 3;
+      if (rescueActive && q.rescue >= 24) return hold('S3 rescue quantum budget');
+      if (!rescueActive && q.normal >= 24 && !bigAngleRelease) return hold('S3 normal quantum budget');
+    }
+    const silenceMs = rescueActive ? 800 : (phase === 'stage3' ? 2400 : ((lv && lv.largeGapS2) ? 1000 : 1200));
+    if (st.lastWriteAt && nowMs - st.lastWriteAt < silenceMs) return hold('predictive-write-silence', { silenceMs: silenceMs });
+    const center = lv && Number.isFinite(Number(lv.controlCenterMlS)) ? { commandMlS: Number(lv.controlCenterMlS), r: Number(lv.controlR) } : { commandMlS: command, r: null };
+    const r = Number(center.r) > 0 ? Number(center.r) : (phase === 'stage3' ? 1.8 : 1.2);
+    const rescueMin = Math.max(2, Math.min(8, Math.round(0.25 * Math.abs(errGS) / r * 16)));
+    const largeGap = !!(lv && lv.largeGapS2);
+    const normalMax = decayException ? Math.min(normalTrimQuanta(phase, bigAngleStreak, predictedRel, largeGap), 2) : normalTrimQuanta(phase, bigAngleStreak, predictedRel, largeGap);
+    const steps = governorSteps != null ? governorSteps : (rescueActive ? hecPredictiveSteps(errGS, r, rescueMin, 24) : hecPredictiveSteps(errGS, r, 1, normalMax));
+    const commandDelta = refCommand == null ? null : refCommand - command;
+    const dir = commandDelta === null ? Math.sign(errGS) : Math.sign(commandDelta);
+    const rawCmd = Math.round((command + dir * steps / 16) * 16) / 16;
+    const ceiling = hecCommandCeiling(phase, rescueActive ? 'rescue' : 'normal', { center: center.commandMlS, mapped: NaN, command: command });
+    if (!(ceiling.hi >= ceiling.lo)) return hold('control-center-envelope-invalid');
+    const candidate = Math.max(ceiling.lo, Math.min(ceiling.hi, rawCmd));
+    if (candidate > command && (pressureLimited || (actuatorLow && !rescueActive))) return hold('upward-candidate-actuator-guard');
+    if (candidate === command || candidate < CMD_LO || candidate > CMD_HI) return hold('command-bound-vector');
+    if (refCommand == null && !rescueActive && phase === 'stage2' && candidate < command && reg.slope <= target * 1.04) return hold('s2-actual-in-band-down-hold', { trimMode: 'coast' });
+    return { action: 'write', command: candidate, reason: 'trim', trimMode: trimMode, steps: steps,
+      actualQuanta: Math.round(Math.abs(candidate - command) * 16), decayException: decayException, governor: governorMode,
+      controlCenterMlS: center.commandMlS, rescue: rescueActive, shortS2: shortS2 };
+  }
+  // 409/400 白名单（AGENTS §5.8；未知 reason 停发＋显示原文，不按前缀猜）。
+  function hecRejectPolicy(status, reason) {
+    const r = String(reason || '');
+    if (Number(status) === 400) return { stop: true, notice: 'HTTP 400 · ' + (r || 'command-error') };
+    const table = {
+      'hec-mode-required': { stop: true, notice: '插件不是 HEC 档，已停发' },
+      'hec-takeover': { stop: true, takeover: true, notice: '插件已接管本杯' },
+      'not-extracting': { wait: 'cup', notice: '非萃取中，等下一杯' },
+      'frame-not-confirmed': { wait: 'frame' },
+      'frame-mismatch': { wait: 'frame', notice: '逻辑帧不符，按当前帧重发' },
+      'frame-not-writable': { wait: 'frame', notice: '当前帧不可写，等可写帧' },
+      'write-pending': { wait: 'ack' },
+      'write-budget': { stop: true, notice: '本杯写入预算耗尽，插件接管剩余' },
+      'pressure-upward-blocked': { hold: true, notice: '上行压力受限，保持或下行' },
+      'telemetry-stale': { wait: 'telemetry', notice: '遥测过期，等恢复' },
+      'command-busy': { retry: true },
+    };
+    if (table[r]) return table[r];
+    return { stop: true, unknown: true, notice: '未知拒绝：' + (r || ('HTTP ' + status)) };
+  }
+  function hecStateNew() {
+    return { cupRunId: null, mode: null, takeover: null, phase: null, frame: null, frameAt: 0, stage3At: 0,
+      targetGS: null, baseCommandMlS: null, cumulativeWeightG: null, stage2WeightG: null, finalWeightG: null,
+      plan: null, planAt: 0,
+      startup: { status: 'disabled', plan: null, boostStartedAt: 0, completedAt: 0, bleedStartedAt: 0, returnAt: 0,
+        estState: { nowCupMs: 0, frameStartCupMs: 0, predictionSeconds: 1.5, estHistory: [], lastEstimate: null, lastEstimateGate: null },
+        lastBoostCommandMlS: null, blindPressure: null, s2Recovery: null, s3Mono: null, lastWriteAt: 0,
+        decay: { hotStreak: 0, active: false, writes: 0 }, phaseQuanta: { stage2: { normal: 0, rescue: 0 }, stage3: { normal: 0, rescue: 0 } } },
+      busy: false, pending: null, lastWriteAt: 0, lastSendAt: 0, lastWrite: null, lastCommand: null, lastDecisionAt: 0, lastEvalStamp: null,
+      writes: 0, acks: 0, sends: 0, stopReason: null, lastReason: null, lastReject: null, notice: null, rejects: {},
+      takeoverReason: null, error: null, echoQueue: [] };
+  }
+  let hecRun = hecStateNew();
+  let hecSender = null;
+  function hecSetSender(fn) { hecSender = typeof fn === 'function' ? fn : null; }
+  function hecReset(runId) { hecRun = hecStateNew(); hecRun.cupRunId = runId || null; }
+  // APK 自执行写入打标（Wave D Vi_obs/Va/Vb3 live 解锁）：ext 回显匹配最近一笔 APK 写入时记 source=apk+startupAction。
+  function hecWriteTag(cmd, frame) {
+    const q = hecRun.echoQueue || [];
+    for (let i = 0; i < q.length; i++) {
+      const t = q[i];
+      if (Number(t.command) === Number(cmd) && (frame == null || t.frame == null || Number(t.frame) === Number(frame))) {
+        q.splice(i, 1);
+        return { action: t.action };
+      }
+    }
+    return null;
+  }
+  // APK 自执行写入在发送成功时直接进杯台账（source=apk＋startupAction），避免 700ms 轮询
+  // 吞掉同窗内的 bleed→return 两笔；同时把 cup.lastCmd 同步成新值，ext 回显时不再重复记一笔。
+  function hecRecordSelfWrite(st, prev, frame, action) {
+    if (!cup || (st.cupRunId && cup.runId && cup.runId !== st.cupRunId)) return;
+    const tMs = Math.max(0, Date.now() - (Number(cup.startedAt) || Date.now()));
+    cup.writes.push({ tMs: tMs, from: prev, to: st.lastCommand, source: 'apk', frame: frame, kind: 'write',
+      startupAction: action, largeGap: !!(cup.live && cup.live.largeGapS2),
+      commandGapPct: cup.live && cup.live.commandGapPct != null ? cup.live.commandGapPct : null });
+    if (cup.writes.length > 2000) cup.writes.shift();
+  }
+  function hecStatus() {
+    const st = hecRun;
+    return { mode: st.mode, phase: st.phase, frame: st.frame, status: st.startup.status, running: !!hecSender,
+      plan: st.plan ? { flood: st.plan.floodCommandMlS, holdMs: st.plan.holdMs, platform: st.plan.controlBaseMlS,
+        holding: st.plan.holdingCommandMlS, source: st.plan.controlSource, budgetInfeasible: st.plan.budgetInfeasible } : null,
+      writes: st.writes, acks: st.acks, sends: st.sends, stopReason: st.stopReason, lastReason: st.lastReason,
+      lastReject: st.lastReject, rejects: st.rejects, notice: st.notice, takeover: st.takeoverReason,
+      pending: st.pending ? { command: st.pending.command, action: st.pending.action, at: st.pending.at } : null,
+      busy: st.busy, decay: st.startup.decay, error: st.error, runId: st.cupRunId };
+  }
+  function hecAcceptReject(res) {
+    const st = hecRun;
+    const status = res && res.status;
+    const body = (res && res.body) || {};
+    const reason = body.reason || (res && res.error) || ('HTTP ' + status);
+    const pol = hecRejectPolicy(status, body.reason);
+    st.rejects[String(reason)] = (st.rejects[String(reason)] || 0) + 1;
+    st.lastReject = { status: status, reason: String(reason), at: Date.now(), policy: pol.stop ? 'stop' : pol.hold ? 'hold' : pol.wait || 'retry' };
+    st.lastReason = 'reject:' + reason;
+    if (pol.notice) st.notice = pol.notice;
+    if (pol.takeover) { st.takeoverReason = String(reason); st.startup.status = 'takeover'; }
+    if (pol.stop) { st.stopReason = String(reason); st.startup.status = st.startup.status === 'boosting' ? 'stopped' : st.startup.status; }
+    return pol;
+  }
+  function hecSend(command, frame, action) {
+    const st = hecRun;
+    if (st.busy || !hecSender) return;
+    if (st.lastSendAt && Date.now() - st.lastSendAt < HEC_MIN_DECISION_MS) return;
+    const cmd = estSnapCommandFlow(command);
+    if (!(cmd > 0) || cmd < CMD_LO || cmd > CMD_HI) return;
+    const prev = st.lastCommand;
+    st.busy = true;
+    st.lastSendAt = Date.now();
+    Promise.resolve().then(() => hecSender(cmd, frame)).then((res) => {
+      st.busy = false;
+      const body = (res && res.body) || {};
+      if (res && res.ok && body.ok !== false) {
+        st.sends++;
+        st.writes = Number.isFinite(Number(body.writes)) ? Number(body.writes) : st.writes + 1;
+        st.lastCommand = Number(body.commandMlS) > 0 ? Number(body.commandMlS) : cmd;
+        st.lastWriteAt = Date.now();
+        st.pending = { at: Date.now(), command: st.lastCommand, frame: frame, action: action };
+        st.echoQueue.push({ command: st.lastCommand, frame: frame, action: action });
+        if (st.echoQueue.length > 20) st.echoQueue.shift();
+        st.lastWrite = { command: st.lastCommand, from: prev, frame: frame, action: action, at: Date.now() };
+        hecRecordSelfWrite(st, prev, frame, action);
+        st.lastReason = 'sent:' + action;
+        st.notice = null;
+        if (action === 'boost' || action === 'trim') st.startup.lastBoostCommandMlS = st.lastCommand;
+        if (action === 'boost') { st.startup.status = 'boosting'; st.startup.boostStartedAt = Date.now(); }
+        else if (action === 'bleed') { st.startup.status = 'bleeding'; st.startup.bleedStartedAt = Date.now(); }
+        else if (action === 'return') { st.startup.status = 'returning'; st.startup.returnAt = Date.now(); }
+      } else hecAcceptReject(res);
+    }).catch((e) => { st.busy = false; st.error = String(e && e.message || e); hecAcceptReject({ status: 0, error: st.error }); });
+  }
+  // 每个秤样本推进（control.js onScaleSnapshot 钩子，onSample 之后调用）。
+  function hecTick(ctx) {
+    const st = hecRun;
+    if (!ctx || !ctx.ext) return hecStatus();
+    const ext = ctx.ext;
+    st.mode = ext.mode;
+    st.takeover = ext.takeover || null;
+    st.targetGS = Number(ext.targetGS);
+    st.baseCommandMlS = ext.baseCommandMlS;
+    st.cumulativeWeightG = ctx.cumulativeWeightG;
+    st.stage2WeightG = ctx.stage2WeightG;
+    st.finalWeightG = ctx.finalWeightG;
+    if (!hecSender) return hecStatus();
+    if (ext.takeover) { st.takeoverReason = ext.takeover.reason || 'hec-takeover'; st.startup.status = 'takeover'; st.notice = '插件已接管本杯'; return hecStatus(); }
+    if (ext.mode !== 'hec' || st.stopReason) return hecStatus();
+    if (ctx.stale || (typeof document !== 'undefined' && document.hidden)) return hecStatus();
+    if (!ext.extracting || (ext.phase !== 'stage2' && ext.phase !== 'stage3')) {
+      if (st.startup.status !== 'disabled') { st.startup.status = 'disabled'; st.startup.plan = null; st.plan = null; }
+      return hecStatus();
+    }
+    const phase = ext.phase, frame = ext.logicalFrame != null ? Number(ext.logicalFrame) : null;
+    if (frame == null) { st.lastReason = 'frame-not-confirmed'; return hecStatus(); }
+    if (st.phase !== phase || st.frame !== frame) {
+      const wasLatched = st.phase != null && st.frame != null;
+      if (st.phase !== phase) { st.startup.phaseQuanta = { stage2: { normal: 0, rescue: 0 }, stage3: { normal: 0, rescue: 0 } }; st.startup.s2Recovery = null; st.startup.s3Mono = null; }
+      if (phase === 'stage3' && st.phase !== 'stage3') st.stage3At = Date.now();
+      st.phase = phase; st.frame = frame; st.frameAt = Date.now();
+      if (wasLatched) st.pending = null;
+      st.startup.estState.frameStartCupMs = ctx.sample ? Math.round(Number(ctx.sample.t) * 1000) : 0;
+      st.startup.estState.estHistory = []; st.startup.estState.lastEstimate = null; st.startup.estState.lastEstimateGate = null;
+    }
+    if (st.pending) {
+      const pend = ext.pending;
+      if (!pend || pend.ack === true || Number(ext.lastCommandMlS) === Number(st.pending.command)) { st.acks++; st.pending = null; }
+      else if (Date.now() - st.pending.at > HEC_ACK_TIMEOUT_MS) { st.stopReason = 'ack-timeout'; st.startup.status = 'stopped'; st.notice = 'ACK 超时，已停发'; return hecStatus(); }
+    }
+    const budgetMax = Number(ext.maxWrites);
+    const budgetWrites = Number(ext.writes);
+    if (Number.isFinite(budgetMax) && budgetMax > 0 && Number.isFinite(budgetWrites) && budgetWrites >= budgetMax) { st.stopReason = 'write-budget'; st.startup.status = 'stopped'; st.notice = '本杯写入预算耗尽'; return hecStatus(); }
+    if (st.busy) return hecStatus();
+    const canSend = !(ext.pending && ext.pending.ack !== true);
+    const nowMs = Date.now();
+    const target = st.targetGS, base = Number(ext.baseCommandMlS) > 0 ? Number(ext.baseCommandMlS) : Number(ext.lastCommandMlS);
+    const limiter = Number(ext.limiterBar);
+    const command = Number.isFinite(Number(ext.lastCommandMlS)) ? Number(ext.lastCommandMlS) : base;
+    const runNow = hecRunView(cup, target);
+    if (phase === 'stage2' && frame === 1 && !st.plan && st.startup.status === 'disabled') {
+      st.plan = hecBuildPlan(ext, cup, estCache, base);
+      st.planAt = nowMs;
+      st.startup.plan = st.plan;
+      st.startup.status = st.plan && st.plan.enabled ? 'armed' : 'disabled';
+      st.lastReason = 'plan:' + (st.plan && st.plan.enabled ? 'armed' : (st.plan && st.plan.reason) || 'unavailable');
+      if (st.plan && st.plan.budgetInfeasible) st.notice = '补水预算不可行：' + (st.plan.holdMs) + 'ms';
+    }
+    const nowCupMs = ctx.sample ? Math.round(Number(ctx.sample.t) * 1000) : st.startup.estState.nowCupMs;
+    const estState = Object.assign(st.startup.estState, { nowCupMs: nowCupMs });
+    if ((st.startup.status === 'boosting' || st.startup.status === 'bleeding' || st.startup.status === 'returning') && (phase !== 'stage2' || frame !== 1)) st.startup.status = 'ended';
+    if (st.startup.status === 'armed') {
+      if (phase !== 'stage2' || frame !== 1) { st.startup.status = 'ended'; }
+      else {
+        const freshMachine = Number(ext.machineAgeMs) <= 600 && Number(ext.scaleAgeMs) <= 600 && ctx.machineState === 'espresso' && (ctx.substate === 'preinfusion' || ctx.substate === 'pouring');
+        const pressureOk = Number.isFinite(limiter) && limiter > 0 && Number(ext.pressureBar) < limiter * 0.90;
+        if (!freshMachine) st.lastReason = 'startup-await-telemetry';
+        else if (!pressureOk) st.lastReason = 'startup-await-pressure';
+        else if (ext.pending && ext.pending.ack !== true) st.lastReason = 'write-pending';
+        else if (nowMs - st.frameAt < 300) st.lastReason = 'frame-settle';
+        else {
+          const est = estS2RefillFlowEstimate(runNow, estState);
+          if (est.ok && est.slope >= target * st.plan.cutoffFraction) { st.startup.status = 'complete'; st.startup.completedAt = nowMs; st.startup.returnReason = 'S2 cup flow already high; skip late boost'; st.lastReason = 'skip-boost'; }
+          else if (canSend) {
+            const cmd = hecBoundedRefillCommand(st.plan, est, target, st.startup.lastBoostCommandMlS);
+            if (cmd) hecSend(cmd, 1, 'boost');
+          }
+        }
+      }
+    } else if (st.startup.status === 'boosting') {
+      const est = estS2RefillFlowEstimate(runNow, estState);
+      const ret = hecRefillReturnReason({ plan: st.plan, startup: st.startup, ext: ext, nowMs: nowMs, target: target,
+        limiterBar: limiter, pressureBar: ext.pressureBar, machineAgeMs: ext.machineAgeMs, scaleAgeMs: ext.scaleAgeMs, run: runNow });
+      if (ret) {
+        st.startup.returnReason = ret.reason; st.startup.cutoff = ret.cutoff || null;
+        const bleed = st.plan && Number(st.plan.bleedCommandMlS);
+        if (canSend) { if (bleed > 0) hecSend(bleed, 1, 'bleed'); else hecSend(st.plan.holdingCommandMlS, 1, 'return'); }
+      } else if (canSend && Date.now() - st.lastWriteAt >= S2_REFILL_TRIM_MS) {
+        const cmd = hecBoundedRefillCommand(st.plan, est, target, st.startup.lastBoostCommandMlS);
+        if (cmd && Math.abs(cmd - command) >= 1 / 16 - 1e-9) hecSend(cmd, 1, 'trim');
+      }
+    } else if (st.startup.status === 'bleeding') {
+      const est = estS2RefillFlowEstimate(runNow, estState);
+      const predicted = est.ok && Number.isFinite(Number(est.predicted)) ? Number(est.predicted) : (est.ok ? Number(est.slope) : null);
+      const observed = est.ok ? Number(est.slope) : null;
+      const elapsed = nowMs - Number(st.startup.bleedStartedAt || nowMs);
+      const settled = elapsed >= S2_REFILL_BLEED_MS || (Number.isFinite(predicted) && predicted <= target * 1.02) || (elapsed >= 250 && Number.isFinite(observed) && observed <= target * 1.02);
+      if (settled && canSend) hecSend(st.plan.holdingCommandMlS, 1, 'return');
+    } else if (st.startup.status === 'returning') {
+      if (nowMs - Number(st.startup.returnAt || nowMs) > HEC_WATCHDOG_MS) {
+        st.stopReason = 'watchdog'; st.startup.status = 'stopped'; st.notice = '回写看门狗超时，已停发';
+      } else if ((!ext.pending || ext.pending.ack === true) && Math.abs(Number(ext.lastCommandMlS) - Number(st.plan.holdingCommandMlS)) < 1 / 16 + 1e-9) {
+        st.startup.status = 'complete'; st.startup.completedAt = nowMs; st.lastReason = 'return-confirmed';
+        st.startup.s2Recovery = null;
+      }
+    }
+    if (st.startup.status === 'complete' || st.startup.status === 'disabled' || st.startup.status === 'ended') {
+      const lv = cup && cup.live;
+      const reg = lv && lv.reg;
+      if (!reg || !lv.predictedAvailable) return hecStatus();
+      if (st.lastEvalStamp === reg.endStamp) return hecStatus();
+      if (nowMs - st.lastDecisionAt < HEC_MIN_DECISION_MS) return hecStatus();
+      if (nowMs - st.frameAt < 1600) { st.lastEvalStamp = reg.endStamp; return hecStatus(); }
+      st.lastEvalStamp = reg.endStamp;
+      st.lastDecisionAt = nowMs;
+      const trendSlope = (lv.lastCheckGS != null && lv.lastCheckAtSec > 0)
+        ? (reg.slope - Number(lv.lastCheckGS)) / Math.max(0.1, nowMs / 1000 - Number(lv.lastCheckAtSec)) : null;
+      st.startup.lastWriteAt = st.lastWriteAt;
+      st.startup.stage2WeightG = st.stage2WeightG;
+      st.startup.cumulativeWeightG = st.cumulativeWeightG;
+      const estNow = estS2RefillFlowEstimate(runNow, estState);
+      const dec = hecTrimDecision({ phase: phase, frame: frame, reg: reg, target: target, command: command, nowMs: nowMs,
+        startup: st.startup, lv: lv, trendSlope: trendSlope, stage3At: st.stage3At, limiterBar: limiter,
+        pressureBar: Number(ext.pressureBar), machineFlowMlS: Number(ctx.machineFlowMlS), refillEst: estNow.ok ? estNow : null });
+      st.lastReason = dec.reason;
+      if (dec.action === 'write') {
+        if (canSend) {
+          hecSend(dec.command, frame, dec.decayException ? 'decay' : 'trim');
+          if (dec.decayException && dec.command < command) {
+            st.startup.decay.writes = (st.startup.decay.writes || 0) + 1;
+            if (st.startup.decay.writes >= S2_DECAY_EXCEPTION_MAX_WRITES) { st.startup.decay.active = false; st.startup.decay.hotStreak = 0; st.startup.decay.exitReason = 'max-writes'; }
+          }
+          const q = st.startup.phaseQuanta[phase];
+          if (q && phase === 'stage3') { if (dec.rescue) q.rescue += Number(dec.actualQuanta) || 0; else q.normal += Number(dec.actualQuanta) || 0; }
+        }
+      }
+    }
+    return hecStatus();
   }
 
   let persistError = null;
@@ -2044,9 +2569,11 @@
       const kind = (frame != null && cup.lastCmdFrame === frame) ? 'write' : 'frame-change';
       // Wave B：startupAction 字段位（boost/return 打标）。shadow 模式观察插件写入无法直判 startupAction（需插件 trace，Wave D）；
       // hec 模式 APK 自执行补水自打标（Wave E）。additive 默认 null，现有消费者不破坏。
-      cup.writes.push({ tMs: Math.round(s.t * 1000), from: cup.lastCmd, to: cmd, source: 'plugin', frame, kind, startupAction: ctx.startupAction || null,
+      const hecTag = hecWriteTag(cmd, frame);
+      // hec 自执行写入已在发送成功时进台账（hecRecordSelfWrite）；这里的 ext 回显只推进 lastCmd，不再重复记一笔。
+      if (!hecTag) cup.writes.push({ tMs: Math.round(s.t * 1000), from: cup.lastCmd, to: cmd, source: 'plugin', frame, kind, startupAction: ctx.startupAction || null,
         largeGap: !!(cup.live && cup.live.largeGapS2), commandGapPct: cup.live && cup.live.commandGapPct != null ? cup.live.commandGapPct : null });
-      if (kind === 'write') {
+      if (kind === 'write' && !hecTag) {
         cup.lastPluginWriteCmd = cmd;
         cup.pluginWriteCount++; // 学习仲裁特征 plugin_writes_so_far（插件真实写入计数，与节拍无关）
         // R3：同帧真实写入 → 回记等待中的决策点
@@ -2258,6 +2785,18 @@
     _estCache: function () { return estCache; },
     _setEstCache: function (c) { estCache = c || { memory: null, history: [], prior: null, priorEvidence: null, fpKey: null, numericFpKey: null, basket: null, memorySource: 'local', warm: false, ready: false }; },
     _refreshEstCache: refreshEstCache,
+    // Wave E：hec 执行路径（control.js 注入 sender；shadow 模式不运行）
+    hecSetSender: hecSetSender,
+    hecReset: hecReset,
+    hecTick: hecTick,
+    hecStatus: hecStatus,
+    _hec: {
+      newState: hecStateNew, buildPlan: hecBuildPlan, boundedRefill: hecBoundedRefillCommand,
+      returnReason: hecRefillReturnReason, trimDecision: hecTrimDecision, governorS2: hecGovernorS2,
+      governorS3: hecGovernorS3, ceiling: hecCommandCeiling, predictiveSteps: hecPredictiveSteps,
+      rejectPolicy: hecRejectPolicy, state: function () { return hecRun; }, setState: function (s) { hecRun = s || hecStateNew(); },
+      writeTag: hecWriteTag, send: hecSend, acceptReject: hecAcceptReject,
+    },
     _mirror: mirrorStatus,
     _restoreWarmPrior: restoreWarmPrior,
     _loadCupRecords: loadCupRecords,
@@ -2271,5 +2810,6 @@
     setPreference: function (p) { if (Number.isFinite(p)) arbPreference = Math.max(0, Math.min(1, p)); return arbPreference; },
     getPreference: function () { return arbPreference; },
     _debug: function () { return { cup: cup ? { runId: cup.runId, decisions: cup.decisions.length, samples: cup.samples.length, writes: cup.writes.length } : null, cups: cups.map(function (c) { return c ? { runId: c.runId, decisions: c.decisions } : String(c); }), persistError: persistError, inferErrors: inferErrors, stageWeightsMissing: stageWeightsMissing }; },
+    _cup: function () { return cup; },
   };
 })();

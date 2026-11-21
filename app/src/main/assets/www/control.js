@@ -75,6 +75,10 @@
     '滤波': 'Filter', '关': 'Off', 'RAW 滤波': 'RAW filtered', '原始': 'Raw',
     '常用': 'Fav ', '空位': 'Empty', '条曲线': 'curves', '页': 'pages', '加入到常用': 'Add to fav ', '替换': 'Replace ', '移除': 'Remove', '已加入常用': 'Added to fav ', '已替换常用': 'Replaced fav ', '已移除常用': 'Removed from fav',
     '支持HEC': 'HEC ready',
+    '控制模式': 'Control mode', '插件调流': 'Plugin trim', 'HEC 调流中': 'HEC trim', '启用 HEC': 'Enable HEC',
+    '已切换 HEC': 'HEC enabled · next shot', '已切回插件调流': 'Plugin trim restored',
+    '本杯进行中，下一杯生效': 'Shot in progress; applies next shot', 'HEC 执行': 'HEC exec',
+    '等待下一杯': 'Waiting for next shot', '已停发': 'Sending stopped',
   };
   // 控制页键优先，其次复用回放页 EN（插件/逻辑帧等共用词；顶层 const 不挂 window，走全局 t）
   function t(k) {
@@ -194,6 +198,7 @@
       return;
     }
     setConn('ok');
+    if (window.HxShadow && window.HxShadow.hecReset) window.HxShadow.hecReset(null);
     pluginVersion = (st.body.calibration && st.body.calibration.pluginVersion) || null;
     pluginOk = verAtLeast(pluginVersion, MIN_PLUGIN);
     if (!pluginOk) { stopPoll(); showUpgrade(); renderAll(); return; }
@@ -210,6 +215,36 @@
     renderAll();
   }
   function setConn(s) { connState = s; renderConn(); }
+  // ---- 控制模式（full/hec）：最小入口＋状态；POST /control-mode，运行中 409 下一杯生效 ----
+  async function switchAlgMode() {
+    if (!baseUrl || connState !== 'ok') { toast(t('未连接 Decaid')); return; }
+    const want = hecMode ? 'full' : 'hec';
+    const r = await httpJson('POST', pluginPath('control-mode'), { mode: want });
+    if (!r.ok) {
+      if (r.status === 409) { toast(t('本杯进行中，下一杯生效')); return; }
+      toast(t('切档失败') + ': HTTP ' + r.status); return;
+    }
+    hecMode = want === 'hec';
+    if (window.HxShadow) window.HxShadow.hecReset(ext && ext.runId);
+    if (hecMode) hello();
+    toast(hecMode ? t('已切换 HEC') : t('已切回插件调流'));
+    renderAll();
+  }
+  function renderAlgMode() {
+    const b = $('algModeLb'); if (!b) return;
+    const off = connState !== 'ok' || !pluginOk;
+    b.textContent = off ? '—' : (hecMode ? t('HEC 调流中') : t('启用 HEC'));
+    const note = $('hecExecNote');
+    const hs = window.HxShadow && window.HxShadow.hecStatus ? window.HxShadow.hecStatus() : null;
+    const bits = [];
+    if (hecMode && hs) {
+      bits.push(t('HEC 执行') + ' · ' + (hs.status || '—'));
+      if (hs.notice) bits.push(hs.notice);
+    }
+    if (!note) return;
+    note.hidden = !bits.length;
+    note.textContent = bits.join(' · ');
+  }
   function startPoll() {
     stopPoll();
     hello();
@@ -318,6 +353,7 @@
     }
     if (extracting && (!run || runEnded)) {
       run = newRun(); runEnded = false; runEndedAt = 0; checks = []; lastCheck = null; takeLast = null;
+      if (window.HxShadow && window.HxShadow.hecReset) window.HxShadow.hecReset((ext && ext.runId) || null);
       if (window.HxSummary) window.HxSummary.onExtracting();
       runId = (ext && ext.runId) || null;
       loadStageWeights(); // m9：开杯补拉阶段目标重量（失败 → shadow status stageWeightsMissing 暴露）
@@ -459,6 +495,18 @@
           stage2WeightG: stageWeights ? stageWeights.stage2 : null, finalWeightG: stageWeights ? stageWeights.final : null,
           trendAngleDeg: lastCheck ? lastCheck.ang : null,
         });
+      }
+      // Wave E：hec 执行路径（只在 ext.mode==="hec" 且未接管时产出 external-flow；shadow 模式不运行）
+      if (window.HxShadow && window.HxShadow.hecTick) {
+        try {
+          window.HxShadow.hecTick({
+            ext, machine, scale, sample: s, run,
+            stale: document.hidden || (Date.now() - lastPollSuccessAt > 1500),
+            cumulativeWeightG: weight, stage2WeightG: stageWeights ? stageWeights.stage2 : null, finalWeightG: stageWeights ? stageWeights.final : null,
+            machineState: machine && machine.state, substate: machine && machine.substate,
+            machineFlowMlS: machine && machine.flow,
+          });
+        } catch (_) {}
       }
     }
     requestRender();
@@ -917,7 +965,7 @@
   }
   function renderAll() {
     if (mode !== 'control') return;
-    renderConn(); renderCurveBtn(); renderHeaderState(); renderHecBox(); renderApply();
+    renderConn(); renderCurveBtn(); renderHeaderState(); renderHecBox(); renderApply(); renderAlgMode();
     requestRender();
   }
 
@@ -1499,11 +1547,17 @@
       try { const cw = await dbGet('hecCurveWidth'); curveW = CURVE_W[Number.isInteger(cw) && cw >= 0 && cw <= 4 ? cw : 2]; } catch (_) {}
       initDials();
       if (window.HxShadow) window.HxShadow.load();
+      if (window.HxShadow && window.HxShadow.hecSetSender) {
+        window.HxShadow.hecSetSender(function (command, frame) {
+          return httpJson('POST', pluginPath('external-flow'), { command: command, frame: frame });
+        });
+      }
       $('sideToggle').addEventListener('click', toggleSide);
       applySide();
       $('sideToggle').hidden = mode !== 'control';
       $('curveBtn').addEventListener('click', openCurveModal);
       $('connBtn').addEventListener('click', openAddrModal);
+      $('algModeBtn').addEventListener('click', switchAlgMode);
       $('applyBtn').addEventListener('click', applyDials);
       $('sleepBtn').addEventListener('click', openSleepModal);
       $('hbPill').addEventListener('click', () => { if (connState === 'ok' && pluginOk && hecMode && !helloOk) hello(); });
