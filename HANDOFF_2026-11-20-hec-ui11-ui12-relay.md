@@ -46,6 +46,7 @@
 - 内联 node -e 多层转义必脆→写 .tools 脚本；CDP eval 串反斜杠被模板串吃→String.fromCharCode/lastIndexOf 避逃。
 - **同 checkout 多对话并行**：统筹胶囊修复曾被我整文件回退附带覆盖→统筹重落 3d25166；**提交前 git diff --cached --stat 核索引无别人预暂存**，只 add 本批（或 git commit -- <本批路径>）；别人未提交/未跟踪不碰不代提交不回滚；push/发版前核 git log 区间＋代码 diff 确认插提交不碰代码。
 - **模拟器跑多轮退化**（webview devtools 僵死/回归卡 restart/GPU SurfaceFlinger 卡）→杀卡死 node（Win32_Process CommandLine 过滤）＋emu kill＋swiftshader_indirect 重起；boot-replay 偶发时序竞态（v0.35 既有，复跑即绿，非代码）。
+- **模拟器重起丢回归前置（UI12 踩，技能坑 29–31）**：hxpad 崩溃 -no-snapshot-load 重起会重置 userdata，丢已装 app＋adb reverse＋app 持久化的 hecBaseUrl。回归不自设地址，依赖 hecBaseUrl=http://127.0.0.1:4801＋control 档；重起后先 node .tools/__set-addr.cjs 设回地址＋control 档（再重装 APK＋reverse），否则杯末弹窗不弹、回归整份崩（null.textContent 早崩）。曾误判代码回归，基线（暂存本批）对照同崩证实是环境前置。
 - 镜像断言禁令（子模块 AGENTS §3.13）：mock 真形状＋真数据交叉。
 - EN 词条整行锚：summary.js EN 是一长行，加词改 app.js EN（summary t() 兜底 window.t）。
 
